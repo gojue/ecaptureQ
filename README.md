@@ -1,1 +1,2 @@
-# eCaptureQ
+# Qing 清
+Qing(清)是eCapture(旁观者)的界面程序
