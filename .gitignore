@@ -1,0 +1,126 @@
+# Node.js dependencies and build outputs
+node_modules/
+dist/
+dist-ssr/
+build/
+*.local
+.pnp
+.pnp.js
+
+# Package manager files
+pnpm-debug.log*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.npm
+.yarn-integrity
+
+# Tauri build artifacts and cache
+src-tauri/target/
+src-tauri/.cargo/
+
+# Android build artifacts and generated files  
+src-tauri/gen/android/
+src-tauri/gen/
+*.apk
+*.aab
+*.aar
+*.so
+*.dylib
+*.dll
+
+# iOS build artifacts (future support)
+src-tauri/ios/
+
+# Private and sensitive files
+private/
+.env*
+*.env
+*.env.local
+*.env.development.local
+*.env.test.local
+*.env.production.local
+
+# Editor directories and files
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+logs/
+*.log
+
+# Test coverage
+coverage/
+*.lcov
+.nyc_output
+
+# Temporary folders and cache
+tmp/
+temp/
+.cache/
+.parcel-cache/
+
+# Optional cache directories
+.eslintcache
+.stylelintcache
+.node_repl_history
+
+# Output of package managers
+*.tgz
+
+# VSCode testing
+.vscode-test/
+
+# Rust specific
+**/*.rs.bk
+*.pdb
+
+# macOS specific
+.AppleDouble
+.LSOverride
+
+# Windows specific
+desktop.ini
+
+# Linux specific
+.fuse_hidden*
+
+# JetBrains IDEs
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Backup files
+*.backup
+*.bak
+*.swp
+*.tmp
+
+# Empty directories (for organization)
+bin/
+releases/

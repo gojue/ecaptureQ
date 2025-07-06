@@ -1,0 +1,57 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "ecaptureQ",
+  "version": "0.1.0",
+  "identifier": "com.ecaptureq.gojue",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:1422",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "ecaptureQ",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 800,
+        "minHeight": 600,
+        "resizable": true,
+        "center": true
+      },
+      {
+        "label": "settings",
+        "title": "Settings",
+        "width": 600,
+        "height": 500,
+        "minWidth": 500,
+        "minHeight": 400,
+        "resizable": true,
+        "center": true,
+        "visible": false
+      }
+    ],
+    "security": {
+      "csp": null
+    },
+    "withGlobalTauri": false
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["appimage"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "publisher": "gojue",
+    "copyright": "Copyright © 2025 gojue",
+    "category": "DeveloperTool",
+    "shortDescription": "Network packet capture and analysis tool",
+    "longDescription": "A cross-platform network packet capture and analyzer built with Tauri and React."
+  }
+}

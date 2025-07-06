@@ -1,0 +1,8 @@
+/* 思源黑体 for code blocks */
+@font-face {
+  font-family: 'Source Han Sans CN';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./source-han-sans-regular.otf') format('opentype');
+}
