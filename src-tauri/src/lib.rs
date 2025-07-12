@@ -1,10 +1,6 @@
 use tauri::Manager;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
 
 #[tauri::command]
 async fn open_settings_window(app_handle: tauri::AppHandle) -> Result<(), String> {
@@ -49,7 +45,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_websocket::init())
-        .invoke_handler(tauri::generate_handler![greet, open_settings_window])
+        .invoke_handler(tauri::generate_handler![open_settings_window])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
