@@ -1,31 +1,53 @@
-use polars::prelude::*;
 use crate::core::models;
+use polars::prelude::*;
 
-async fn write_batch_to_polars(buffer: &[models::PacketData], df: &mut DataFrame) -> Result<(), PolarsError> {
+pub fn write_batch_to_df(buffer: &[models::PacketData], df: &mut DataFrame) -> PolarsResult<()> {
     if buffer.is_empty() {
         return Ok(());
     }
 
-    // 将结构体Vec转换为列式Vec
-    let timestamps: Vec<i64> = buffer.iter().map(|d| d.timestamp).collect();
-    let ips: Vec<&str> = buffer.iter().map(|d| d.ip.as_ref()).collect();
-    let ports: Vec<u32> = buffer.iter().map(|d| d.port).collect();
-    let methods: Vec<&str> = buffer.iter().map(|d| d.method.as_ref()).collect();
-    let paths: Vec<&str> = buffer.iter().map(|d| d.path.as_ref()).collect();
-    let user_agents: Vec<&str> = buffer.iter().map(|d| d.user_agent.as_ref()).collect();
+    let buffer_len = buffer.len();
+    let mut ts_builder = PrimitiveChunkedBuilder::<Int64Type>::new("timestamp".into(), buffer_len);
+    let mut src_ip_builder = StringChunkedBuilder::new("src_ip".into(), buffer_len);
+    let mut src_port_builder =
+        PrimitiveChunkedBuilder::<UInt32Type>::new("src_port".into(), buffer_len);
+    let mut dst_ip_builder = StringChunkedBuilder::new("dst_ip".into(), buffer_len);
+    let mut dst_port_builder =
+        PrimitiveChunkedBuilder::<UInt32Type>::new("dst_port".into(), buffer_len);
+    let mut pid_builder = PrimitiveChunkedBuilder::<Int32Type>::new("pid".into(), buffer_len);
+    let mut pname_builder = StringChunkedBuilder::new("pname".into(), buffer_len);
+    let mut type_builder = StringChunkedBuilder::new("type".into(), buffer_len);
+    let mut length_builder =
+        PrimitiveChunkedBuilder::<UInt32Type>::new("length".into(), buffer_len);
+    let mut payload_builder = StringChunkedBuilder::new("payload_base64".into(), buffer_len);
 
-    // 手动创建Series
-    let s0 = Series::new("timestamp".into(), timestamps);
-    let s1 = Series::new("ip".into(), ips);
-    let s2 = Series::new("port".into(), ports.as_slice());
-    let s3 = Series::new("method".into(), methods);
-    let s4 = Series::new("path".into(), paths);
-    let s5 = Series::new("user_agent".into(), user_agents);
+    for d in buffer {
+        ts_builder.append_value(d.timestamp);
+        src_ip_builder.append_value(&d.src_ip);
+        src_port_builder.append_value(d.src_port);
+        dst_ip_builder.append_value(&d.dst_ip);
+        dst_port_builder.append_value(d.dst_port);
+        pid_builder.append_value(d.pid);
+        pname_builder.append_value(&d.pname);
+        type_builder.append_value(&d.r#type);
+        length_builder.append_value(d.length);
+        payload_builder.append_value(&d.payload_base64);
+    }
 
-    // 从Series创建DataFrame
-    let batch_df = DataFrame::new(vec![s0.into_column(), s1.into_column(), s2.into_column(), s3.into_column(), s4.into_column(), s5.into_column()])?;
+    let column_vec = vec![
+        ts_builder.finish().into_column(),
+        src_ip_builder.finish().into_column(),
+        src_port_builder.finish().into_column(),
+        dst_ip_builder.finish().into_column(),
+        dst_port_builder.finish().into_column(),
+        pid_builder.finish().into_column(),
+        pname_builder.finish().into_column(),
+        type_builder.finish().into_column(),
+        length_builder.finish().into_column(),
+        payload_builder.finish().into_column(),
+    ];
 
-    // 获取DataFrame的锁并追加数据
+    let batch_df = DataFrame::new(column_vec)?;
     df.vstack_mut(&batch_df)?;
 
     Ok(())
