@@ -124,3 +124,6 @@ desktop.ini
 # Empty directories (for organization)
 bin/
 releases/
+
+# test_bin
+/src-tauri/src/binaries/*

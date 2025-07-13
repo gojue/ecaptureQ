@@ -1055,6 +1055,7 @@ checksum = "1c7a8fb8a9fbf66c1f703fe16184d10ca0ee9d23be5b4436400408ba54a95005"
 name = "ecaptureq"
 version = "0.1.0"
 dependencies = [
+ "futures-util",
  "polars",
  "serde",
  "serde_json",
@@ -1064,6 +1065,7 @@ dependencies = [
  "tauri-plugin-store",
  "tauri-plugin-websocket",
  "tokio",
+ "tokio-tungstenite",
 ]
 
 [[package]]

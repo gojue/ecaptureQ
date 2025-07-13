@@ -2,7 +2,7 @@ use crate::core::data_processing;
 use crate::core::models;
 use polars::prelude::*;
 use polars::sql::SQLContext;
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::{mpsc, oneshot, watch};
 
 type Responder<T> = oneshot::Sender<T>;
 
@@ -16,18 +16,59 @@ pub enum ActorMessage {
     },
 }
 
+enum ActorEvent {
+    Message(ActorMessage),
+    Shutdown,
+}
+
+#[derive(Clone)]
+pub struct DataFrameActorHandle {
+    pub sender: mpsc::Sender<ActorMessage>,
+    pub done: watch::Sender<()>,
+}
+
+impl DataFrameActorHandle {
+    pub async fn update_batch(&self, batch: Vec<models::PacketData>) {
+        let _ = self.sender.send(ActorMessage::UpdateBatch(batch)).await;
+    }
+
+    pub async fn query_sql(&self, sql: String) -> Result<DataFrame, Box<dyn std::error::Error>> {
+        let (send_one, recv_one) = oneshot::channel();
+        self.sender
+            .send(ActorMessage::QuerySql {
+                sql,
+                resp: send_one,
+            })
+            .await?;
+        Ok(recv_one.await??)
+    }
+
+    pub fn close(&self) {
+        let _ = self.done.send(());
+    }
+}
+
 pub struct DataFrameActor {
     receiver: mpsc::Receiver<ActorMessage>,
     df: DataFrame,
     ctx: SQLContext,
+    done: watch::Receiver<()>,
 }
 
 impl DataFrameActor {
-    pub fn new(receiver: mpsc::Receiver<ActorMessage>) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new(
+        receiver: mpsc::Receiver<ActorMessage>,
+        done: watch::Receiver<()>,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         let df = create_capture_df();
         let mut ctx = SQLContext::new();
         ctx.register("lazy", df.clone().lazy());
-        Ok(Self { receiver, df, ctx })
+        Ok(Self {
+            receiver,
+            df,
+            ctx,
+            done,
+        })
     }
 
     pub async fn run(self) -> Result<(), Box<dyn std::error::Error>> {
@@ -35,32 +76,40 @@ impl DataFrameActor {
             mut receiver,
             mut df,
             mut ctx,
+            mut done,
         } = self;
 
         loop {
-            let msg = tokio::select! {
-                Some(msg) = receiver.recv() => msg,
+            let event = tokio::select! {
+            Some(msg) = receiver.recv() => ActorEvent::Message(msg),
+            _ = done.changed() => ActorEvent::Shutdown,
 
-                else => {
-                    return Err("Actor msg is invalid".into())
-                }
+            else => {
+                return Err("All channels closed".into());
+            }
             };
-            match msg {
-                ActorMessage::UpdateBatch(batch) => {
-                    data_processing::write_batch_to_df(&batch, &mut df)?;
-                }
-                ActorMessage::QuerySql { sql, resp } => {
-                    ctx.unregister("packets");
-                    ctx.register("packets", df.clone().lazy());
-                    let _ = resp.send(ctx.execute(&sql)?.collect());
+            match event {
+                ActorEvent::Message(msg) => match msg {
+                    ActorMessage::UpdateBatch(batch) => {
+                        data_processing::write_batch_to_df(&batch, &mut df)?;
+                    }
+                    ActorMessage::QuerySql { sql, resp } => {
+                        ctx.unregister("packets");
+                        ctx.register("packets", df.clone().lazy());
+                        if resp.send(ctx.execute(&sql)?.collect()).is_err() {
+                            eprintln!("Oneshot channel send failed");
+                        }
+                    }
+                },
+
+                ActorEvent::Shutdown => {
+                    return Ok(());
                 }
             }
         }
     }
 }
-
 fn create_capture_df() -> DataFrame {
-    // 1. 根据你的JSON格式，定义一个精确匹配的 Schema
     let schema = Schema::from_iter(vec![
         Field::new("timestamp".into(), DataType::Int64),
         Field::new("src_ip".into(), DataType::String),
