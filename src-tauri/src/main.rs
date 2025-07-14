@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod core;
 mod services;
+mod tauri_bridge;
 
 fn main() {
     ecaptureq_lib::run()

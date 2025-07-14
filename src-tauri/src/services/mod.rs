@@ -1,2 +1,2 @@
-mod capture;
+pub mod capture;
 pub mod websocket;

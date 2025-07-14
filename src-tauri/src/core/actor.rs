@@ -1,5 +1,6 @@
 use crate::core::data_processing;
 use crate::core::models;
+use crate::core::queries;
 use polars::prelude::*;
 use polars::sql::SQLContext;
 use tokio::sync::{mpsc, oneshot, watch};
@@ -32,15 +33,29 @@ impl DataFrameActorHandle {
         let _ = self.sender.send(ActorMessage::UpdateBatch(batch)).await;
     }
 
-    pub async fn query_sql(&self, sql: String) -> Result<DataFrame, Box<dyn std::error::Error>> {
+    async fn query_sql(&self, sql: String) -> PolarsResult<DataFrame> {
         let (send_one, recv_one) = oneshot::channel();
         self.sender
             .send(ActorMessage::QuerySql {
                 sql,
                 resp: send_one,
             })
-            .await?;
-        Ok(recv_one.await??)
+            .await
+            .map_err(|e| PolarsError::ComputeError(e.to_string().into()))?;
+
+        recv_one
+            .await
+            .map_err(|e| PolarsError::ComputeError(e.to_string().into()))?
+    }
+
+    pub async fn get_all_packets(&self) -> PolarsResult<DataFrame> {
+        let sql = queries::all_packets();
+        self.query_sql(sql).await
+    }
+
+    pub async fn get_packets_by_offset(&self, offset: usize) -> PolarsResult<DataFrame> {
+        let sql = queries::new_packets_since_offset(offset);
+        self.query_sql(sql).await
     }
 
     pub fn close(&self) {
