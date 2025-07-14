@@ -81,8 +81,10 @@ impl DataFrameActor {
 
         loop {
             let event = tokio::select! {
-            Some(msg) = receiver.recv() => ActorEvent::Message(msg),
+            biased;
+
             _ = done.changed() => ActorEvent::Shutdown,
+            Some(msg) = receiver.recv() => ActorEvent::Message(msg),
 
             else => {
                 return Err("All channels closed".into());
