@@ -30,3 +30,5 @@ tokio-tungstenite = "0.27.0"
 futures-util = "0.3.31"
 nix = { version = "0.30.1", features = ["signal"] }
 anyhow = "1.0.98"
+log = { version = "0.4.27", features = ["std"] }
+chrono = { version = "0.4.41", features = ["serde"] }
