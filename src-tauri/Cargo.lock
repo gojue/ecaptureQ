@@ -1055,7 +1055,9 @@ checksum = "1c7a8fb8a9fbf66c1f703fe16184d10ca0ee9d23be5b4436400408ba54a95005"
 name = "ecaptureq"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "futures-util",
+ "nix",
  "polars",
  "serde",
  "serde_json",

@@ -1,8 +1,11 @@
+use nix::sys::signal::{Signal, kill as send_signal};
+use nix::unistd::Pid;
 use std::fs;
 use std::io::Write;
 use std::os::unix::fs::PermissionsExt; // 用于设置文件权限
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
+use std::time::Duration;
 use tokio::process::{Child, Command}; // 使用 Tokio 的 Command 和 Child
 use tokio::sync::watch;
 
@@ -63,14 +66,25 @@ impl CaptureManager {
         println!("eCapture process spawned with PID: {:?}", child.id());
         self.child = Some(child); // 将 child 存入 struct
 
-        // 3. 使用 select! 同时等待关闭信号或进程自己退出
         tokio::select! {
             biased;
 
             _ = shutdown_rx.changed() => {
-                if let Some(child_to_kill) = self.child.as_mut() {
-                    child_to_kill.kill().await?;
-                    println!("eCapture process killed.");
+
+                if let Some(child) = self.child.as_mut() {
+                    let pid = child.id().ok_or("Failed to get child PID")?;
+
+                    send_signal(Pid::from_raw(pid as i32), Signal::SIGINT)?;
+
+                    tokio::select! {
+                        result = child.wait() => {
+                            println!("eCapture process exited gracefully with result: {:?}", result);
+                        }
+                        _ = tokio::time::sleep(Duration::from_secs(3)) => {
+                            eprintln!("⚠Process did not exit gracefully after 5s. Forcing kill...");
+                            self.child.as_mut().unwrap().kill().await?;
+                        }
+                    }
                 }
             }
 

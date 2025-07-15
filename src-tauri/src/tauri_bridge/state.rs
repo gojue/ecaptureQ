@@ -1,5 +1,5 @@
 use crate::core::actor::DataFrameActorHandle;
-use std::sync::Mutex;
+use tokio::sync::Mutex;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
 

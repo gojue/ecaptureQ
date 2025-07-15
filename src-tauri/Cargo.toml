@@ -15,7 +15,7 @@ name = "ecaptureq_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
-tauri-build = { version = "2", features = [] }
+tauri-build = { version = "2.3.0", features = [] }
 
 [dependencies]
 tauri = { version = "2.6.2", features = [] }
@@ -28,3 +28,5 @@ polars = { version = "0.49.1", features = ["lazy", "describe", "sql"] }
 tokio = { version = "1.46.1", features = ["full"] }
 tokio-tungstenite = "0.27.0"
 futures-util = "0.3.31"
+nix = { version = "0.30.1", features = ["signal"] }
+anyhow = "1.0.98"

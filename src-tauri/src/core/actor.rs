@@ -1,6 +1,7 @@
 use crate::core::data_processing;
 use crate::core::models;
 use crate::core::queries;
+use anyhow::{Result, anyhow};
 use polars::prelude::*;
 use polars::sql::SQLContext;
 use tokio::sync::{mpsc, oneshot, watch};
@@ -86,7 +87,7 @@ impl DataFrameActor {
         })
     }
 
-    pub async fn run(self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn run(self) -> Result<()> {
         let Self {
             mut receiver,
             mut df,
@@ -102,7 +103,7 @@ impl DataFrameActor {
             Some(msg) = receiver.recv() => ActorEvent::Message(msg),
 
             else => {
-                return Err("All channels closed".into());
+                return Err(anyhow!("All channels closed"));
             }
             };
             match event {
