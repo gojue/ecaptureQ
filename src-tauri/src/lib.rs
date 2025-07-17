@@ -1,11 +1,11 @@
 mod core;
-mod debug_logger;
 mod services;
 mod tauri_bridge;
 
 use tauri_bridge::{commands, state::AppState};
 use tokio::sync::Mutex;
 use tokio::sync::{mpsc, watch};
+use tauri_plugin_log::{Builder as LogBuilder, Target, TargetKind};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub async fn run() {
@@ -26,13 +26,17 @@ pub async fn run() {
         offset: Mutex::new(0),
     };
 
+    let log_plugin = LogBuilder::new()
+        .targets([
+            Target::new(TargetKind::Stdout),
+            // Target::new(TargetKind::Webview),
+        ])
+        .level(log::LevelFilter::Info)
+        .build();
+
     tauri::Builder::default()
         .manage(app_state)
-        .setup(|app| {
-            // 在这里，我们已经拥有了 AppHandle
-            debug_logger::init(app.handle().clone());
-            Ok(())
-        })
+        .plugin(log_plugin)
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_websocket::init())

@@ -1,46 +1,13 @@
-export interface HttpPacket {
-  id: string;
-  timestamp: number;
-  method: string;
-  url: string;
-  statusCode?: number;
-  headers: Record<string, string>;
-  body?: string;
-  rawData: string; // base64 encoded raw HTTP data
-  direction: 'request' | 'response';
-  size: number;
-  duration?: number;
-}
-
-export interface ParsedHttpData {
-  method?: string;
-  url?: string;
-  statusCode?: number;
-  statusText?: string;
-  headers: Record<string, string>;
-  body?: string;
-}
-
-export interface WebSocketMessage {
-  data: string; // JSON string containing base64 encoded HTTP data
-  timestamp: number;
-}
-
-export interface AppConfig {
-  websocketUrl: string;
-  theme: 'light' | 'dark' | 'system';
-  autoScroll: boolean;
-  maxPackets: number;
-  showTimestamp: boolean;
-  showHeaders: boolean;
-}
-
-export interface FilterOptions {
-  methods: string[];
-  statusCodes: number[];
-  searchText: string;
-  timeRange?: {
-    start: number;
-    end: number;
-  };
+// 后端 API 返回的数据包结构
+export interface PacketData {
+  timestamp: number;        // Unix 纳秒时间戳 (i64)
+  src_ip: string;
+  src_port: number;         // u32
+  dst_ip: string;
+  dst_port: number;         // u32
+  pid: number;              // i32
+  pname: string;
+  type: string;             // 协议类型
+  length: number;           // u32 数据大小
+  payload_base64: string;
 }
