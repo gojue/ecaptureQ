@@ -10,7 +10,7 @@ use tokio::process::{Child, Command}; // 使用 Tokio 的 Command 和 Child
 use tokio::sync::watch;
 
 // eCapture 的 CLI 二进制数据
-const ECAPTURE_BYTES: &[u8] = include_bytes!("../binaries/android_test-aarch64-linux-android");
+const ECAPTURE_BYTES: &[u8] = include_bytes!("./../../binaries/android_test-aarch64-linux-android");
 const CLI_BINARY_NAME: &str = "android_test";
 
 /// 负责管理 eCapture 子进程的整个生命周期

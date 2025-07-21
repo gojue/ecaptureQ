@@ -121,13 +121,21 @@
   * **Android SDK 和 NDK** (可通过 Android Studio 安装)
   * 配置好 `ANDROID_HOME` 和 `NDK_HOME` 环境变量
 
+##### Android  证书签名
+为了在 Android 上发布应用，你需要一个签名证书。可以使用 `keytool` 命令生成一个新的密钥库文件。
+```shell
+keytool -genkey -v -keystore ~/upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+```
+
+参考：https://v2.tauri.app/zh-cn/distribute/sign/android/
 #### **编译步骤**
 
 1.  **编译 Go 模拟服务器**:
     打开终端，执行以下命令，将 Go 源码交叉编译为 Android ARM64 架构的二进制文件，并放置到 `src-tauri/binaries` 目录下。
 
     ```bash
-    CGO_ENABLED=0 GOOS=android GOARCH=arm64 go build -o ./src-tauri/binaries/android_test-aarch64-linux-android ./scripts/mock_ws.go
+    cd ./scripts
+    CGO_ENABLED=0 GOOS=android GOARCH=arm64 go build -o ./../src-tauri/binaries/android_test-aarch64-linux-android ./scripts/mock_ws.go
     ```
 
       * `GOOS=android GOARCH=arm64`: 指定目标平台为 Android ARM64。
