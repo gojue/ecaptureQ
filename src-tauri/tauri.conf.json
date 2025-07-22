@@ -20,17 +20,6 @@
         "minHeight": 600,
         "resizable": true,
         "center": true
-      },
-      {
-        "label": "settings",
-        "title": "Settings",
-        "width": 600,
-        "height": 500,
-        "minWidth": 500,
-        "minHeight": 400,
-        "resizable": true,
-        "center": true,
-        "visible": false
       }
     ],
     "security": {

@@ -30,7 +30,7 @@ impl WebsocketService {
 
     pub async fn receiver_task(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let (ws_stream, _) = tokio_tungstenite::connect_async(&self.ws_url).await?;
-        println!("WebSocket 连接成功");
+        println!("WebSocket connected");
 
         let mut buffer: Vec<PacketData> = Vec::with_capacity(BATCH_SIZE);
         let mut flush_timer = tokio::time::interval(FLUSH_TIMEOUT);

@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:build": "tauri build",
+    "android:build": "tauri android build --target aarch64",
+    "android:init": "tauri android init"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
