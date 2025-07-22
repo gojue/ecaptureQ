@@ -10,10 +10,10 @@ interface NewPacketListProps {
   autoScroll?: boolean;
 }
 
-// 单个项目的高度
+// Single item height (adjusted for mobile card content)
 const ITEM_HEIGHT = 100;
 
-// 缓冲区项目数量
+// Buffer item count
 const OVERSCAN_COUNT = 5;
 
 // 列表项组件
@@ -33,7 +33,7 @@ const ListItem = memo(({ index, style, data }: {
 
   return (
     <div style={style}>
-      <div className="px-4 py-2">
+      <div className="px-4 py-1">
         <NewPacketCard
           packet={packet}
           onClick={onPacketClick}
@@ -56,7 +56,7 @@ export function NewPacketList({
   const containerRef = useRef<HTMLDivElement>(null);
   const [listHeight, setListHeight] = useState(600);
 
-  // 响应式计算列表高度
+  // Responsive height calculation
   useEffect(() => {
     const updateHeight = () => {
       if (containerRef.current) {
@@ -65,12 +65,17 @@ export function NewPacketList({
       }
     };
 
-    updateHeight();
+    // Use timeout to ensure layout is stable
+    const timer = setTimeout(updateHeight, 100);
     window.addEventListener('resize', updateHeight);
-    return () => window.removeEventListener('resize', updateHeight);
+    
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', updateHeight);
+    };
   }, []);
 
-  // 自动滚动到最新数据
+  // Auto scroll to latest data
   useEffect(() => {
     if (autoScroll && packets.length > 0 && listRef.current) {
       listRef.current.scrollToItem(packets.length - 1, 'end');
@@ -85,7 +90,7 @@ export function NewPacketList({
 
   if (packets.length === 0) {
     return (
-      <div ref={containerRef} className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div ref={containerRef} className="h-full flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
           <div className="text-gray-400 dark:text-gray-600 mb-2">
             <svg
@@ -106,7 +111,7 @@ export function NewPacketList({
             No packets captured yet
           </h3>
           <p className="text-gray-500 dark:text-gray-400">
-            Click "Start Capture" to begin monitoring network traffic
+            Tap the floating button to start capturing
           </p>
         </div>
       </div>
@@ -114,7 +119,7 @@ export function NewPacketList({
   }
 
   return (
-    <div ref={containerRef} className="flex-1 bg-gray-50 dark:bg-gray-900">
+    <div ref={containerRef} className="h-full bg-gray-50 dark:bg-gray-900">
       <List
         ref={listRef}
         height={listHeight}

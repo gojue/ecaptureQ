@@ -8,27 +8,25 @@ interface NewPacketCardProps {
 }
 
 export function NewPacketCard({ packet, onClick, showTimestamp = true }: NewPacketCardProps) {
-  // 格式化时间戳（纳秒转换为可读格式）
+  // Format timestamp (nanoseconds to readable format)
   const formatTimestamp = (timestamp: number) => {
-    const date = new Date(timestamp / 1000000); // 纳秒转毫秒
-    const timeStr = date.toLocaleTimeString('en-US', { 
+    const date = new Date(timestamp / 1000000);
+    return date.toLocaleTimeString('en-US', { 
       hour12: false,
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit'
     });
-    const ms = Math.floor((timestamp % 1000000000) / 1000000); // 提取毫秒部分
-    return `${timeStr}.${ms.toString().padStart(3, '0')}`;
   };
 
-  // 格式化数据大小
+  // Format data size
   const formatSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  // 获取协议类型颜色
+  // Get protocol type color
   const getProtocolColor = (type: string) => {
     switch (type.toUpperCase()) {
       case 'HTTP':
@@ -48,51 +46,44 @@ export function NewPacketCard({ packet, onClick, showTimestamp = true }: NewPack
     <div
       onClick={() => onClick(packet)}
       className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg 
-                 p-4 cursor-pointer hover:shadow-md hover:border-blue-300 dark:hover:border-blue-600 
-                 transition-all duration-200 animate-fade-in"
+                 p-3 cursor-pointer hover:shadow-md hover:border-blue-300 dark:hover:border-blue-600 
+                 transition-all duration-200"
     >
-      <div className="flex items-start justify-between">
-        {/* 左侧：协议和网络信息 */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center space-x-2 mb-2">
-            {/* 协议类型标签 */}
-            <span className={`px-2 py-1 text-xs font-medium rounded-full ${getProtocolColor(packet.type)}`}>
-              {packet.type.toUpperCase()}
+      <div className="flex items-center justify-between mb-2">
+        {/* Protocol and timestamp */}
+        <div className="flex items-center space-x-2">
+          <span className={`px-2 py-0.5 text-xs font-medium rounded ${getProtocolColor(packet.type)}`}>
+            {packet.type.toUpperCase()}
+          </span>
+          {showTimestamp && (
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              {formatTimestamp(packet.timestamp)}
             </span>
-            
-            {/* 时间戳 */}
-            {showTimestamp && (
-              <span className="text-xs text-gray-500 dark:text-gray-400">
-                {formatTimestamp(packet.timestamp)}
-              </span>
-            )}
-          </div>
-
-          {/* 网络连接信息 */}
-          <div className="flex items-center space-x-2 text-sm text-gray-700 dark:text-gray-300 mb-2">
-            <span className="font-mono">
-              {packet.src_ip}:{packet.src_port}
-            </span>
-            <ArrowRight className="w-3 h-3 text-gray-400" />
-            <span className="font-mono">
-              {packet.dst_ip}:{packet.dst_port}
-            </span>
-          </div>
-
-          {/* 进程信息 */}
-          <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
-            <Monitor className="w-3 h-3" />
-            <span>{packet.pname}</span>
-            <span className="text-gray-400">({packet.pid})</span>
-          </div>
+          )}
         </div>
+        
+        {/* Data size */}
+        <span className="text-xs font-medium text-gray-900 dark:text-gray-100">
+          {formatSize(packet.length)}
+        </span>
+      </div>
 
-        {/* 右侧：数据大小 */}
-        <div className="text-right">
-          <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-            {formatSize(packet.length)}
-          </div>
-        </div>
+      {/* Network connection */}
+      <div className="flex items-center space-x-1 text-xs text-gray-700 dark:text-gray-300 mb-1">
+        <span className="font-mono truncate">
+          {packet.src_ip}:{packet.src_port}
+        </span>
+        <ArrowRight className="w-3 h-3 text-gray-400 flex-shrink-0" />
+        <span className="font-mono truncate">
+          {packet.dst_ip}:{packet.dst_port}
+        </span>
+      </div>
+
+      {/* Process info */}
+      <div className="flex items-center space-x-1 text-xs text-gray-600 dark:text-gray-400">
+        <Monitor className="w-3 h-3 flex-shrink-0" />
+        <span className="truncate">{packet.pname}</span>
+        <span className="text-gray-400">({packet.pid})</span>
       </div>
     </div>
   );

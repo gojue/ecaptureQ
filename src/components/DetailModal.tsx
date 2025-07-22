@@ -12,9 +12,9 @@ export function DetailModal({ packet, onClose }: DetailModalProps) {
 
   if (!packet) return null;
 
-  // 格式化时间戳
+  // Format timestamp
   const formatTimestamp = (timestamp: number) => {
-    const date = new Date(timestamp / 1000000); // 纳秒转毫秒
+    const date = new Date(timestamp / 1000000);
     return date.toLocaleString('en-US', {
       year: 'numeric',
       month: '2-digit',
@@ -26,14 +26,14 @@ export function DetailModal({ packet, onClose }: DetailModalProps) {
     });
   };
 
-  // 格式化数据大小
+  // Format data size
   const formatSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  // 解码 Base64 payload
+  // Decode Base64 payload
   const decodePayload = (base64: string) => {
     try {
       const decoded = atob(base64);
@@ -43,7 +43,7 @@ export function DetailModal({ packet, onClose }: DetailModalProps) {
     }
   };
 
-  // 转换为十六进制显示
+  // Convert to hex view
   const toHexView = (base64: string) => {
     try {
       const decoded = atob(base64);
@@ -72,7 +72,7 @@ export function DetailModal({ packet, onClose }: DetailModalProps) {
         if (i % 8 === 7) hex += ' ';
       }
       
-      // 补齐最后一行
+      // Fill remaining space on last line
       const remaining = 16 - (bytes.length % 16);
       if (remaining !== 16) {
         hex += '   '.repeat(remaining);
