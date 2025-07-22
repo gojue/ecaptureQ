@@ -126,4 +126,4 @@ bin/
 releases/
 
 # test_bin
-/src-tauri/src/binaries/*
+/src-tauri/binaries/*

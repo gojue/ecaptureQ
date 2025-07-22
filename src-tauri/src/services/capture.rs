@@ -74,14 +74,30 @@ impl CaptureManager {
                 if let Some(child) = self.child.as_mut() {
                     let pid = child.id().ok_or("Failed to get child PID")?;
 
-                    send_signal(Pid::from_raw(pid as i32), Signal::SIGINT)?;
+                    #[cfg(target_os = "android")]
+                    {
+                        // 在 Android 上, 使用 `su -c kill`
+                        println!("Running on Android, using 'su -c kill'...");
+                        let kill_command = "pkill android_test";
+                        let status = Command::new("su")
+                            .arg("-c")
+                            .arg(&kill_command)
+                            .status()
+                            .await?;
+
+                        if status.success() {
+                            println!("'su -c kill {}' command sent successfully.", pid);
+                        } else {
+                            eprintln!("'su -c kill {}' command failed with status: {}", pid, status);
+                        }
+                    }
 
                     tokio::select! {
                         result = child.wait() => {
                             println!("eCapture process exited gracefully with result: {:?}", result);
                         }
                         _ = tokio::time::sleep(Duration::from_secs(3)) => {
-                            eprintln!("⚠Process did not exit gracefully after 5s. Forcing kill...");
+                            eprintln!("Process did not exit gracefully after 5s. Forcing kill...");
                             self.child.as_mut().unwrap().kill().await?;
                         }
                     }
