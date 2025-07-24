@@ -1,5 +1,3 @@
-use nix::sys::signal::{Signal, kill as send_signal};
-use nix::unistd::Pid;
 use std::fs;
 use std::io::Write;
 use std::os::unix::fs::PermissionsExt; // 用于设置文件权限
@@ -8,10 +6,35 @@ use std::process::Stdio;
 use std::time::Duration;
 use tokio::process::{Child, Command}; // 使用 Tokio 的 Command 和 Child
 use tokio::sync::watch;
+use anyhow::{Error, Result};
+use nix::sys::signal::{Signal, kill as send_signal};
+use nix::unistd::Pid;
 
 // eCapture 的 CLI 二进制数据
-const ECAPTURE_BYTES: &[u8] = include_bytes!("./../../binaries/android_test-aarch64-linux-android");
 const CLI_BINARY_NAME: &str = "android_test";
+
+fn get_cli_binary_name() -> String {
+    #[cfg(target_os = "android")]
+    {
+        String::from("linux_android_arm64")
+    }
+    #[cfg(target_os = "linux")]
+    {
+        String::from("linux_ecapture_amd64")
+    }
+}
+
+fn get_ecapture_bytes() -> &'static [u8] {
+    #[cfg(target_os = "android")]
+    {
+        include_bytes!("./../../binaries/android_test-aarch64-linux-android")
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        include_bytes!("./../../binaries/linux_ecapture_test")
+    }
+}
 
 /// 负责管理 eCapture 子进程的整个生命周期
 pub struct CaptureManager {
@@ -20,20 +43,39 @@ pub struct CaptureManager {
 }
 impl CaptureManager {
     pub fn new(base_path: impl AsRef<Path>) -> Self {
-        let executable_path = base_path.as_ref().join(CLI_BINARY_NAME);
+        let executable_path = base_path.as_ref().join(get_cli_binary_name());
         Self {
             executable_path,
             child: None,
         }
     }
 
+    #[cfg(target_os = "android")]
     fn prepare_binary(&self) -> Result<(), Box<dyn std::error::Error>> {
         if self.executable_path.exists() {
             fs::remove_file(&self.executable_path)?;
         }
 
         let mut dest_file = fs::File::create(&self.executable_path)?;
-        dest_file.write_all(ECAPTURE_BYTES)?;
+        dest_file.write_all(get_ecapture_bytes())?;
+        dest_file.sync_all()?; // 确保内容刷入磁盘
+
+        let mut perms = fs::metadata(&self.executable_path)?.permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&self.executable_path, perms)?;
+
+        println!("eCapture binary prepared at: {:?}", self.executable_path);
+        Ok(())
+    }
+
+    #[cfg(target_os = "linux")]
+    fn prepare_binary(&self) -> Result<()> {
+        if self.executable_path.exists() {
+            fs::remove_file(&self.executable_path)?;
+        }
+
+        let mut dest_file = fs::File::create(&self.executable_path)?;
+        dest_file.write_all(get_ecapture_bytes())?;
         dest_file.sync_all()?; // 确保内容刷入磁盘
 
         let mut perms = fs::metadata(&self.executable_path)?.permissions();
@@ -49,6 +91,7 @@ impl CaptureManager {
         fs::remove_file(&self.executable_path)
     }
 
+    #[cfg(target_os = "android")]
     pub async fn run(
         &mut self,
         mut shutdown_rx: watch::Receiver<()>,
@@ -74,23 +117,72 @@ impl CaptureManager {
                 if let Some(child) = self.child.as_mut() {
                     let pid = child.id().ok_or("Failed to get child PID")?;
 
-                    #[cfg(target_os = "android")]
-                    {
-                        // 在 Android 上, 使用 `su -c kill`
-                        println!("Running on Android, using 'su -c kill'...");
-                        let kill_command = "pkill android_test";
-                        let status = Command::new("su")
-                            .arg("-c")
-                            .arg(&kill_command)
-                            .status()
-                            .await?;
+                    // 在 Android 上, 使用 `su -c kill`
+                    println!("Running on Android, using 'su -c kill'...");
+                    let kill_command = "pkill android_test";
+                    let status = Command::new("su")
+                        .arg("-c")
+                        .arg(&kill_command)
+                        .status()
+                        .await?;
 
-                        if status.success() {
-                            println!("'su -c kill {}' command sent successfully.", pid);
-                        } else {
-                            eprintln!("'su -c kill {}' command failed with status: {}", pid, status);
+                    if status.success() {
+                        println!("'su -c kill {}' command sent successfully.", pid);
+                    } else {
+                        eprintln!("'su -c kill {}' command failed with status: {}", pid, status);
+                    }
+
+
+                    tokio::select! {
+                        result = child.wait() => {
+                            println!("eCapture process exited gracefully with result: {:?}", result);
+                        }
+                        _ = tokio::time::sleep(Duration::from_secs(3)) => {
+                            eprintln!("Process did not exit gracefully after 5s. Forcing kill...");
+                            self.child.as_mut().unwrap().kill().await?;
                         }
                     }
+                }
+            }
+
+            result = self.child.as_mut().unwrap().wait() => {
+                match result {
+                    Ok(status) => eprintln!("eCapture process exited unexpectedly with status: {}", status),
+                    Err(e) => eprintln!("Error waiting for eCapture process: {}", e),
+                }
+            }
+        }
+
+        // 4. 在任务结束时执行清理
+        self.cleanup()?;
+        Ok(())
+    }
+
+    #[cfg(target_os = "linux")]
+    pub async fn run(
+        &mut self,
+        mut shutdown_rx: watch::Receiver<()>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        // sudo::escalate_if_needed()?;
+        self.prepare_binary()?;
+        let binary_command = self.executable_path.to_string_lossy().to_string();
+        let child = Command::new(&binary_command) // 使用 tokio::process::Command
+            .stdout(Stdio::null()) // 重定向输出
+            .stderr(Stdio::null())
+            .spawn()?;
+
+        println!("eCapture process spawned with PID: {:?}", child.id());
+        self.child = Some(child); // 将 child 存入 struct
+
+        tokio::select! {
+            biased;
+
+            _ = shutdown_rx.changed() => {
+
+                if let Some(child) = self.child.as_mut() {
+                    let pid = child.id().ok_or("Failed to get child PID")?;
+
+                    send_signal(Pid::from_raw(pid as i32), Signal::SIGINT)?;
 
                     tokio::select! {
                         result = child.wait() => {
