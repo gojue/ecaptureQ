@@ -3,8 +3,25 @@ import { useAppState } from '@/hooks/useAppState';
 import { PacketTable } from '@/components/PacketTable';
 import { DetailModal } from '@/components/DetailModal';
 import { Play, Square, Trash2, Loader2 } from 'lucide-react';
+import type { PacketData } from '@/types';
 
-export function CapturePage() {
+interface CapturePageProps {
+  appState?: {
+    isCapturing: boolean;
+    isLoading: boolean;
+    packets: PacketData[];
+    selectedPacket: PacketData | null;
+    startCapture: () => Promise<void>;
+    stopCapture: () => Promise<void>;
+    clearPackets: () => void;
+    selectPacket: (packet: PacketData | null) => void;
+  };
+}
+
+export function CapturePage({ appState: providedAppState }: CapturePageProps) {
+  const localAppState = useAppState();
+  const appState = providedAppState || localAppState;
+  
   const {
     isCapturing,
     isLoading,
@@ -14,7 +31,7 @@ export function CapturePage() {
     stopCapture,
     clearPackets,
     selectPacket,
-  } = useAppState();
+  } = appState;
 
   const handleStart = useCallback(async () => {
     try {

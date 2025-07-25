@@ -162,3 +162,23 @@ button {
 .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #9ca3af;
 }
+
+/* Table optimization for desktop */
+.packet-table-row {
+  min-width: fit-content;
+}
+
+.packet-table-cell {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Improved hover effects */
+.packet-table-row:hover {
+  background-color: rgba(59, 130, 246, 0.05);
+}
+
+.dark .packet-table-row:hover {
+  background-color: rgba(59, 130, 246, 0.1);
+}

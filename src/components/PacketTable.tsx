@@ -34,20 +34,20 @@ const Row = memo(({ index, style, data }: {
       onClick={() => onPacketClick(packet)}
       className="flex items-center px-6 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer transition-colors"
     >
-      <div className="w-24 py-3 truncate pr-4 font-mono text-sm text-gray-600 dark:text-gray-400">
+      <div className="w-32 py-3 truncate pr-4 font-mono text-sm text-gray-600 dark:text-gray-400">
         {formatTimestamp(packet.timestamp)}
       </div>
-      <div className="w-32 py-3 truncate pr-4 text-sm">
+      <div className="w-40 py-3 truncate pr-4 text-sm">
         <span className="font-medium">{packet.pname}</span>
         <span className="text-gray-500 dark:text-gray-400"> ({packet.pid})</span>
       </div>
-      <div className="w-36 py-3 truncate pr-4 font-mono text-sm text-gray-600 dark:text-gray-400">
+      <div className="w-48 py-3 truncate pr-4 font-mono text-sm text-gray-600 dark:text-gray-400">
         {packet.src_ip}:{packet.src_port}
       </div>
-      <div className="w-36 py-3 truncate pr-4 font-mono text-sm text-gray-600 dark:text-gray-400">
+      <div className="w-48 py-3 truncate pr-4 font-mono text-sm text-gray-600 dark:text-gray-400">
         {packet.dst_ip}:{packet.dst_port}
       </div>
-      <div className="w-16 py-3 truncate pr-4 text-sm">
+      <div className="w-20 py-3 truncate pr-4 text-sm">
         <span className={`px-2 py-1 rounded text-xs font-medium ${
           packet.type.toLowerCase() === 'tcp' 
             ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300'
@@ -58,7 +58,7 @@ const Row = memo(({ index, style, data }: {
           {packet.type.toUpperCase()}
         </span>
       </div>
-      <div className="w-20 py-3 truncate text-right text-sm text-gray-600 dark:text-gray-400">
+      <div className="w-24 py-3 truncate text-right text-sm text-gray-600 dark:text-gray-400">
         {formatSize(packet.length)}
       </div>
     </div>
@@ -121,12 +121,12 @@ export function PacketTable({
     <div ref={containerRef} className="flex-1 flex flex-col bg-white dark:bg-gray-800">
       {/* Table Header */}
       <div className="flex items-center px-6 h-12 bg-gray-50 dark:bg-gray-700/50 border-b-2 border-gray-200 dark:border-gray-600 font-semibold text-sm text-gray-700 dark:text-gray-300">
-        <div className="w-24 pr-4">Time</div>
-        <div className="w-32 pr-4">Process</div>
-        <div className="w-36 pr-4">Source</div>
-        <div className="w-36 pr-4">Destination</div>
-        <div className="w-16 pr-4">Protocol</div>
-        <div className="w-20 text-right">Size</div>
+        <div className="w-32 pr-4">Time</div>
+        <div className="w-40 pr-4">Process</div>
+        <div className="w-48 pr-4">Source</div>
+        <div className="w-48 pr-4">Destination</div>
+        <div className="w-20 pr-4">Protocol</div>
+        <div className="w-24 text-right">Size</div>
       </div>
       
       {/* Virtual List */}
