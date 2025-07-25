@@ -20,7 +20,6 @@ impl WebsocketService {
         df_handle: actor::DataFrameActorHandle,
         done: watch::Receiver<()>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        let mut buffer: Vec<PacketData> = Vec::with_capacity(BATCH_SIZE);
         Ok(Self {
             ws_url,
             df_handle,

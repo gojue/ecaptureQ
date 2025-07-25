@@ -9,18 +9,23 @@ use tokio::sync::watch;
 use anyhow::{Error, Result};
 use nix::sys::signal::{Signal, kill as send_signal};
 use nix::unistd::Pid;
-
-// eCapture 的 CLI 二进制数据
-const CLI_BINARY_NAME: &str = "android_test";
+use sha2::{Sha256, Digest};
 
 fn get_cli_binary_name() -> String {
     #[cfg(target_os = "android")]
     {
-        String::from("linux_android_arm64")
+        let mut hasher = Sha256::new();
+        hasher.update(crate::services::capture::get_ecapture_bytes());
+        let hash_string = hex::encode(hasher.finalize());
+        format!("android_ecapture_arm64_{}", hash_string)
     }
+
     #[cfg(target_os = "linux")]
     {
-        String::from("linux_ecapture_amd64")
+        let mut hasher = Sha256::new();
+        hasher.update(get_ecapture_bytes());
+        let hash_string = hex::encode(hasher.finalize());
+        format!("linux_ecapture_amd64_{}", hash_string)
     }
 }
 
@@ -53,7 +58,9 @@ impl CaptureManager {
     #[cfg(target_os = "android")]
     fn prepare_binary(&self) -> Result<(), Box<dyn std::error::Error>> {
         if self.executable_path.exists() {
-            fs::remove_file(&self.executable_path)?;
+            // fs::remove_file(&self.executable_path)?;
+            println!("found exist binary file");
+            return Ok(())
         }
 
         let mut dest_file = fs::File::create(&self.executable_path)?;
@@ -71,7 +78,9 @@ impl CaptureManager {
     #[cfg(target_os = "linux")]
     fn prepare_binary(&self) -> Result<()> {
         if self.executable_path.exists() {
-            fs::remove_file(&self.executable_path)?;
+            // fs::remove_file(&self.executable_path)?;
+            println!("found exist binary file");
+            return Ok(())
         }
 
         let mut dest_file = fs::File::create(&self.executable_path)?;
@@ -153,8 +162,7 @@ impl CaptureManager {
             }
         }
 
-        // 4. 在任务结束时执行清理
-        self.cleanup()?;
+        // self.cleanup()?;
         Ok(())
     }
 
@@ -163,7 +171,6 @@ impl CaptureManager {
         &mut self,
         mut shutdown_rx: watch::Receiver<()>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        // sudo::escalate_if_needed()?;
         self.prepare_binary()?;
         let binary_command = self.executable_path.to_string_lossy().to_string();
         let child = Command::new(&binary_command) // 使用 tokio::process::Command
@@ -204,8 +211,7 @@ impl CaptureManager {
             }
         }
 
-        // 4. 在任务结束时执行清理
-        self.cleanup()?;
+        // self.cleanup()?;
         Ok(())
     }
 }

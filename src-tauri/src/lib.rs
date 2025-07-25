@@ -6,12 +6,22 @@ use tauri_bridge::{commands, state::AppState};
 use tokio::sync::Mutex;
 use tokio::sync::{mpsc, watch};
 use tauri_plugin_log::{Builder as LogBuilder, Target, TargetKind};
+use nix::unistd::geteuid;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub async fn run() {
+    // on linux, only root user can run this program
+    #[cfg(target_os = "linux")]
+    {
+        if !geteuid().is_root() {
+            eprintln!("NEED TO RUN WITH ROOT PERMISSION");
+            std::process::exit(1);
+        }
+    }
+
     let (actor_tx, actor_rx) = mpsc::channel(128);
     let (done_tx, done_rx) = watch::channel(());
-    let actor = core::actor::DataFrameActor::new(actor_rx, done_rx.clone())
+    let actor = core::actor::DataFrameActor::new(actor_rx, done_rx)
         .expect("Failed to create DataFrameActor");
     tauri::async_runtime::spawn(actor.run());
     let df_actor_handle = core::actor::DataFrameActorHandle {

@@ -64,6 +64,12 @@ impl DataFrameActorHandle {
     }
 }
 
+/*impl Drop for DataFrameActorHandle{
+    fn drop(&mut self) {
+        self.close()
+    }
+}*/
+
 pub struct DataFrameActor {
     receiver: mpsc::Receiver<ActorMessage>,
     df: DataFrame,
