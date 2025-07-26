@@ -163,6 +163,48 @@ button {
   background: #9ca3af;
 }
 
+/* 桌面端加粗滚动条样式 */
+.desktop-scrollbar::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.desktop-scrollbar::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 6px;
+}
+
+.desktop-scrollbar::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 6px;
+  border: 2px solid #f1f1f1;
+}
+
+.desktop-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+.desktop-scrollbar::-webkit-scrollbar-thumb:active {
+  background: #909090;
+}
+
+.dark .desktop-scrollbar::-webkit-scrollbar-track {
+  background: #374151;
+}
+
+.dark .desktop-scrollbar::-webkit-scrollbar-thumb {
+  background: #6b7280;
+  border: 2px solid #374151;
+}
+
+.dark .desktop-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+.dark .desktop-scrollbar::-webkit-scrollbar-thumb:active {
+  background: #d1d5db;
+}
+
 /* Table optimization for desktop */
 .packet-table-row {
   min-width: fit-content;

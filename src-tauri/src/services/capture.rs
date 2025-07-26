@@ -45,13 +45,15 @@ fn get_ecapture_bytes() -> &'static [u8] {
 pub struct CaptureManager {
     executable_path: PathBuf,
     child: Option<Child>,
+    shutdown_tx: Option<watch::Sender<()>>,
 }
 impl CaptureManager {
-    pub fn new(base_path: impl AsRef<Path>) -> Self {
+    pub fn new(base_path: impl AsRef<Path>, shutdown_tx: watch::Sender<()>) -> Self {
         let executable_path = base_path.as_ref().join(get_cli_binary_name());
         Self {
             executable_path,
             child: None,
+            shutdown_tx: Some(shutdown_tx),
         }
     }
 
@@ -195,8 +197,8 @@ impl CaptureManager {
                         result = child.wait() => {
                             println!("eCapture process exited gracefully with result: {:?}", result);
                         }
-                        _ = tokio::time::sleep(Duration::from_secs(3)) => {
-                            eprintln!("Process did not exit gracefully after 5s. Forcing kill...");
+                        _ = tokio::time::sleep(Duration::from_secs(1)) => {
+                            eprintln!("Process did not exit gracefully after 1s. Forcing kill...");
                             self.child.as_mut().unwrap().kill().await?;
                         }
                     }
@@ -213,5 +215,22 @@ impl CaptureManager {
 
         // self.cleanup()?;
         Ok(())
+    }
+}
+
+#[cfg(target_os = "linux")]
+impl Drop for CaptureManager {
+    // new*
+    fn drop(&mut self) {
+        if let Some(child) = self.child.as_mut() {
+            if let Some(pid) = child.id() {
+                if let Err(e) = send_signal(Pid::from_raw(pid as i32), Signal::SIGINT) {
+                    eprintln!("Can not kill ecapture in drop trait");
+                    return
+                }
+                println!("killed ecapture in drop trait")
+            }
+            println!("ecapture was killed, nothing to do")
+        }
     }
 }

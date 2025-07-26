@@ -1,3 +1,4 @@
+use nix::libc::shutdown;
 use crate::core::models::PacketData;
 use crate::services::capture::CaptureManager;
 use crate::services::websocket::WebsocketService;
@@ -64,7 +65,7 @@ pub async fn start_capture(
         .app_data_dir()
         .map_err(|e| e.to_string())?;
 
-    let mut capture_manager = CaptureManager::new(data_dir);
+    let mut capture_manager = CaptureManager::new(data_dir, shutdown_tx.clone());
 
     let ws_url = "ws://127.0.0.1:18088/ws".to_string();
     let mut websocket_service =
@@ -78,7 +79,7 @@ pub async fn start_capture(
         }
     });
 
-    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
     let websocket_handle = tokio::spawn(async move {
         if let Err(e) = websocket_service.receiver_task().await {

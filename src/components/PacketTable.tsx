@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState, useCallback } from 'react';
 import { FixedSizeList as List } from 'react-window';
 import type { PacketData } from '@/types';
 
@@ -77,6 +77,17 @@ export function PacketTable({
   const listRef = useRef<List>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [listHeight, setListHeight] = useState(600);
+  const [isNearBottom, setIsNearBottom] = useState(true);
+  const lastPacketCountRef = useRef(packets.length);
+
+  const handleScroll = useCallback(({ scrollOffset, scrollUpdateWasRequested }: any) => {
+    if (!scrollUpdateWasRequested && listRef.current) {
+      const maxScrollTop = Math.max(0, packets.length * ITEM_HEIGHT - listHeight);
+      const threshold = ITEM_HEIGHT * 3; // 3 items from bottom
+      const nearBottom = scrollOffset >= maxScrollTop - threshold;
+      setIsNearBottom(nearBottom);
+    }
+  }, [packets.length, listHeight]);
 
   useEffect(() => {
     const updateHeight = () => {
@@ -92,10 +103,12 @@ export function PacketTable({
   }, []);
 
   useEffect(() => {
-    if (packets.length > 0 && listRef.current) {
+    // Only auto-scroll if new packets were added and user is near bottom
+    if (packets.length > lastPacketCountRef.current && isNearBottom && listRef.current) {
       listRef.current.scrollToItem(packets.length - 1, 'end');
     }
-  }, [packets.length]);
+    lastPacketCountRef.current = packets.length;
+  }, [packets.length, isNearBottom]);
 
   if (packets.length === 0) {
     return (
@@ -138,6 +151,8 @@ export function PacketTable({
           itemSize={ITEM_HEIGHT}
           itemData={{ packets, onPacketClick }}
           width="100%"
+          onScroll={handleScroll}
+          className="desktop-scrollbar"
         >
           {Row}
         </List>

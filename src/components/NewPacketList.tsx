@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState, useCallback } from 'react';
 import { FixedSizeList as List } from 'react-window';
 import { NewPacketCard } from './NewPacketCard';
 import type { PacketData } from '@/types';
@@ -55,6 +55,18 @@ export function NewPacketList({
   const listRef = useRef<List>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [listHeight, setListHeight] = useState(600);
+  const [isNearBottom, setIsNearBottom] = useState(true);
+  const lastPacketCountRef = useRef(0);
+
+  // Check if user is near bottom of the list
+  const handleScroll = useCallback(({ scrollOffset, scrollUpdateWasRequested }: any) => {
+    if (!scrollUpdateWasRequested && listRef.current) {
+      const maxScrollTop = Math.max(0, packets.length * ITEM_HEIGHT - listHeight);
+      const threshold = ITEM_HEIGHT * 3; // 3 items from bottom
+      const nearBottom = scrollOffset >= maxScrollTop - threshold;
+      setIsNearBottom(nearBottom);
+    }
+  }, [packets.length, listHeight]);
 
   // Responsive height calculation
   useEffect(() => {
@@ -75,12 +87,13 @@ export function NewPacketList({
     };
   }, []);
 
-  // Auto scroll to latest data
+  // Smart auto scroll - only when user is near bottom
   useEffect(() => {
-    if (autoScroll && packets.length > 0 && listRef.current) {
+    if (autoScroll && packets.length > lastPacketCountRef.current && isNearBottom && listRef.current) {
       listRef.current.scrollToItem(packets.length - 1, 'end');
     }
-  }, [packets.length, autoScroll]);
+    lastPacketCountRef.current = packets.length;
+  }, [packets.length, autoScroll, isNearBottom]);
 
   const itemData = {
     packets,
@@ -128,6 +141,7 @@ export function NewPacketList({
         itemSize={ITEM_HEIGHT}
         itemData={itemData}
         overscanCount={OVERSCAN_COUNT}
+        onScroll={handleScroll}
         className="custom-scrollbar"
       >
         {ListItem}

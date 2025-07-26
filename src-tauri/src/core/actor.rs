@@ -73,7 +73,7 @@ impl DataFrameActorHandle {
 pub struct DataFrameActor {
     receiver: mpsc::Receiver<ActorMessage>,
     df: DataFrame,
-    ctx: SQLContext,
+    // ctx: SQLContext,
     done: watch::Receiver<()>,
 }
 
@@ -83,12 +83,12 @@ impl DataFrameActor {
         done: watch::Receiver<()>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let df = create_capture_df();
-        let mut ctx = SQLContext::new();
-        ctx.register("lazy", df.clone().lazy());
+        // let mut ctx = SQLContext::new();
+        // ctx.register("lazy", df.clone().lazy());
         Ok(Self {
             receiver,
             df,
-            ctx,
+            // ctx,
             done,
         })
     }
@@ -97,7 +97,7 @@ impl DataFrameActor {
         let Self {
             mut receiver,
             mut df,
-            mut ctx,
+            // mut ctx,
             mut done,
         } = self;
 
@@ -118,7 +118,9 @@ impl DataFrameActor {
                         data_processing::write_batch_to_df(&batch, &mut df)?;
                     }
                     ActorMessage::QuerySql { sql, resp } => {
-                        ctx.unregister("packets");
+                        // ctx.unregister("packets");
+                        // ctx.register("packets", df.clone().lazy());
+                        let mut ctx = SQLContext::new();
                         ctx.register("packets", df.clone().lazy());
                         if resp.send(ctx.execute(&sql)?.collect()).is_err() {
                             eprintln!("Oneshot channel send failed");
