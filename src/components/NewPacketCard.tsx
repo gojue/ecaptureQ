@@ -10,8 +10,9 @@ interface NewPacketCardProps {
 export function NewPacketCard({ packet, onClick, showTimestamp = true }: NewPacketCardProps) {
   // Format timestamp (nanoseconds to readable format)
   const formatTimestamp = (timestamp: number) => {
+    // Convert nanoseconds to milliseconds for correct display
     const date = new Date(timestamp / 1000000);
-    return date.toLocaleTimeString('en-US', { 
+    return date.toLocaleTimeString('zh-CN', { 
       hour12: false,
       hour: '2-digit',
       minute: '2-digit',
@@ -26,20 +27,21 @@ export function NewPacketCard({ packet, onClick, showTimestamp = true }: NewPack
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  // Get protocol type color
-  const getProtocolColor = (type: string) => {
-    switch (type.toUpperCase()) {
-      case 'HTTP':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
-      case 'HTTPS':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
-      case 'TCP':
-        return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300';
-      case 'UDP':
-        return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
-    }
+  // Get protocol type color and name
+  const getProtocolInfo = (type: number) => {
+    const protocolMap: { [key: number]: { name: string; color: string } } = {
+      1: { name: 'TCP', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' },
+      2: { name: 'UDP', color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' },
+      3: { name: 'ICMP', color: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300' },
+      4: { name: 'HTTP', color: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300' },
+      5: { name: 'HTTPS', color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' },
+      6: { name: 'DNS', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300' },
+      7: { name: 'SSH', color: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300' },
+      8: { name: 'FTP', color: 'bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-300' },
+      9: { name: 'SMTP', color: 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-300' },
+      10: { name: 'TLS', color: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-300' }
+    };
+    return protocolMap[type] || { name: `Unknown (${type})`, color: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300' };
   };
 
   return (
@@ -52,8 +54,8 @@ export function NewPacketCard({ packet, onClick, showTimestamp = true }: NewPack
       <div className="flex items-center justify-between mb-2">
         {/* Protocol and timestamp */}
         <div className="flex items-center space-x-2">
-          <span className={`px-2 py-0.5 text-xs font-medium rounded ${getProtocolColor(packet.type)}`}>
-            {packet.type.toUpperCase()}
+          <span className={`px-2 py-0.5 text-xs font-medium rounded ${getProtocolInfo(packet.type).color}`}>
+            {getProtocolInfo(packet.type).name}
           </span>
           {showTimestamp && (
             <span className="text-xs text-gray-500 dark:text-gray-400">

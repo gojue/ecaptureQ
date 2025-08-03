@@ -110,9 +110,10 @@ impl CaptureManager {
         self.prepare_binary()?;
 
         let binary_command = self.executable_path.to_string_lossy().to_string();
+        let full_command = format!("{} tls --ecaptureq ws://192.168.71.123:28257", binary_command);
         let mut child = Command::new("su") // 使用 tokio::process::Command
             .arg("-c")
-            .arg(&binary_command)
+            .arg(&full_command)
             .stdout(Stdio::null()) // 重定向输出
             .stderr(Stdio::null())
             .spawn()?;
@@ -175,7 +176,9 @@ impl CaptureManager {
     ) -> Result<(), Box<dyn std::error::Error>> {
         self.prepare_binary()?;
         let binary_command = self.executable_path.to_string_lossy().to_string();
-        let child = Command::new(&binary_command) // 使用 tokio::process::Command
+        let child = Command::new("sudo") // 使用 sudo 运行 eCapture
+            .arg(&binary_command)
+            .args(["tls", "--ecaptureq", "ws://192.168.71.123:28257"])
             .stdout(Stdio::null()) // 重定向输出
             .stderr(Stdio::null())
             .spawn()?;
@@ -224,7 +227,7 @@ impl Drop for CaptureManager {
     fn drop(&mut self) {
         if let Some(child) = self.child.as_mut() {
             if let Some(pid) = child.id() {
-                if let Err(e) = send_signal(Pid::from_raw(pid as i32), Signal::SIGINT) {
+                if let Err(_e) = send_signal(Pid::from_raw(pid as i32), Signal::SIGINT) {
                     eprintln!("Can not kill ecapture in drop trait");
                     return
                 }

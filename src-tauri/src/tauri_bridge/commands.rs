@@ -67,7 +67,7 @@ pub async fn start_capture(
 
     let mut capture_manager = CaptureManager::new(data_dir, shutdown_tx.clone());
 
-    let ws_url = "ws://127.0.0.1:18088/ws".to_string();
+    let ws_url = "ws://127.0.0.1:18088".to_string();
     let mut websocket_service =
         WebsocketService::new(ws_url, state.df_actor_handle.clone(), shutdown_rx.clone())
             .map_err(|e| e.to_string())?;

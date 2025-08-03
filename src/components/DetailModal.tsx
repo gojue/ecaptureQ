@@ -1,5 +1,5 @@
 import { X, Clock, Globe, Monitor, Database } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type { PacketData } from '@/types';
 
 interface DetailModalProps {
@@ -12,10 +12,11 @@ export function DetailModal({ packet, onClose }: DetailModalProps) {
 
   if (!packet) return null;
 
-  // Format timestamp
+  // Format timestamp - fix nanosecond to millisecond conversion
   const formatTimestamp = (timestamp: number) => {
+    // Convert nanoseconds to milliseconds
     const date = new Date(timestamp / 1000000);
-    return date.toLocaleString('en-US', {
+    return date.toLocaleString('zh-CN', {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -33,57 +34,31 @@ export function DetailModal({ packet, onClose }: DetailModalProps) {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  // Decode Base64 payload
-  const decodePayload = (base64: string) => {
+  // Decode Base64 payload without truncation
+  const decodedPayload = useMemo(() => {
     try {
-      const decoded = atob(base64);
+      const decoded = atob(packet.payload_base64);
       return decoded;
     } catch {
       return 'Unable to decode payload';
     }
-  };
+  }, [packet.payload_base64]);
 
-  // Convert to hex view
-  const toHexView = (base64: string) => {
-    try {
-      const decoded = atob(base64);
-      const bytes = new Uint8Array(decoded.length);
-      for (let i = 0; i < decoded.length; i++) {
-        bytes[i] = decoded.charCodeAt(i);
-      }
-      
-      let hex = '';
-      let ascii = '';
-      let result = '';
-      
-      for (let i = 0; i < bytes.length; i++) {
-        if (i % 16 === 0) {
-          if (i > 0) {
-            result += `  ${ascii}\n`;
-            ascii = '';
-          }
-          result += i.toString(16).padStart(8, '0') + '  ';
-          hex = '';
-        }
-        
-        hex += bytes[i].toString(16).padStart(2, '0') + ' ';
-        ascii += bytes[i] >= 32 && bytes[i] <= 126 ? String.fromCharCode(bytes[i]) : '.';
-        
-        if (i % 8 === 7) hex += ' ';
-      }
-      
-      // Fill remaining space on last line
-      const remaining = 16 - (bytes.length % 16);
-      if (remaining !== 16) {
-        hex += '   '.repeat(remaining);
-        if (remaining > 8) hex += ' ';
-      }
-      
-      result += hex + '  ' + ascii;
-      return result;
-    } catch {
-      return 'Unable to display hex view';
-    }
+  // Protocol type mapping
+  const getProtocolName = (type: number) => {
+    const protocolMap: { [key: number]: string } = {
+      1: 'TCP',
+      2: 'UDP', 
+      3: 'ICMP',
+      4: 'HTTP',
+      5: 'HTTPS',
+      6: 'DNS',
+      7: 'SSH',
+      8: 'FTP',
+      9: 'SMTP',
+      10: 'TLS'
+    };
+    return protocolMap[type] || `Unknown (${type})`;
   };
 
   return (
@@ -142,8 +117,12 @@ export function DetailModal({ packet, onClose }: DetailModalProps) {
                     <div className="font-mono">{formatTimestamp(packet.timestamp)}</div>
                   </div>
                   <div>
-                    <span className="text-gray-500 dark:text-gray-400">Protocol:</span>
-                    <div className="font-semibold">{packet.type.toUpperCase()}</div>
+                    <span className="text-gray-500 dark:text-gray-400">UUID:</span>
+                    <div className="font-mono text-xs">{packet.uuid}</div>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 dark:text-gray-400">Protocol Type:</span>
+                    <div className="font-semibold">{getProtocolName(packet.type)}</div>
                   </div>
                   <div>
                     <span className="text-gray-500 dark:text-gray-400">Data Size:</span>
@@ -198,29 +177,9 @@ export function DetailModal({ packet, onClose }: DetailModalProps) {
               {/* Raw Text */}
               <div>
                 <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Raw Text:</h4>
-                <div className="bg-gray-100 dark:bg-gray-900 rounded-md p-3 max-h-40 overflow-auto">
-                  <pre className="text-xs font-mono whitespace-pre-wrap break-all">
-                    {decodePayload(packet.payload_base64)}
-                  </pre>
-                </div>
-              </div>
-
-              {/* Hex View */}
-              <div>
-                <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Hex View:</h4>
-                <div className="bg-gray-100 dark:bg-gray-900 rounded-md p-3 max-h-60 overflow-auto">
-                  <pre className="text-xs font-mono whitespace-pre">
-                    {toHexView(packet.payload_base64)}
-                  </pre>
-                </div>
-              </div>
-
-              {/* Base64 */}
-              <div>
-                <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Base64:</h4>
-                <div className="bg-gray-100 dark:bg-gray-900 rounded-md p-3 max-h-32 overflow-auto">
-                  <pre className="text-xs font-mono whitespace-pre-wrap break-all">
-                    {packet.payload_base64}
+                <div className="bg-gray-100 dark:bg-gray-900 rounded-md p-4 h-96 overflow-auto">
+                  <pre className="text-sm font-mono whitespace-pre-wrap break-all">
+                    {decodedPayload}
                   </pre>
                 </div>
               </div>

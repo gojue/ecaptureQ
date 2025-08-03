@@ -138,13 +138,14 @@ impl DataFrameActor {
 fn create_capture_df() -> DataFrame {
     let schema = Schema::from_iter(vec![
         Field::new("timestamp".into(), DataType::Int64),
+        Field::new("uuid".into(), DataType::String),
         Field::new("src_ip".into(), DataType::String),
         Field::new("src_port".into(), DataType::UInt32),
         Field::new("dst_ip".into(), DataType::String),
         Field::new("dst_port".into(), DataType::UInt32),
         Field::new("pid".into(), DataType::Int32),
         Field::new("pname".into(), DataType::String),
-        Field::new("type".into(), DataType::String),
+        Field::new("type".into(), DataType::UInt32),
         Field::new("length".into(), DataType::UInt32),
         Field::new("payload_base64".into(), DataType::String),
     ]);

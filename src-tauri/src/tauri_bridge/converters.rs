@@ -8,13 +8,14 @@ pub fn df_to_packet_data_vec(df: &DataFrame) -> PolarsResult<Vec<PacketData>> {
 
     // 将所有列转换为类型化的迭代器，这是最高效的方式
     let ts_iter = df.column("timestamp")?.i64()?;
+    let uuid_iter = df.column("uuid")?.str()?;
     let src_ip_iter = df.column("src_ip")?.str()?;
     let src_port_iter = df.column("src_port")?.u32()?;
     let dst_ip_iter = df.column("dst_ip")?.str()?;
     let dst_port_iter = df.column("dst_port")?.u32()?;
     let pid_iter = df.column("pid")?.i32()?;
     let pname_iter = df.column("pname")?.str()?;
-    let type_iter = df.column("type")?.str()?;
+    let type_iter = df.column("type")?.u32()?;
     let length_iter = df.column("length")?.u32()?;
     let payload_iter = df.column("payload_base64")?.str()?;
 
@@ -27,13 +28,14 @@ pub fn df_to_packet_data_vec(df: &DataFrame) -> PolarsResult<Vec<PacketData>> {
         // Option.unwrap() 在这里是相对安全的，因为我们知道迭代长度是一致的
         result_vec.push(PacketData {
             timestamp: ts_iter.get(i).unwrap(),
+            uuid: uuid_iter.get(i).unwrap().to_string(),
             src_ip: src_ip_iter.get(i).unwrap().to_string(),
             src_port: src_port_iter.get(i).unwrap(),
             dst_ip: dst_ip_iter.get(i).unwrap().to_string(),
             dst_port: dst_port_iter.get(i).unwrap(),
             pid: pid_iter.get(i).unwrap(),
             pname: pname_iter.get(i).unwrap().to_string(),
-            r#type: type_iter.get(i).unwrap().to_string(),
+            r#type: type_iter.get(i).unwrap(),
             length: length_iter.get(i).unwrap(),
             payload_base64: payload_iter.get(i).unwrap().to_string(),
         });
