@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "ecaptureQ",
+  "productName": "eCaptureQ",
   "version": "0.1.0",
   "identifier": "com.ecaptureq.gojue",
   "build": {
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "ecaptureQ",
+        "title": "eCaptureQ",
         "width": 1200,
         "height": 800,
         "minWidth": 800,
@@ -32,15 +32,17 @@
     "targets": ["appimage"],
     "icon": [
       "icons/32x32.png",
+      "icons/64x64.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
-      "icons/icon.ico"
+      "icons/icon.ico",
+      "icons/icon.png"
     ],
     "publisher": "gojue",
     "copyright": "Copyright © 2025 gojue",
     "category": "DeveloperTool",
-    "shortDescription": "Network packet capture and analysis tool",
-    "longDescription": "A cross-platform network packet capture and analyzer built with Tauri and React."
+    "shortDescription": "eCaptureQ - A cross-platform desktop application for eCapture, the powerful eBPF-based SSL/TLS traffic capture tool. Built with Tauri, it provides an intuitive visual interface to capture and analyze encrypted network traffic without CA certificates on Linux and Android systems.",
+    "longDescription": "eCaptureQ - 为强大的基于eBPF技术的SSL/TLS流量捕获工具eCapture打造的跨平台桌面应用程序。基于Tauri构建，在Linux和Android系统上提供直观的图形界面来捕获和分析加密网络流量，无需CA证书。"
   }
 }

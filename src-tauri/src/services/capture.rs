@@ -1,12 +1,11 @@
+use std::path::{Path, PathBuf};
 use std::fs;
 use std::io::Write;
 use std::os::unix::fs::PermissionsExt; // 用于设置文件权限
-use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::Duration;
 use tokio::process::{Child, Command}; // 使用 Tokio 的 Command 和 Child
 use tokio::sync::watch;
-use anyhow::{Error, Result};
 use nix::sys::signal::{Signal, kill as send_signal};
 use nix::unistd::Pid;
 use sha2::{Sha256, Digest};
@@ -17,7 +16,7 @@ fn get_cli_binary_name() -> String {
         let mut hasher = Sha256::new();
         hasher.update(crate::services::capture::get_ecapture_bytes());
         let hash_string = hex::encode(hasher.finalize());
-        format!("android_ecapture_arm64_{}", hash_string)
+        return format!("android_ecapture_arm64_{}", hash_string);
     }
 
     #[cfg(target_os = "linux")]
@@ -25,25 +24,36 @@ fn get_cli_binary_name() -> String {
         let mut hasher = Sha256::new();
         hasher.update(get_ecapture_bytes());
         let hash_string = hex::encode(hasher.finalize());
-        format!("linux_ecapture_amd64_{}", hash_string)
+        return format!("linux_ecapture_amd64_{}", hash_string);
+    }
+
+    #[cfg(not(any(target_os = "android", target_os = "linux")))]
+    {
+        panic!("Unsupported target OS");
     }
 }
 
 fn get_ecapture_bytes() -> &'static [u8] {
     #[cfg(target_os = "android")]
     {
-        include_bytes!("./../../binaries/android_test-aarch64-linux-android")
+        return include_bytes!("./../../binaries/android_test-aarch64-linux-android");
     }
 
     #[cfg(target_os = "linux")]
     {
-        include_bytes!("./../../binaries/linux_ecapture_test")
+        return include_bytes!("./../../binaries/linux_ecapture_test");
+    }
+
+    #[cfg(not(any(target_os = "android", target_os = "linux")))]
+    {
+        panic!("Unsupported target OS");
     }
 }
 
 /// 负责管理 eCapture 子进程的整个生命周期
 pub struct CaptureManager {
     executable_path: PathBuf,
+    #[cfg(any(target_os = "android", target_os = "linux"))]
     child: Option<Child>,
     shutdown_tx: Option<watch::Sender<()>>,
 }
@@ -52,6 +62,7 @@ impl CaptureManager {
         let executable_path = base_path.as_ref().join(get_cli_binary_name());
         Self {
             executable_path,
+            #[cfg(any(target_os = "android", target_os = "linux"))]
             child: None,
             shutdown_tx: Some(shutdown_tx),
         }
@@ -97,6 +108,7 @@ impl CaptureManager {
         Ok(())
     }
 
+    #[cfg(any(target_os = "android", target_os = "linux"))]
     fn cleanup(&self) -> std::io::Result<()> {
         println!("Cleaning up eCapture binary...");
         fs::remove_file(&self.executable_path)

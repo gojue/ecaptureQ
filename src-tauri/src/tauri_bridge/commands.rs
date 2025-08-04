@@ -1,4 +1,3 @@
-use nix::libc::shutdown;
 use crate::core::models::PacketData;
 use crate::services::capture::CaptureManager;
 use crate::services::websocket::WebsocketService;
@@ -74,6 +73,7 @@ pub async fn start_capture(
 
     println!("Spawning background services...");
     let capture_handle = tokio::spawn(async move {
+#[cfg(any(target_os = "android", target_os = "linux"))]
         if let Err(e) = capture_manager.run(shutdown_rx).await {
             eprintln!("[CaptureManager] Task failed: {}", e);
         }
