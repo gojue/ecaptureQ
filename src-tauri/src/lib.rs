@@ -7,6 +7,7 @@ use tauri::{Manager, RunEvent};
 use tokio::sync::Mutex;
 use tokio::sync::{mpsc, watch};
 use tauri_plugin_log::{Builder as LogBuilder, Target, TargetKind};
+#[cfg(target_os = "linux")]
 use nix::unistd::geteuid;
 use std::thread;
 use std::time::Duration;
