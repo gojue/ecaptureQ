@@ -1,14 +1,14 @@
 import { ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { usePlatform } from '@/hooks/usePlatform';
+import { useResponsive } from '@/hooks/useResponsive';
 
 export function SettingsPage() {
   const navigate = useNavigate();
-  const platform = usePlatform();
+  const { isMobile } = useResponsive();
 
   return (
     <div className="h-full flex flex-col">
-      {platform === 'mobile' && (
+      {isMobile && (
         <div className="flex items-center p-4 border-b border-gray-200 dark:border-gray-700">
           <button
             onClick={() => navigate('/')}

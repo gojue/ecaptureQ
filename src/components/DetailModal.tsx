@@ -12,53 +12,117 @@ export function DetailModal({ packet, onClose }: DetailModalProps) {
 
   if (!packet) return null;
 
-  // Format timestamp - fix nanosecond to millisecond conversion
-  const formatTimestamp = (timestamp: number) => {
-    // Convert nanoseconds to milliseconds
-    const date = new Date(timestamp / 1000000);
-    return date.toLocaleString('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    });
+  // Validate packet data
+  const validatePacket = (packet: PacketData) => {
+    const issues = [];
+    if (typeof packet !== 'object') issues.push('packet is not an object');
+    if (packet.timestamp === undefined || packet.timestamp === null) issues.push('timestamp is missing');
+    if (packet.uuid === undefined || packet.uuid === null) issues.push('uuid is missing');
+    if (packet.type === undefined || packet.type === null) issues.push('type is missing');
+    if (packet.length === undefined || packet.length === null) issues.push('length is missing');
+    if (packet.payload_base64 === undefined || packet.payload_base64 === null) issues.push('payload_base64 is missing');
+    
+    if (issues.length > 0) {
+      console.warn('Packet validation issues:', issues, packet);
+    }
+    return issues.length === 0;
   };
+
+  if (!validatePacket(packet)) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-yellow-600">Invalid Packet Data</h2>
+            <button onClick={onClose} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            The packet data is incomplete or invalid.
+          </p>
+          <div className="mt-4 p-3 bg-gray-100 dark:bg-gray-900 rounded text-xs font-mono max-h-40 overflow-auto">
+            {JSON.stringify(packet, null, 2)}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  try {
+    // Format timestamp - fix nanosecond to millisecond conversion
+    const formatTimestamp = (timestamp: number) => {
+      try {
+        // Handle undefined/null timestamp
+        if (!timestamp || isNaN(timestamp)) {
+          return 'Invalid timestamp';
+        }
+        // Convert nanoseconds to milliseconds
+        const date = new Date(timestamp / 1000000);
+        if (isNaN(date.getTime())) {
+          return 'Invalid date';
+        }
+        return date.toLocaleString('zh-CN', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        });
+      } catch (error) {
+        console.error('Timestamp formatting error:', error);
+        return 'Error formatting timestamp';
+      }
+    };
 
   // Format data size
   const formatSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    try {
+      if (!bytes || isNaN(bytes) || bytes < 0) return '0 B';
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    } catch (error) {
+      console.error('Size formatting error:', error);
+      return 'Error';
+    }
   };
 
   // Decode Base64 payload without truncation
   const decodedPayload = useMemo(() => {
     try {
+      if (!packet.payload_base64 || typeof packet.payload_base64 !== 'string') {
+        return 'No payload data';
+      }
       const decoded = atob(packet.payload_base64);
       return decoded;
-    } catch {
+    } catch (error) {
+      console.error('Base64 decode error:', error);
       return 'Unable to decode payload';
     }
   }, [packet.payload_base64]);
 
   // Protocol type mapping
   const getProtocolName = (type: number) => {
-    const protocolMap: { [key: number]: string } = {
-      1: 'TCP',
-      2: 'UDP', 
-      3: 'ICMP',
-      4: 'HTTP',
-      5: 'HTTPS',
-      6: 'DNS',
-      7: 'SSH',
-      8: 'FTP',
-      9: 'SMTP',
-      10: 'TLS'
-    };
-    return protocolMap[type] || `Unknown (${type})`;
+    try {
+      if (type === undefined || type === null || isNaN(type)) {
+        return 'Unknown';
+      }
+      const protocolMap: { [key: number]: string } = {
+        0: 'Unknown',
+        1: 'HttpRequest',
+        2: 'Http2Request',
+        3: 'HttpResponse',
+        4: 'Http2Response',
+        5: 'WebSocket'
+      };
+      return protocolMap[type] || `Unknown (${type})`;
+    } catch (error) {
+      console.error('Protocol name error:', error);
+      return 'Error';
+    }
   };
 
   return (
@@ -118,7 +182,7 @@ export function DetailModal({ packet, onClose }: DetailModalProps) {
                   </div>
                   <div>
                     <span className="text-gray-500 dark:text-gray-400">UUID:</span>
-                    <div className="font-mono text-xs">{packet.uuid}</div>
+                    <div className="font-mono text-xs">{packet.uuid || 'N/A'}</div>
                   </div>
                   <div>
                     <span className="text-gray-500 dark:text-gray-400">Protocol Type:</span>
@@ -140,11 +204,11 @@ export function DetailModal({ packet, onClose }: DetailModalProps) {
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="text-gray-500 dark:text-gray-400">Source:</span>
-                    <div className="font-mono">{packet.src_ip}:{packet.src_port}</div>
+                    <div className="font-mono">{packet.src_ip || 'N/A'}:{packet.src_port || 0}</div>
                   </div>
                   <div>
                     <span className="text-gray-500 dark:text-gray-400">Destination:</span>
-                    <div className="font-mono">{packet.dst_ip}:{packet.dst_port}</div>
+                    <div className="font-mono">{packet.dst_ip || 'N/A'}:{packet.dst_port || 0}</div>
                   </div>
                 </div>
               </div>
@@ -158,11 +222,11 @@ export function DetailModal({ packet, onClose }: DetailModalProps) {
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="text-gray-500 dark:text-gray-400">Process Name:</span>
-                    <div className="font-semibold">{packet.pname}</div>
+                    <div className="font-semibold">{packet.pname || 'N/A'}</div>
                   </div>
                   <div>
                     <span className="text-gray-500 dark:text-gray-400">Process ID:</span>
-                    <div>{packet.pid}</div>
+                    <div>{packet.pid !== undefined ? packet.pid : 'N/A'}</div>
                   </div>
                 </div>
               </div>
@@ -189,4 +253,25 @@ export function DetailModal({ packet, onClose }: DetailModalProps) {
       </div>
     </div>
   );
+  } catch (error) {
+    console.error('DetailModal render error:', error);
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-red-600">Error Loading Packet</h2>
+            <button onClick={onClose} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            There was an error loading the packet details. Please try again.
+          </p>
+          <div className="mt-4 p-3 bg-gray-100 dark:bg-gray-900 rounded text-xs font-mono">
+            {String(error)}
+          </div>
+        </div>
+      </div>
+    );
+  }
 }

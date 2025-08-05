@@ -84,12 +84,12 @@ impl WebsocketService {
                                         buffer.push(packet_data);
                                     }
                                     ParsedMessage::Heartbeat(heartbeat) => {
-                                        println!("Heartbeat: {:?}", heartbeat);
+                                        // println!("Heartbeat: {:?}", heartbeat);
                                         heartbeat_messages.push(heartbeat);
                                     }
                                     ParsedMessage::ProcessLog(log) => {
-                                        println!("Log: level={:?}, message={:?}, time={:?}, info={}", 
-                                            log.level, log.message, log.time, log.log_info);
+                                        // println!("Log: level={:?}, message={:?}, time={:?}, info={}",
+                                        //     log.level, log.message, log.time, log.log_info);
                                         log_messages.push(log);
                                     }
                                 }

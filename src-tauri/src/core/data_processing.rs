@@ -56,10 +56,6 @@ pub fn write_batch_to_df(buffer: &[models::PacketData], df: &mut DataFrame) -> P
     Ok(())
 }
 
-pub fn parse_packet_data(json_str: &str) -> Result<models::PacketData, serde_json::Error> {
-    serde_json::from_str(json_str)
-}
-
 pub fn parse_eq_message(json_str: &str) -> Result<ParsedMessage, Box<dyn std::error::Error>> {
     let eq_message: models::EqMessage = serde_json::from_str(json_str)?;
     let log_type = LogType::from(eq_message.log_type);

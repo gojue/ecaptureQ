@@ -9,6 +9,7 @@ use tokio::sync::watch;
 use nix::sys::signal::{Signal, kill as send_signal};
 use nix::unistd::Pid;
 use sha2::{Sha256, Digest};
+use anyhow::{Error, Result};
 
 fn get_cli_binary_name() -> String {
     #[cfg(target_os = "android")]
@@ -190,7 +191,7 @@ impl CaptureManager {
         let binary_command = self.executable_path.to_string_lossy().to_string();
         let child = Command::new("sudo") // 使用 sudo 运行 eCapture
             .arg(&binary_command)
-            .args(["tls", "--ecaptureq", "ws://192.168.71.123:28257"])
+            .args(["tls", "--ecaptureq", "ws://127.0.0.1:18088"])
             .stdout(Stdio::null()) // 重定向输出
             .stderr(Stdio::null())
             .spawn()?;

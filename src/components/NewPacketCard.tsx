@@ -8,45 +8,73 @@ interface NewPacketCardProps {
 }
 
 export function NewPacketCard({ packet, onClick, showTimestamp = true }: NewPacketCardProps) {
-  // Format timestamp (nanoseconds to readable format)
-  const formatTimestamp = (timestamp: number) => {
-    // Convert nanoseconds to milliseconds for correct display
-    const date = new Date(timestamp / 1000000);
-    return date.toLocaleTimeString('zh-CN', { 
-      hour12: false,
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
-  };
+  try {
+    // Format timestamp (nanoseconds to readable format)
+    const formatTimestamp = (timestamp: number) => {
+      try {
+        if (!timestamp || isNaN(timestamp)) {
+          return 'Invalid time';
+        }
+        // Convert nanoseconds to milliseconds for correct display
+        const date = new Date(timestamp / 1000000);
+        if (isNaN(date.getTime())) {
+          return 'Invalid date';
+        }
+        return date.toLocaleTimeString('zh-CN', { 
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        });
+      } catch (error) {
+        console.error('Timestamp formatting error:', error);
+        return 'Error';
+      }
+    };
 
   // Format data size
   const formatSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    try {
+      if (!bytes || isNaN(bytes) || bytes < 0) return '0 B';
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    } catch (error) {
+      console.error('Size formatting error:', error);
+      return 'Error';
+    }
   };
 
-  // Get protocol type color and name
+  // Get protocol info
   const getProtocolInfo = (type: number) => {
-    const protocolMap: { [key: number]: { name: string; color: string } } = {
-      1: { name: 'TCP', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' },
-      2: { name: 'UDP', color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' },
-      3: { name: 'ICMP', color: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300' },
-      4: { name: 'HTTP', color: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300' },
-      5: { name: 'HTTPS', color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' },
-      6: { name: 'DNS', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300' },
-      7: { name: 'SSH', color: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300' },
-      8: { name: 'FTP', color: 'bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-300' },
-      9: { name: 'SMTP', color: 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-300' },
-      10: { name: 'TLS', color: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-300' }
-    };
-    return protocolMap[type] || { name: `Unknown (${type})`, color: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300' };
+    try {
+      if (type === undefined || type === null || isNaN(type)) {
+        return { name: 'Unknown', color: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300' };
+      }
+      const protocolMap: { [key: number]: { name: string; color: string } } = {
+        0: { name: 'Unknown', color: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300' },
+        1: { name: 'HttpRequest', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' },
+        2: { name: 'Http2Request', color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' },
+        3: { name: 'HttpResponse', color: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300' },
+        4: { name: 'Http2Response', color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' },
+        5: { name: 'WebSocket', color: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300' }
+      };
+      return protocolMap[type] || { name: `Unknown (${type})`, color: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300' };
+    } catch (error) {
+      console.error('Protocol info error:', error);
+      return { name: 'Error', color: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300' };
+    }
   };
 
   return (
     <div
-      onClick={() => onClick(packet)}
+      onClick={() => {
+        try {
+          onClick(packet);
+        } catch (error) {
+          console.error('NewPacketCard onClick error:', error);
+        }
+      }}
       className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg 
                  p-3 cursor-pointer hover:shadow-md hover:border-blue-300 dark:hover:border-blue-600 
                  transition-all duration-200"
@@ -73,20 +101,33 @@ export function NewPacketCard({ packet, onClick, showTimestamp = true }: NewPack
       {/* Network connection */}
       <div className="flex items-center space-x-1 text-xs text-gray-700 dark:text-gray-300 mb-1">
         <span className="font-mono truncate">
-          {packet.src_ip}:{packet.src_port}
+          {packet.src_ip || 'N/A'}:{packet.src_port || 0}
         </span>
         <ArrowRight className="w-3 h-3 text-gray-400 flex-shrink-0" />
         <span className="font-mono truncate">
-          {packet.dst_ip}:{packet.dst_port}
+          {packet.dst_ip || 'N/A'}:{packet.dst_port || 0}
         </span>
       </div>
 
       {/* Process info */}
       <div className="flex items-center space-x-1 text-xs text-gray-600 dark:text-gray-400">
         <Monitor className="w-3 h-3 flex-shrink-0" />
-        <span className="truncate">{packet.pname}</span>
-        <span className="text-gray-400">({packet.pid})</span>
+        <span className="truncate">{packet.pname || 'N/A'}</span>
+        <span className="text-gray-400">({packet.pid !== undefined ? packet.pid : 'N/A'})</span>
       </div>
     </div>
   );
+  } catch (error) {
+    console.error('NewPacketCard render error:', error);
+    return (
+      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+        <div className="text-red-600 dark:text-red-400 text-xs font-medium">
+          Error loading packet card
+        </div>
+        <div className="text-red-500 dark:text-red-500 text-xs mt-1">
+          {String(error)}
+        </div>
+      </div>
+    );
+  }
 }

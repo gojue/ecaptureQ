@@ -1,15 +1,7 @@
-import { usePlatform } from '@/hooks/usePlatform';
-import { DesktopApp } from '@/layouts/DesktopApp';
-import { MobileApp } from '@/layouts/MobileApp';
+import { AppLayout } from '@/layouts/AppLayout';
 
 function App() {
-  const platform = usePlatform();
-
-  if (platform === 'mobile') {
-    return <MobileApp />;
-  }
-  
-  return <DesktopApp />;
+  return <AppLayout />;
 }
 
 export default App;

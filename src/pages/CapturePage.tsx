@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { useAppState } from '@/hooks/useAppState';
-import { PacketTable } from '@/components/PacketTable';
+import { useResponsive } from '@/hooks/useResponsive';
+import { ResponsivePacketView } from '@/components/ResponsivePacketView';
 import { DetailModal } from '@/components/DetailModal';
 import { Play, Square, Trash2, Loader2 } from 'lucide-react';
 import type { PacketData } from '@/types';
@@ -21,6 +22,7 @@ interface CapturePageProps {
 export function CapturePage({ appState: providedAppState }: CapturePageProps) {
   const localAppState = useAppState();
   const appState = providedAppState || localAppState;
+  const { isMobile } = useResponsive();
   
   const {
     isCapturing,
@@ -54,7 +56,16 @@ export function CapturePage({ appState: providedAppState }: CapturePageProps) {
   }, [clearPackets]);
 
   const handlePacketClick = useCallback((packet: typeof packets[0]) => {
-    selectPacket(packet);
+    try {
+      console.log('Packet clicked:', packet); // 调试信息
+      if (!packet) {
+        console.warn('Attempting to select null/undefined packet');
+        return;
+      }
+      selectPacket(packet);
+    } catch (error) {
+      console.error('Error in handlePacketClick:', error);
+    }
   }, [selectPacket]);
 
   const handleModalClose = useCallback(() => {
@@ -123,19 +134,21 @@ export function CapturePage({ appState: providedAppState }: CapturePageProps) {
         </div>
       </div>
 
-      {/* Packet Table */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <PacketTable
-          packets={packets}
-          onPacketClick={handlePacketClick}
-        />
-      </div>
+      {/* Packet View */}
+      <ResponsivePacketView
+        packets={packets}
+        onPacketClick={handlePacketClick}
+        viewMode={isMobile ? 'cards' : 'table'}
+        autoScroll={true}
+      />
 
       {/* Detail Modal */}
-      <DetailModal
-        packet={selectedPacket}
-        onClose={handleModalClose}
-      />
+      {selectedPacket && (
+        <DetailModal
+          packet={selectedPacket}
+          onClose={handleModalClose}
+        />
+      )}
     </div>
   );
 }
