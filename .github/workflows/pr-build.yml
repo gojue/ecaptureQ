@@ -43,10 +43,16 @@ jobs:
           node-version: '23'  # 尝试稳定版本
           cache: ''  # 禁用缓存
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
       - name: Check Node.js version
         run: |
           node -v
           npm -v
+          pnpm -v
 
       - name: Install frontend dependencies
         run: pnpm install
