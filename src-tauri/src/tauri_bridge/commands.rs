@@ -1,6 +1,7 @@
 use crate::core::models::PacketData;
 use crate::services::capture::CaptureManager;
 use crate::services::websocket::WebsocketService;
+use crate::services::push_service::PushService;
 use crate::tauri_bridge::{
     converters::df_to_packet_data_vec, state::AppState, state::CaptureSessionHandles,
 };
@@ -56,7 +57,7 @@ pub async fn start_capture(
         return Err("Capture session is already running.".into());
     }
 
-    let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(());
+    let (shutdown_tx, _) = tokio::sync::watch::channel(());
 
     // Get the app's data directory for storing the binary
     let data_dir = app_handle
@@ -68,13 +69,14 @@ pub async fn start_capture(
 
     let ws_url = "ws://127.0.0.1:18088".to_string();
     let mut websocket_service =
-        WebsocketService::new(ws_url, state.df_actor_handle.clone(), shutdown_rx.clone())
+        WebsocketService::new(ws_url, state.df_actor_handle.clone(), shutdown_tx.subscribe())
             .map_err(|e| e.to_string())?;
 
     println!("Spawning background services...");
+    let shutdown_tx_clone = shutdown_tx.clone();
     let capture_handle = tokio::spawn(async move {
 #[cfg(any(target_os = "android", target_os = "linux"))]
-        if let Err(e) = capture_manager.run(shutdown_rx).await {
+        if let Err(e) = capture_manager.run(shutdown_tx_clone.subscribe()).await {
             eprintln!("[CaptureManager] Task failed: {}", e);
         }
     });
@@ -86,6 +88,23 @@ pub async fn start_capture(
             eprintln!("[WebsocketService] Task failed: {}", e);
         }
     });
+
+    // Handle push service - create if not exists, reuse if exists
+    {
+        let mut handle_guard = state.push_service_handle.lock().await;
+        let done = state.df_actor_handle.done.clone();
+        if handle_guard.is_none() {
+            // Create new push service
+            let new_handle = PushService::new(
+                state.df_actor_handle.clone(),
+                "packet-data".to_string(),
+                "SELECT * FROM packets".to_string(),
+                done.subscribe(),
+                app_handle.clone(),
+            );
+            *handle_guard = Some(new_handle);
+        }
+    }
 
     // Update Shared State
     *state.session_handles.lock().await = Some(CaptureSessionHandles {

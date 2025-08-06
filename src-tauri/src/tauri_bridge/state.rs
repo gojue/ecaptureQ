@@ -1,4 +1,5 @@
 use crate::core::actor::DataFrameActorHandle;
+use crate::services::push_service::PushServiceHandle;
 use tokio::sync::Mutex;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
@@ -9,6 +10,7 @@ pub struct CaptureSessionHandles {
 }
 
 pub struct AppState {
+    pub push_service_handle: Mutex<Option<PushServiceHandle>>,
     pub df_actor_handle: DataFrameActorHandle,
     pub shutdown_tx: Mutex<Option<watch::Sender<()>>>,
     pub session_handles: Mutex<Option<CaptureSessionHandles>>,

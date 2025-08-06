@@ -165,7 +165,9 @@ export function ResponsivePacketView({
     const updateHeight = () => {
       if (containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
-        const availableHeight = window.innerHeight - rect.top - 20;
+        // 增加底部边距，确保最后一条记录不被遮挡
+        const bottomMargin = 40; // 增加底部边距
+        const availableHeight = window.innerHeight - rect.top - bottomMargin;
         setListHeight(Math.max(200, availableHeight));
       }
     };
@@ -187,7 +189,7 @@ export function ResponsivePacketView({
     <div ref={containerRef} className="flex-1 flex flex-col overflow-hidden">
       {viewMode === 'table' && (
         // Table Header
-        <div className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center px-6 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">
+        <div className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center px-6 py-3 text-sm font-medium text-gray-500 dark:text-gray-400 flex-shrink-0">
           <div className="w-32 pr-4">Time</div>
           <div className="w-40 pr-4">Process</div>
           <div className="w-48 pr-4">Source</div>
@@ -205,7 +207,7 @@ export function ResponsivePacketView({
           </div>
         </div>
       ) : (
-        <div className="flex-1">
+        <div className="flex-1 overflow-hidden">
           <List
             ref={listRef}
             height={listHeight}

@@ -39,6 +39,7 @@ pub async fn run() {
         shutdown_tx: Mutex::new(None),
         session_handles: Mutex::new(None),
         offset: Mutex::new(0),
+        push_service_handle: Mutex::new(None),
     };
 
     let log_plugin = LogBuilder::new()
@@ -104,7 +105,7 @@ pub async fn run() {
                         eprintln!("error stop capture");
                     }
                 });
-                thread::sleep(Duration::from_secs(1));
+                thread::sleep(Duration::from_millis(500));
                 std::process::exit(1);
             }
             _ => {}

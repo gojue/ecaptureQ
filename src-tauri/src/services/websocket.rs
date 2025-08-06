@@ -31,7 +31,7 @@ impl WebsocketService {
     }
 
     pub async fn receiver_task(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        println!("Attempting WebSocket connection to: {}", self.ws_url);
+        log::info!("Attempting WebSocket connection to: {}", self.ws_url);
         
         let mut request = self.ws_url.as_str().into_client_request()?;
         
@@ -41,7 +41,7 @@ impl WebsocketService {
         
         let config = WebSocketConfig::default();
         let (ws_stream, _) = connect_async_with_config(request, Some(config), false).await?;
-        println!("WebSocket connected");
+        log::info!("WebSocket connected");
 
         let mut buffer: Vec<PacketData> = Vec::with_capacity(BATCH_SIZE);
         let mut flush_timer = tokio::time::interval(FLUSH_TIMEOUT);
@@ -95,7 +95,7 @@ impl WebsocketService {
                                 }
                             }
                             Err(e) => {
-                                eprintln!("Parse message failed: {:?}, raw: {}", e, text);
+                                log::error!("Parse message failed: {:?}, raw: {}", e, text);
                                 // Don't terminate connection on single message parse failure
                                 continue;
                             }
@@ -110,7 +110,7 @@ impl WebsocketService {
             }
         }
 
-        println!("WebSocket receiver task closed");
+        log::info!("WebSocket receiver task closed");
         Ok(())
     }
 }

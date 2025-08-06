@@ -1,3 +1,3 @@
 pub mod commands;
-mod converters;
+pub mod converters;
 pub mod state;

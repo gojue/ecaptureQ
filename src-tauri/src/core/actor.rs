@@ -34,7 +34,7 @@ impl DataFrameActorHandle {
         let _ = self.sender.send(ActorMessage::UpdateBatch(batch)).await;
     }
 
-    async fn query_sql(&self, sql: String) -> PolarsResult<DataFrame> {
+    pub async fn query_sql(&self, sql: String) -> PolarsResult<DataFrame> {
         let (send_one, recv_one) = oneshot::channel();
         self.sender
             .send(ActorMessage::QuerySql {
