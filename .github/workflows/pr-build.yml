@@ -19,6 +19,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+          fetch-depth: 0
 
       - name: Install dependencies (ubuntu only)
         if: matrix.platform == 'ubuntu-22.04'
@@ -37,11 +40,16 @@ jobs:
       - name: Node.js setup
         uses: actions/setup-node@v4
         with:
-          node-version: 21
-          cache: 'npm'
+          node-version: '23'  # 尝试稳定版本
+          cache: ''  # 禁用缓存
+
+      - name: Check Node.js version
+        run: |
+          node -v
+          npm -v
 
       - name: Install frontend dependencies
-        run: npm ci
+        run: pnpm install
 
       - name: Build the app
         uses: tauri-apps/tauri-action@v0
@@ -92,14 +100,14 @@ jobs:
             if (artifacts.artifacts.length > 0) {
               comment += `✅ Build completed successfully!\n\n`;
               comment += `### 📦 Download Artifacts:\n`;
-              
+            
               for (const artifact of artifacts.artifacts) {
                 const platform = artifact.name.includes('macos') ? '🍎 macOS' : 
                                 artifact.name.includes('ubuntu') ? '🐧 Linux' : 
                                 artifact.name.includes('windows') ? '🪟 Windows' : '📱 Unknown';
                 comment += `- ${platform}: [${artifact.name}](${artifact.archive_download_url})\n`;
               }
-              
+            
               comment += `\n💡 **How to test:**\n`;
               comment += `1. Download the artifact for your platform\n`;
               comment += `2. Extract the archive\n`;
