@@ -34,15 +34,22 @@ jobs:
           else
             ECAPTURE_ARCH="arm64"
           fi
+          
           ECAPTURE_LATEST=$(curl -s https://api.github.com/repos/gojue/ecapture/releases/latest | grep tag_name | cut -d '"' -f 4)
+          if [[ $? -ne 0 ]]; then
+            echo "Failed to fetch the latest release."
+            exit 1
+          fi
+          
           ECAPTURE_TAR="ecapture-${ECAPTURE_LATEST}-android-${ECAPTURE_ARCH}.tar.gz"
           ECAPTURE_DIR="ecapture-${ECAPTURE_LATEST}-android-${ECAPTURE_ARCH}"
-
-          wget "https://github.com/gojue/ecapture/releases/download/${ECAPTURE_LATEST}/${ECAPTURE_TAR}"
-          tar -zxvf "${ECAPTURE_TAR}"
-
+          
+          wget "https://github.com/gojue/ecapture/releases/download/${ECAPTURE_LATEST}/${ECAPTURE_TAR}" || { echo "Download failed"; exit 1; }
+          tar -zxvf "${ECAPTURE_TAR}" || { echo "Extract failed"; exit 1; }
+          
           mkdir -p ecaptureQ/src-tauri/binaries
-          cp "${ECAPTURE_DIR}/ecapture" ecaptureQ/src-tauri/binaries/android_test-aarch64-linux-android
+          cp "${ECAPTURE_DIR}/ecapture" ecaptureQ/src-tauri/binaries/android_test-${ARCH}-linux-android || { echo "Copy failed"; exit 1; }
+
       - name: Rust setup
         uses: dtolnay/rust-toolchain@stable
 
