@@ -79,10 +79,9 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
         with:
-          packages: |
-            platforms;android-34
-            build-tools;34.0.0
-            ndk;26.1.10909125
+          api-level: 34
+          build-tools: 34.0.0
+          ndk-version: 26.1.10909125
 
       # --- 关键步骤：创建 keystore.properties 文件 ---
       - name: Create keystore.properties for Android signing
