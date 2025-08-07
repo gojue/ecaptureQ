@@ -54,7 +54,7 @@ jobs:
       - name: Node.js setup
         uses: actions/setup-node@v4
         with:
-          node-version: '23'  # 尝试稳定版本
+          node-version: '20.19.4'  # 尝试稳定版本
           cache: ''  # 禁用缓存
       - name: install Rust stable
         uses: dtolnay/rust-toolchain@stable
