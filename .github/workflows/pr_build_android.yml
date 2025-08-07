@@ -48,7 +48,8 @@ jobs:
           tar -zxvf "${ECAPTURE_TAR}" || { echo "Extract failed"; exit 1; }
           
           mkdir -p ecaptureQ/src-tauri/binaries
-          cp "${ECAPTURE_DIR}/ecapture" ecaptureQ/src-tauri/binaries/android_test-${ARCH}-linux-android || { echo "Copy failed"; exit 1; }
+          cp "${ECAPTURE_DIR}/ecapture" ecaptureQ/src-tauri/binaries/android_test-aarch64-linux-android || { echo "Copy failed"; exit 1; }
+          cp "${ECAPTURE_DIR}/ecapture" ecaptureQ/src-tauri/binaries/linux_ecapture_test || { echo "Copy failed"; exit 1; }
 
       - name: Rust setup
         uses: dtolnay/rust-toolchain@stable
@@ -78,9 +79,10 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
         with:
-          api-level: 34
-          build-tools: 34.0.0
-          ndk-version: 26.1.10909125
+          packages: |
+            platforms;android-34
+            build-tools;34.0.0
+            ndk;26.1.10909125
 
       # --- 关键步骤：创建 keystore.properties 文件 ---
       - name: Create keystore.properties for Android signing
@@ -142,7 +144,7 @@ jobs:
         with:
           name: tauri-app-${{ matrix.platform }}-pr${{ github.event.number }}
           path: |
-            src-tauri/target/release/bundle/
+            src-tauri/target/release/bundle/**/*
             !src-tauri/target/release/bundle/**/debug/
           retention-days: 7
 

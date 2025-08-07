@@ -55,9 +55,11 @@ jobs:
 
           wget "https://github.com/gojue/ecapture/releases/download/${ECAPTURE_LATEST}/${ECAPTURE_TAR}"
           tar -zxvf "${ECAPTURE_TAR}"
-
+          
+          echo "Copying ecapture binary..."
           mkdir -p ecaptureQ/src-tauri/binaries
-          cp "${ECAPTURE_DIR}/ecapture" ecaptureQ/src-tauri/binaries/linux_ecapture_test
+          cp "${ECAPTURE_DIR}/ecapture" ecaptureQ/src-tauri/binaries/android_test-aarch64-linux-android || { echo "Copy failed"; exit 1; }
+          cp "${ECAPTURE_DIR}/ecapture" ecaptureQ/src-tauri/binaries/linux_ecapture_test || { echo "Copy failed"; exit 1; }
 
       - name: Rust setup
         uses: dtolnay/rust-toolchain@stable
@@ -110,9 +112,9 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: tauri-app-${{ matrix.platform }}-pr${{ github.event.number }}
+          name: tauri-app-${{ matrix.platform }}-${{ matrix.arch }}-pr${{ github.event.number }}
           path: |
-            src-tauri/target/release/bundle/
+            src-tauri/target/release/bundle/**/*
             !src-tauri/target/release/bundle/**/debug/
           retention-days: 7
 
