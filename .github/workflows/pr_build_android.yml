@@ -1,4 +1,4 @@
-name: PR Build and Test (PC, Mac, Linux)
+name: PR Build and Test (Android)
 
 on:
   pull_request:
@@ -9,33 +9,19 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  build-android:
+    runs-on: "ubuntu-22.04"
     strategy:
-      fail-fast: false
       matrix:
-        platform: [macos-latest, ubuntu-22.04, windows-latest]
-
-    runs-on: ${{ matrix.platform }}
+        arch: [ aarch64, x86_64 ] # 定义一个包含两种架构的矩阵
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           submodules: 'recursive'
           fetch-depth: 0
-      - name: Check tag and package.json version
-        run: |
-          TAG_REF="${GITHUB_REF##*/}"
-          echo "Current tag: $TAG_REF"
-          PKG_VERSION=$(jq -r .version package.json)
-          echo "package.json version: $PKG_VERSION"
-          if [[ "$TAG_REF" != "v$PKG_VERSION" ]]; then
-            echo "Tag ($TAG_REF) does not match package.json version (v$PKG_VERSION)."
-            exit 1
-          fi
-          echo "Tag and package.json version are consistent."
 
       - name: Install dependencies (ubuntu only)
-        if: matrix.platform == 'ubuntu-22.04'
         run: |
           sudo apt-get update
           sudo apt-get install -y  libsoup-3.0-dev libjavascriptcoregtk-4.1-dev libwebkit2gtk-4.1-dev libgtk-3-dev libssl-dev xdg-utils librsvg2-dev libappindicator3-dev  patchelf
@@ -49,15 +35,14 @@ jobs:
             ECAPTURE_ARCH="arm64"
           fi
           ECAPTURE_LATEST=$(curl -s https://api.github.com/repos/gojue/ecapture/releases/latest | grep tag_name | cut -d '"' -f 4)
-          ECAPTURE_TAR="ecapture-${ECAPTURE_LATEST}-linux-${ECAPTURE_ARCH}.tar.gz"
-          ECAPTURE_DIR="ecapture-${ECAPTURE_LATEST}-linux-${ECAPTURE_ARCH}"
+          ECAPTURE_TAR="ecapture-${ECAPTURE_LATEST}-android-${ECAPTURE_ARCH}.tar.gz"
+          ECAPTURE_DIR="ecapture-${ECAPTURE_LATEST}-android-${ECAPTURE_ARCH}"
 
           wget "https://github.com/gojue/ecapture/releases/download/${ECAPTURE_LATEST}/${ECAPTURE_TAR}"
           tar -zxvf "${ECAPTURE_TAR}"
 
           mkdir -p ecaptureQ/src-tauri/binaries
-          cp "${ECAPTURE_DIR}/ecapture" ecaptureQ/src-tauri/binaries/linux_ecapture_test
-
+          cp "${ECAPTURE_DIR}/ecapture" ecaptureQ/src-tauri/binaries/android_test-aarch64-linux-android
       - name: Rust setup
         uses: dtolnay/rust-toolchain@stable
 
@@ -71,6 +56,46 @@ jobs:
         with:
           node-version: '23'  # 尝试稳定版本
           cache: ''  # 禁用缓存
+      - name: install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '23'
+
+      # 下载并配置 Android SDK/NDK
+      - name: Setup Android SDK
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          android-sdk: true
+          android-platforms: "android-33"
+          android-build-tools: "33.0.2"
+          android-ndk: "25.1.8937393"
+
+      # --- 关键步骤：创建 keystore.properties 文件 ---
+      - name: Create keystore.properties for Android signing
+        run: |
+          # 动态创建 src-tauri/gen/android 目录（如果不存在）
+          mkdir -p src-tauri/gen/android
+          
+          # 将 Base64 编码的密钥文件解码，并保存到 Runner 的临时目录
+          echo "${{ secrets.ANDROID_SIGNING_DEBUG_KEY }}" | base64 --decode > android_keystore.jks
+          
+          # 将签名信息写入 keystore.properties 文件
+          cat <<EOF > src-tauri/gen/android/keystore.properties
+          password=${{ secrets.ANDROID_SIGNING_DEBUG_KEY_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_SIGNING_DEBUG_KEY_ALIAS }}
+          storeFile=${{ github.workspace }}/android_keystore.jks
+          keyPassword=${{ secrets.ANDROID_SIGNING_DEBUG_KEY_ALIAS_PASSWORD }}
+          EOF
+        env:
+          GITHUB_WORKSPACE: ${{ github.workspace }}
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -86,11 +111,13 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install
 
-      - name: Build the app
+      - name: Build and Sign Android App for ${{ matrix.arch }}
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          tauri-bundler: "android"
+          android-targets: ${{ matrix.arch }}
           tagName: pr-${{ github.event.number }}-${{ github.sha }}
           releaseName: 'PR #${{ github.event.number }} Build'
           releaseBody: |
@@ -116,8 +143,9 @@ jobs:
           retention-days: 7
 
   comment-pr:
-    needs: build
+    needs: build-android
     runs-on: ubuntu-latest
+    if: always()
     steps:
       - name: Comment PR
         uses: actions/github-script@v7
@@ -136,10 +164,13 @@ jobs:
               comment += `### 📦 Download Artifacts:\n`;
             
               for (const artifact of artifacts.artifacts) {
-                const platform = artifact.name.includes('macos') ? '🍎 macOS' : 
-                                artifact.name.includes('ubuntu') ? '🐧 Linux' : 
-                                artifact.name.includes('windows') ? '🪟 Windows' : '📱 Unknown';
-                comment += `- ${platform}: [${artifact.name}](${artifact.archive_download_url})\n`;
+                let arch = 'Unknown';
+                if (artifact.name.includes('aarch64') || artifact.name.includes('arm64')) {
+                  arch = 'aarch64 (ARM64)';
+              } else if (artifact.name.includes('x86_64')|| artifact.name.includes('amd64')) {
+                  arch = 'x86_64';
+              }
+              comment += `- 📱 Android [${arch}]: [${artifact.name}](${artifact.archive_download_url})\n`;
               }
             
               comment += `\n💡 **How to test:**\n`;

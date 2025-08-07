@@ -1,0 +1,30 @@
+name: Check Formatting
+
+on:
+  pull_request:
+
+jobs:
+  rustfmt:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install Rust stable and rustfmt
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: run cargo fmt
+        run: cargo fmt --manifest-path ./src-tauri/Cargo.toml --all -- --check
+
+  prettier:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
