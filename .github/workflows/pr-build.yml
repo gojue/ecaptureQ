@@ -14,6 +14,7 @@ jobs:
       fail-fast: false
       matrix:
         platform: [macos-latest, ubuntu-22.04, windows-latest]
+        arch: [ aarch64, x86_64 ] # 定义一个包含两种架构的矩阵
 
     runs-on: ${{ matrix.platform }}
     steps:

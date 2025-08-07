@@ -76,14 +76,11 @@ jobs:
 
       # 下载并配置 Android SDK/NDK
       - name: Setup Android SDK
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: android-actions/setup-android@v3
         with:
-          android-sdk: true
-          android-platforms: "android-33"
-          android-build-tools: "33.0.2"
-          android-ndk: "25.1.8937393"
+          api-level: 34
+          build-tools: 34.0.0
+          ndk-version: 26.1.10909125
 
       # --- 关键步骤：创建 keystore.properties 文件 ---
       - name: Create keystore.properties for Android signing
