@@ -1,10 +1,42 @@
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Save, RotateCcw, Loader2, Server, Terminal } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useResponsive } from '@/hooks/useResponsive';
+import { useConfigs } from '@/hooks/useConfigs';
+import { useState } from 'react';
 
 export function SettingsPage() {
   const navigate = useNavigate();
   const { isMobile } = useResponsive();
+  const { configs, isLoading, hasChanges, updateConfigs, saveConfigs, resetConfigs } = useConfigs();
+  const [saveLoading, setSaveLoading] = useState(false);
+
+  const handleSave = async () => {
+    if (!hasChanges) return;
+    
+    setSaveLoading(true);
+    try {
+      await saveConfigs();
+    } catch (error) {
+      // Error is already logged in the hook
+    } finally {
+      setSaveLoading(false);
+    }
+  };
+
+  const handleReset = () => {
+    resetConfigs();
+  };
+
+  if (isLoading) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="flex items-center space-x-2 text-gray-500 dark:text-gray-400">
+          <Loader2 className="w-5 h-5 animate-spin" />
+          <span>Loading settings...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col">
@@ -20,11 +52,122 @@ export function SettingsPage() {
         </div>
       )}
       
-      <div className="flex-1 p-8">
-        <h2 className="text-2xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Settings</h2>
-        <p className="text-gray-600 dark:text-gray-400">
-          Configuration options will be available here in a future update.
-        </p>
+      <div className="flex-1 p-8 max-w-4xl mx-auto w-full">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Settings</h2>
+          
+          {hasChanges && (
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={handleReset}
+                disabled={saveLoading}
+                className="flex items-center space-x-2 px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-md transition-colors"
+              >
+                <RotateCcw size={16} />
+                <span>Reset</span>
+              </button>
+              
+              <button
+                onClick={handleSave}
+                disabled={saveLoading}
+                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-md transition-colors"
+              >
+                {saveLoading ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save size={16} />
+                    <span>Save Changes</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-6">
+          {/* WebSocket Configuration */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
+                <Server className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  WebSocket Server
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Configure the WebSocket server address for packet data reception
+                </p>
+              </div>
+            </div>
+            
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Server URL
+              </label>
+              <input
+                type="text"
+                value={configs.ws_url || ''}
+                onChange={(e) => updateConfigs({ ws_url: e.target.value })}
+                placeholder="ws://127.0.0.1:18088"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Default: ws://127.0.0.1:18088 (leave empty to use default)
+              </p>
+            </div>
+          </div>
+
+          {/* eCapture Arguments */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="p-2 bg-green-100 dark:bg-green-900/50 rounded-lg">
+                <Terminal className="w-5 h-5 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  eCapture Arguments
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Additional command line arguments for the eCapture process
+                </p>
+              </div>
+            </div>
+            
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Command Arguments
+              </label>
+              <textarea
+                value={configs.ecapture_args || ''}
+                onChange={(e) => updateConfigs({ ecapture_args: e.target.value })}
+                placeholder="--interface=eth0 --port=8080"
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 font-mono text-sm"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Optional: Additional arguments to pass to the eCapture binary
+              </p>
+            </div>
+          </div>
+
+          {/* Information Section */}
+          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800 p-4">
+            <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-2">
+              Configuration Notes
+            </h4>
+            <ul className="text-sm text-blue-700 dark:text-blue-400 space-y-1">
+              <li>• Changes take effect after restarting the capture session</li>
+              <li>• WebSocket URL should match your eCapture server configuration</li>
+              <li>• Leave fields empty to use application defaults</li>
+              <li>• Invalid configurations may prevent the application from working properly</li>
+            </ul>
+          </div>
+        </div>
       </div>
     </div>
   );

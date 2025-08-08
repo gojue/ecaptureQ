@@ -11,12 +11,13 @@ use tauri_plugin_log::{Builder as LogBuilder, Target, TargetKind};
 use nix::unistd::geteuid;
 use std::thread;
 use std::time::Duration;
+use crate::tauri_bridge::state::Configs;
 // use tokio::signal;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub async fn run() {
     // on linux, only root user can run this program
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", not(decoupled)))]
     {
         if !geteuid().is_root() {
             eprintln!("NEED TO RUN WITH ROOT PERMISSION");
@@ -31,15 +32,21 @@ pub async fn run() {
     tauri::async_runtime::spawn(actor.run());
     let df_actor_handle = core::actor::DataFrameActorHandle {
         sender: actor_tx,
-        done: done_tx,
+        done: done_tx.clone(),
+    };
+
+    let configs = Configs{
+        ws_url: Some("ws://127.0.0.1:18088".to_string()),
+        ecapture_args: None,
     };
 
     let app_state = AppState {
         df_actor_handle,
+        done: Mutex::new(done_tx),
         shutdown_tx: Mutex::new(None),
         session_handles: Mutex::new(None),
-        offset: Mutex::new(0),
         push_service_handle: Mutex::new(None),
+        configs: Mutex::new(configs),
     };
 
     let log_plugin = LogBuilder::new()
@@ -50,20 +57,6 @@ pub async fn run() {
         .level(log::LevelFilter::Info)
         .build();
 
-    /*    tauri::Builder::default()
-        .manage(app_state)
-        .plugin(log_plugin)
-        .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_store::Builder::default().build())
-        .plugin(tauri_plugin_websocket::init())
-        .invoke_handler(tauri::generate_handler![
-            commands::start_capture,
-            commands::stop_capture,
-            commands::get_all_data,
-            commands::get_incremental_data,
-        ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");*/
     let builder = tauri::Builder::default()
         .setup(|app| {
             let app_handle = app.handle();
@@ -82,8 +75,8 @@ pub async fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::start_capture,
             commands::stop_capture,
-            commands::get_all_data,
-            commands::get_incremental_data,
+            commands::get_configs,
+            commands::modify_configs,
         ]);
 
     let app = builder
