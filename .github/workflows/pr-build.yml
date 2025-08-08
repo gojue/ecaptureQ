@@ -5,25 +5,36 @@ on:
     branches: [ main, develop ]
     types: [opened, synchronize, reopened]
 
+# 授予工作流写入权限，用于创建 Release 和上传产物
+permissions:
+  contents: write
+
+# 定义环境变量
 env:
-  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  RUST_BACKTRACE: short
+
+# 确保每个提交只运行一次工作流
+concurrency:
+  group: "${{ github.workflow }} - ${{ github.head_ref || github.ref }}"
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: [macos-latest, ubuntu-22.04, windows-latest]
-        arch: [ aarch64, x86_64 ] # 定义一个包含两种架构的矩阵
-
-    runs-on: ${{ matrix.platform }}
+  # 任务 1: 检查 Git Tag 和 package.json 的版本是否一致
+  check_tag_version:
+    name: Check Release Tag and package.json Version Consistency
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          submodules: 'recursive'
-          fetch-depth: 0
+
+      - name: Install jq for JSON parsing
+        run: sudo apt-get update && sudo apt-get install -y jq
+
       - name: Check tag and package.json version
+        id: get_version
         run: |
           TAG_REF="${GITHUB_REF##*/}"
           echo "Current tag: $TAG_REF"
@@ -31,153 +42,153 @@ jobs:
           echo "package.json version: $PKG_VERSION"
           if [[ "$TAG_REF" != "v$PKG_VERSION" ]]; then
             echo "Tag ($TAG_REF) does not match package.json version (v$PKG_VERSION)."
-            exit 0 # 这里临时改为 exit 0，避免工作流失败
+            exit 1
           fi
           echo "Tag and package.json version are consistent."
+          echo "version=${PKG_VERSION}" >> $GITHUB_OUTPUT
 
+  # 任务 2: 为 Windows, macOS, Linux, 和 Android 构建和发布
+  release:
+    name: Build and Release
+    needs: check_tag_version
+    strategy:
+      fail-fast: false
+      matrix:
+        # 定义需要构建的平台和架构
+        include:
+          # Windows
+          - os: windows-latest
+            platform: windows
+            target: x86_64-pc-windows-msvc
+            arch: x86_64
+          - os: windows-latest
+            platform: windows
+            target: aarch64-pc-windows-msvc
+            arch: aarch64
+          # macOS
+          - os: macos-latest
+            platform: macos
+            target: aarch64-apple-darwin
+            arch: aarch64
+          - os: macos-latest
+            platform: macos
+            target: x86_64-apple-darwin
+            arch: x86_64
+          # Linux
+          - os: ubuntu-22.04
+            platform: linux
+            target: x86_64-unknown-linux-gnu
+            arch: x86_64
+          - os: ubuntu-22.04
+            platform: linux
+            target: aarch64-unknown-linux-gnu
+            arch: aarch64
+          # Android
+          - os: ubuntu-22.04
+            platform: android
+            target: aarch64-linux-android
+            arch: aarch64
+          - os: ubuntu-22.04
+            platform: android
+            target: x86_64-linux-android
+            arch: x86_64
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # 安装 Rust Stable
+      - name: Install Rust Stable
+        uses: dtolnay/rust-toolchain@stable
+
+      # 添加 Rust 编译目标
+      - name: Add Rust Target
+        run: rustup target add ${{ matrix.target }}
+
+      # Rust 缓存
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      # 仅在 Ubuntu 上安装依赖
       - name: Install dependencies (ubuntu only)
-        if: matrix.platform == 'ubuntu-22.04'
+        if: matrix.os == 'ubuntu-22.04'
         run: |
           sudo apt-get update
           sudo apt-get install -y  libsoup-3.0-dev libjavascriptcoregtk-4.1-dev libwebkit2gtk-4.1-dev libgtk-3-dev libssl-dev xdg-utils librsvg2-dev libappindicator3-dev  patchelf
 
-      - name: Download and setup eCapture for ${{ matrix.arch }}
-        shell: bash
+      # 仅为 Android 平台安装额外的依赖
+      - name: Install Android dependencies (android only)
+        if: matrix.platform == 'android'
         run: |
-          if [[ "${{ matrix.arch }}" == "x86_64" ]]; then
-            ECAPTURE_ARCH="amd64"
-          else
-            ECAPTURE_ARCH="arm64"
-          fi
-          ECAPTURE_LATEST=$(curl -s https://api.github.com/repos/gojue/ecapture/releases/latest | grep tag_name | cut -d '"' -f 4)
-          ECAPTURE_TAR="ecapture-${ECAPTURE_LATEST}-linux-${ECAPTURE_ARCH}.tar.gz"
-          ECAPTURE_DIR="ecapture-${ECAPTURE_LATEST}-linux-${ECAPTURE_ARCH}"
+          sudo apt-get update
+          sudo apt-get install -y openjdk-17-jdk
 
-          wget "https://github.com/gojue/ecapture/releases/download/${ECAPTURE_LATEST}/${ECAPTURE_TAR}"
-          tar -zxvf "${ECAPTURE_TAR}"
-          
-          echo "Copying ecapture binary..."
-          mkdir -p ecaptureQ/src-tauri/binaries
-          cp "${ECAPTURE_DIR}/ecapture" ecaptureQ/src-tauri/binaries/android_test-aarch64-linux-android || { echo "Copy failed"; exit 1; }
-          cp "${ECAPTURE_DIR}/ecapture" ecaptureQ/src-tauri/binaries/linux_ecapture_test || { echo "Copy failed"; exit 1; }
-
-      - name: Rust setup
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Rust cache
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: './src-tauri -> target'
-
-      - name: Node.js setup
+      # 设置 Node.js 环境
+      - name: Install Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20.19.4'  # 尝试稳定版本
-          cache: ''  # 禁用缓存
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
+          node-version: "22"
+      
+      # 设置 pnpm
+      - uses: pnpm/action-setup@v4
+        name: Install pnpm
         with:
-          version: latest
+          run_install: false
 
-      - name: Check Node.js version
-        run: |
-          node -v
-          npm -v
-          pnpm -v
+      # 安装前端依赖
+      - name: Pnpm install
+        run: pnpm i
 
-      - name: Install frontend dependencies
-        run: pnpm install
-
-      - name: Build the app
+      # Tauri 构建
+      - name: Tauri build
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.ANDROID_SIGNING_DEBUG_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_DEBUG_KEY_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          ANDROID_KEYSTORE_PATH: ${{ secrets.ANDROID_KEYSTORE_PATH }}
+          ANDROID_KEYSTORE_PASS: ${{ secrets.ANDROID_SIGNING_DEBUG_KEY_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_SIGNING_DEBUG_KEY_ALIAS }}
+          ANDROID_KEY_PASS: ${{ secrets.ANDROID_SIGNING_DEBUG_KEY_ALIAS_PASSWORD }}
         with:
-          tagName: pr-${{ github.event.number }}-${{ github.sha }}
-          releaseName: 'PR #${{ github.event.number }} Build'
-          releaseBody: |
-            This is an automated build for PR #${{ github.event.number }}.
-            
-            **Changes in this PR:**
-            ${{ github.event.pull_request.body }}
-            
-            **Commit:** ${{ github.sha }}
-            **Branch:** ${{ github.head_ref }}
-          releaseDraft: true
-          prerelease: true
-          includeDebug: false
-          includeRelease: true
+          # 使用 `check_tag_version` 任务的输出版本
+          tagName: v${{ needs.check_tag_version.outputs.version }}
+          releaseName: "Release v${{ needs.check_tag_version.outputs.version }}"
+          releaseBody: "Automated release build for all platforms."
+          tauriScript: pnpm
+          args: --target ${{ matrix.target }}
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: tauri-app-${{ matrix.platform }}-${{ matrix.arch }}-pr${{ github.event.number }}
-          path: |
-            src-tauri/target/release/bundle/**/*
-            !src-tauri/target/release/bundle/**/debug/
-          retention-days: 7
-
-  comment-pr:
-    needs: build
+  # 任务 3: 仅在所有发布任务成功后，才更新发布信息，例如创建更新文件等
+  release_update:
+    name: Release Update
     runs-on: ubuntu-latest
+    needs: release
+    if: success()
     steps:
-      - name: Comment PR
-        uses: actions/github-script@v7
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Node
+        uses: actions/setup-node@v4
         with:
-          script: |
-            const { data: artifacts } = await github.rest.actions.listWorkflowRunArtifacts({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              run_id: context.runId,
-            });
+          node-version: "22"
 
-            let comment = `## 🔨 PR Build Results\n\n`;
-            
-            if (artifacts.artifacts.length > 0) {
-              comment += `✅ Build completed successfully!\n\n`;
-              comment += `### 📦 Download Artifacts:\n`;
-            
-              for (const artifact of artifacts.artifacts) {
-                const platform = artifact.name.includes('macos') ? '🍎 macOS' : 
-                                artifact.name.includes('ubuntu') ? '🐧 Linux' : 
-                                artifact.name.includes('windows') ? '🪟 Windows' : '📱 Unknown';
-                comment += `- ${platform}: [${artifact.name}](${artifact.archive_download_url})\n`;
-              }
-            
-              comment += `\n💡 **How to test:**\n`;
-              comment += `1. Download the artifact for your platform\n`;
-              comment += `2. Extract the archive\n`;
-              comment += `3. Install/run the application\n`;
-              comment += `4. Report any issues in this PR\n\n`;
-              comment += `⏰ Artifacts will be available for 7 days.\n`;
-            } else {
-              comment += `❌ Build failed. Please check the workflow logs for details.\n`;
-            }
+      - uses: pnpm/action-setup@v4
+        name: Install pnpm
+        with:
+          run_install: false
 
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-            });
+      - name: Pnpm install
+        run: pnpm i
 
-            const botComment = comments.find(comment => 
-              comment.user.type === 'Bot' && 
-              comment.body.includes('🔨 PR Build Results')
-            );
-
-            if (botComment) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: botComment.id,
-                body: comment
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body: comment
-              });
-            }
+      - name: Release updater file
+        run: pnpm updater
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
