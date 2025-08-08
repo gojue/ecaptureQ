@@ -12,3 +12,9 @@ export interface PacketData {
   length: number;           // u32 数据大小
   payload_base64: string;
 }
+
+// 应用配置结构
+export interface Configs {
+  ws_url?: string;          // WebSocket 服务器地址
+  ecapture_args?: string;   // eCapture 启动参数
+}
