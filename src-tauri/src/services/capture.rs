@@ -51,13 +51,13 @@ fn get_ecapture_bytes() -> &'static [u8] {
     }
 }
 
-/// 负责管理 eCapture 子进程的整个生命周期
 pub struct CaptureManager {
     executable_path: PathBuf,
     #[cfg(any(target_os = "android", target_os = "linux"))]
     child: Option<Child>,
     shutdown_tx: Option<watch::Sender<()>>,
 }
+
 impl CaptureManager {
     pub fn new(base_path: impl AsRef<Path>, shutdown_tx: watch::Sender<()>) -> Self {
         let executable_path = base_path.as_ref().join(get_cli_binary_name());
