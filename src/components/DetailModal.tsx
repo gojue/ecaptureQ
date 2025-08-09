@@ -1,6 +1,7 @@
 import { X, Clock, Globe, Monitor, Database } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import type { PacketData } from '@/types';
+import { ApiService } from '@/services/apiService';
 
 interface DetailModalProps {
   packet: PacketData | null;
@@ -9,6 +10,7 @@ interface DetailModalProps {
 
 export function DetailModal({ packet, onClose }: DetailModalProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'payload'>('overview');
+  const [decodedPayload, setDecodedPayload] = useState<string>('Loading...');
 
   if (!packet) return null;
 
@@ -50,7 +52,7 @@ export function DetailModal({ packet, onClose }: DetailModalProps) {
   }
 
   try {
-    // Format timestamp - fix nanosecond to millisecond conversion
+    // Format timestamp - convert nanoseconds to milliseconds
     const formatTimestamp = (timestamp: number) => {
       try {
         // Handle undefined/null timestamp
@@ -90,18 +92,23 @@ export function DetailModal({ packet, onClose }: DetailModalProps) {
     }
   };
 
-  // Decode Base64 payload without truncation
-  const decodedPayload = useMemo(() => {
-    try {
-      if (!packet.payload_base64 || typeof packet.payload_base64 !== 'string') {
-        return 'No payload data';
+  // Decode Base64 payload using backend API
+  useEffect(() => {
+    const decodePayload = async () => {
+      try {
+        if (!packet.payload_base64 || typeof packet.payload_base64 !== 'string') {
+          setDecodedPayload('No payload data');
+          return;
+        }
+        
+        const decoded = await ApiService.base64Decode(packet.payload_base64);
+        setDecodedPayload(decoded);
+      } catch (error) {
+        setDecodedPayload(`Unable to decode payload: ${error}`);
       }
-      const decoded = atob(packet.payload_base64);
-      return decoded;
-    } catch (error) {
-      console.error('Base64 decode error:', error);
-      return 'Unable to decode payload';
-    }
+    };
+
+    decodePayload();
   }, [packet.payload_base64]);
 
   // Protocol type mapping

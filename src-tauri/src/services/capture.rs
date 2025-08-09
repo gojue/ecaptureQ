@@ -20,7 +20,7 @@ fn get_cli_binary_name() -> String {
         return format!("android_ecapture_arm64_{}", hash_string);
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", not(decoupled)))]
     {
         let mut hasher = Sha256::new();
         hasher.update(get_ecapture_bytes());
@@ -28,9 +28,9 @@ fn get_cli_binary_name() -> String {
         return format!("linux_ecapture_amd64_{}", hash_string);
     }
 
-    #[cfg(not(any(target_os = "android", target_os = "linux")))]
+    #[cfg(decoupled)]
     {
-        panic!("Unsupported target OS");
+        panic!()
     }
 }
 
@@ -40,14 +40,14 @@ fn get_ecapture_bytes() -> &'static [u8] {
         return include_bytes!("./../../binaries/android_test-aarch64-linux-android");
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", not(decoupled)))]
     {
         return include_bytes!("./../../binaries/linux_ecapture_test");
     }
 
-    #[cfg(not(any(target_os = "android", target_os = "linux")))]
+    #[cfg(decoupled)]
     {
-        panic!("Unsupported target OS");
+        panic!()
     }
 }
 
@@ -63,7 +63,6 @@ impl CaptureManager {
         let executable_path = base_path.as_ref().join(get_cli_binary_name());
         Self {
             executable_path,
-            #[cfg(any(target_os = "android", target_os = "linux"))]
             child: None,
             shutdown_tx: Some(shutdown_tx),
         }

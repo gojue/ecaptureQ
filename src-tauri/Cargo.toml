@@ -33,6 +33,7 @@ sha2 = "0.10.9"
 hex = "0.4.3"
 http = "1"
 url = "2.5"
+base64 = "0.22.1"
 
 # Build profile for release: optimize for size
 [profile.release]
