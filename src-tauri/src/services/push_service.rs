@@ -1,5 +1,5 @@
 use crate::core::actor::DataFrameActorHandle;
-use log::{info, error};
+use log::{error, info};
 use std::sync::Arc;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};

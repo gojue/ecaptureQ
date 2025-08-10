@@ -4,9 +4,9 @@ mod tauri_bridge;
 
 use std::{sync::Arc, thread, time::Duration};
 
+use log::{error, info};
 #[cfg(target_os = "linux")]
 use nix::unistd::geteuid;
-use log::{info, error};
 use tauri::{Manager, RunEvent};
 use tauri_plugin_log::{Builder as LogBuilder, Target, TargetKind};
 use tokio::sync::{Mutex, RwLock, mpsc, watch};
