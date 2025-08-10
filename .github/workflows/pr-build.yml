@@ -33,18 +33,11 @@ jobs:
       - name: Install jq for JSON parsing
         run: sudo apt-get update && sudo apt-get install -y jq
 
-      - name: Check tag and package.json version
+      - name: Get version from package.json
         id: get_version
         run: |
-          TAG_REF="${GITHUB_REF##*/}"
-          echo "Current tag: $TAG_REF"
           PKG_VERSION=$(jq -r .version package.json)
           echo "package.json version: $PKG_VERSION"
-          if [[ "$TAG_REF" != "v$PKG_VERSION" ]]; then
-            echo "Tag ($TAG_REF) does not match package.json version (v$PKG_VERSION)."
-            exit 0 # TODO 这里使用 exit 0 是为了确保工作流继续执行，但可以根据需要调整逻辑
-          fi
-          echo "Tag and package.json version are consistent."
           echo "version=${PKG_VERSION}" >> $GITHUB_OUTPUT
 
   # 任务 2: 为 Windows, macOS, Linux, 和 Android 构建和发布
@@ -160,11 +153,11 @@ jobs:
           DECOUPLED_MODE: ${{ matrix.platform != 'linux' && matrix.platform != 'android' && 'true' || '' }}
         with:
           # 使用 `check_tag_version` 任务的输出版本
-#          includeRelease: false
-#          includeUpdaterJson: false
-          tagName: v${{ needs.check_tag_version.outputs.version }}
-          releaseName: "Release v${{ needs.check_tag_version.outputs.version }}"
-          releaseBody: "Automated release build for all platforms."
+          includeRelease: false
+          includeUpdaterJson: false
+#          tagName: v${{ needs.check_tag_version.outputs.version }}
+#          releaseName: "Release v${{ needs.check_tag_version.outputs.version }}"
+#          releaseBody: "Automated release build for all platforms."
           tauriScript: pnpm
       - name: List bundle files
         run: |
