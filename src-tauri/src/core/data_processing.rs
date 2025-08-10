@@ -59,7 +59,7 @@ pub fn write_batch_to_df(buffer: &[models::PacketData], df: &mut DataFrame) -> P
 pub fn parse_eq_message(json_str: &str) -> Result<ParsedMessage, Box<dyn std::error::Error>> {
     let eq_message: models::EqMessage = serde_json::from_str(json_str)?;
     let log_type = LogType::from(eq_message.log_type);
-    
+
     match log_type {
         LogType::Heartbeat => {
             let heartbeat: models::HeartbeatMessage = serde_json::from_value(eq_message.payload)?;
@@ -67,15 +67,26 @@ pub fn parse_eq_message(json_str: &str) -> Result<ParsedMessage, Box<dyn std::er
         }
         LogType::ProcessLog => {
             // Parse level, message, time fields from payload
-            let log_message = if let Ok(mut log_data) = serde_json::from_value::<serde_json::Map<String, serde_json::Value>>(eq_message.payload.clone()) {
-                let level = log_data.remove("level")
+            let log_message = if let Ok(mut log_data) = serde_json::from_value::<
+                serde_json::Map<String, serde_json::Value>,
+            >(eq_message.payload.clone())
+            {
+                let level = log_data
+                    .remove("level")
                     .and_then(|v| v.as_str().map(|s| s.to_string()));
-                let message = log_data.remove("message")
+                let message = log_data
+                    .remove("message")
                     .and_then(|v| v.as_str().map(|s| s.to_string()));
-                let time = log_data.remove("time")
+                let time = log_data
+                    .remove("time")
                     .and_then(|v| v.as_str().map(|s| s.to_string()));
                 let log_info = serde_json::to_string(&eq_message.payload)?;
-                models::ProcessLogMessage { level, message, time, log_info }
+                models::ProcessLogMessage {
+                    level,
+                    message,
+                    time,
+                    log_info,
+                }
             } else {
                 models::ProcessLogMessage {
                     level: Some("unknown".to_string()),

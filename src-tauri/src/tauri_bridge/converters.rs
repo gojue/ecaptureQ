@@ -1,12 +1,15 @@
-use crate::core::models::PacketData;
+// External crates
 use polars::prelude::*;
+
+// Internal modules
+use crate::core::models::PacketData;
 
 pub fn df_to_packet_data_vec(df: &DataFrame) -> PolarsResult<Vec<PacketData>> {
     if df.is_empty() {
         return Ok(Vec::new());
     }
 
-    // 将所有列转换为类型化的迭代器，这是最高效的方式
+    // Convert all columns to typed iterators for efficiency
     let ts_iter = df.column("timestamp")?.i64()?;
     let uuid_iter = df.column("uuid")?.str()?;
     let src_ip_iter = df.column("src_ip")?.str()?;
@@ -21,11 +24,9 @@ pub fn df_to_packet_data_vec(df: &DataFrame) -> PolarsResult<Vec<PacketData>> {
 
     let mut result_vec = Vec::with_capacity(df.height());
 
-    // 使用 polars::prelude::par_iter_izip! 来并行处理，如果数据量很大，效果会更好
-    // 这里为简单起见，先用普通循环
+    // Use simple loop for now (parallel processing could be added for large datasets)
     for i in 0..df.height() {
-        // 使用 .get(i) 来安全地获取每个元素
-        // Option.unwrap() 在这里是相对安全的，因为我们知道迭代长度是一致的
+        // Use .get(i) to safely get elements - unwrap is safe here since iteration length is consistent
         result_vec.push(PacketData {
             timestamp: ts_iter.get(i).unwrap(),
             uuid: uuid_iter.get(i).unwrap().to_string(),

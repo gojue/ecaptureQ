@@ -1,7 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    // 创建 Tokio 运行时
+    // Create Tokio runtime
     let rt = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()

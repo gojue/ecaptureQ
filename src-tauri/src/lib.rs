@@ -2,25 +2,29 @@ mod core;
 mod services;
 mod tauri_bridge;
 
-use tauri_bridge::{commands, state::AppState};
-use tauri::{Manager, RunEvent};
-use tokio::sync::Mutex;
-use tokio::sync::{mpsc, watch};
-use tauri_plugin_log::{Builder as LogBuilder, Target, TargetKind};
+use std::{sync::Arc, thread, time::Duration};
+
 #[cfg(target_os = "linux")]
 use nix::unistd::geteuid;
-use std::thread;
-use std::time::Duration;
-use crate::tauri_bridge::state::Configs;
+use log::{info, error};
+use tauri::{Manager, RunEvent};
+use tauri_plugin_log::{Builder as LogBuilder, Target, TargetKind};
+use tokio::sync::{Mutex, RwLock, mpsc, watch};
+
+use crate::tauri_bridge::state::RunState;
+use crate::tauri_bridge::{
+    commands,
+    state::{AppState, Configs},
+};
 // use tokio::signal;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub async fn run() {
-    // on linux, only root user can run this program
+    // On Linux, only root user can run this program
     #[cfg(all(target_os = "linux", not(decoupled)))]
     {
         if !geteuid().is_root() {
-            eprintln!("NEED TO RUN WITH ROOT PERMISSION");
+            error!("NEED TO RUN WITH ROOT PERMISSION");
             std::process::exit(1);
         }
     }
@@ -35,7 +39,7 @@ pub async fn run() {
         done: done_tx.clone(),
     };
 
-    let configs = Configs{
+    let configs = Configs {
         ws_url: Some("ws://127.0.0.1:18088".to_string()),
         ecapture_args: None,
     };
@@ -44,9 +48,9 @@ pub async fn run() {
         df_actor_handle,
         done: Mutex::new(done_tx),
         shutdown_tx: Mutex::new(None),
-        session_handles: Mutex::new(None),
         push_service_handle: Mutex::new(None),
         configs: Mutex::new(configs),
+        status: Arc::new(RwLock::new(RunState::NotCapturing)),
     };
 
     let log_plugin = LogBuilder::new()
@@ -85,26 +89,23 @@ pub async fn run() {
         .expect("error while building tauri application");
 
     app.run(|app_handle, event| {
-
         match event {
             RunEvent::ExitRequested { api, .. } => {
                 api.prevent_exit();
-                println!("Exit requested. Starting graceful shutdown of capture session...");
+                info!("Exit requested. Starting graceful shutdown of capture session...");
                 let app_handle_clone = app_handle.clone();
 
                 tauri::async_runtime::spawn(async move {
                     let state: tauri::State<AppState> = app_handle_clone.state();
                     // state.session_handles.lock().await.take();
                     if commands::stop_capture(state).await.is_err() {
-                        eprintln!("error stop capture");
+                        error!("Error stopping capture");
                     }
                 });
                 thread::sleep(Duration::from_millis(500));
                 std::process::exit(1);
             }
             _ => {}
-
         }
-
     });
 }
