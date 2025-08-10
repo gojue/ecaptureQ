@@ -171,9 +171,10 @@ jobs:
         with:
           name: tauri-app-${{ matrix.platform }}-${{ matrix.arch }}-pr${{ github.event.number }}
           path: |
-            src-tauri/target/release/bundle/**/*
-            !src-tauri/target/release/bundle/**/debug/
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*
+            !src-tauri/target/${{ matrix.target }}/release/bundle/**/debug/
           retention-days: 7
+        if: always()
 
   comment-pr:
     needs: build
