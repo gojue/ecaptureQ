@@ -166,15 +166,17 @@ jobs:
 #          releaseName: "Release v${{ needs.check_tag_version.outputs.version }}"
 #          releaseBody: "Automated release build for all platforms."
           tauriScript: pnpm
+      - name: List bundle files
+        run: ls -R src-tauri/target/release/bundle/
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: tauri-app-${{ matrix.platform }}-${{ matrix.arch }}-pr${{ github.event.number }}
+          if-no-files-found: ignore
           path: |
-            src-tauri/target/${{ matrix.target }}/release/bundle/**/*
-            !src-tauri/target/${{ matrix.target }}/release/bundle/**/debug/
+            src-tauri/target/release/bundle/macos/eCaptureQ.app
+            src-tauri/target/release/bundle/dmg/eCaptureQ*.dmg
           retention-days: 7
-        if: always()
 
   comment-pr:
     needs: build
