@@ -34,6 +34,7 @@ hex = "0.4.3"
 http = "1"
 url = "2.5"
 base64 = "0.22.1"
+rand = "0.9.1"
 
 # Build profile for release: optimize for size
 [profile.release]

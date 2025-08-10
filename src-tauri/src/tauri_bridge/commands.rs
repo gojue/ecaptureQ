@@ -1,6 +1,6 @@
 use anyhow::Result;
 use base64::{Engine as _, engine::general_purpose};
-use log::{info, error};
+use log::{error, info};
 use tauri::{Manager, State};
 
 use crate::services::{
@@ -54,11 +54,11 @@ pub async fn start_capture(
     }
 
     // spawn websocket listen service
-    let websocket_handle = tokio::spawn(async move {
+    tokio::spawn(async move {
         if let Err(e) = websocket_service.receiver_task().await {
             error!("[WebsocketService] Task failed: {}", e);
         }
-    });    // Handle push service - create if not exists, reuse if exists
+    }); // Handle push service - create if not exists, reuse if exists
 
     let mut handle_guard = state.push_service_handle.lock().await;
     let done_guard = state.done.lock().await;
@@ -89,6 +89,7 @@ pub async fn stop_capture(state: tauri::State<'_, AppState>) -> Result<(), Strin
             .map_err(|_| "Failed to send shutdown signal.".to_string())?;
 
         info!("Shutdown signal sent. Capture session stopping.");
+        *state.status.write().await = RunState::NotCapturing;
         Ok(())
     } else {
         Err("Capture session is not running.".into())

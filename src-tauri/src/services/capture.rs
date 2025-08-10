@@ -1,5 +1,5 @@
 use anyhow::{Error, Result};
-use log::{info, error};
+use log::{error, info};
 use nix::sys::signal::{Signal, kill as send_signal};
 use nix::unistd::Pid;
 use sha2::{Digest, Sha256};
