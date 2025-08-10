@@ -157,6 +157,7 @@ jobs:
           ANDROID_KEYSTORE_PASS: ${{ secrets.ANDROID_SIGNING_DEBUG_KEY_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_SIGNING_DEBUG_KEY_ALIAS }}
           ANDROID_KEY_PASS: ${{ secrets.ANDROID_SIGNING_DEBUG_KEY_ALIAS_PASSWORD }}
+          DECOUPLED_MODE: ${{ matrix.platform != 'linux' && matrix.platform != 'android' && 'true' || '' }}
         with:
           # 使用 `check_tag_version` 任务的输出版本
           tagName: v${{ needs.check_tag_version.outputs.version }}
