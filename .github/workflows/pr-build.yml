@@ -135,7 +135,7 @@ jobs:
 
       # Tauri 构建
       - name: Tauri build
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v0.5.22
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.ANDROID_SIGNING_DEBUG_KEY }}
