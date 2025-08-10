@@ -164,7 +164,6 @@ jobs:
           releaseName: "Release v${{ needs.check_tag_version.outputs.version }}"
           releaseBody: "Automated release build for all platforms."
           tauriScript: pnpm
-          args: --target ${{ matrix.target }}
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
