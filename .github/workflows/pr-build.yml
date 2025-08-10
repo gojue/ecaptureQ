@@ -162,7 +162,7 @@ jobs:
           # 使用 `check_tag_version` 任务的输出版本
           includeRelease: false
           includeUpdaterJson: false
-          tagName: v${{ needs.check_tag_version.outputs.version }}
+#          tagName: v${{ needs.check_tag_version.outputs.version }}
 #          releaseName: "Release v${{ needs.check_tag_version.outputs.version }}"
 #          releaseBody: "Automated release build for all platforms."
           tauriScript: pnpm
@@ -178,6 +178,9 @@ jobs:
           path: |
             src-tauri/target/release/bundle/macos/eCaptureQ.app
             src-tauri/target/release/bundle/dmg/eCaptureQ*.dmg
+            src-tauri/target/release/bundle/appimage/eCaptureQ*.AppImage
+            src-tauri/target/release/bundle/**/*
+            src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk
           retention-days: 7
 
   comment-pr:
