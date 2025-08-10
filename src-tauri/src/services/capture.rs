@@ -46,13 +46,7 @@ fn get_ecapture_bytes() -> &'static [u8] {
         return include_bytes!("./../../binaries/linux_ecapture_test");
     }
 
-    #[cfg(any(
-        all(
-            not(target_os = "linux"),
-            not(target_os = "android")
-        ),
-        decoupled
-    ))]
+    #[cfg(any(all(not(target_os = "linux"), not(target_os = "android")), decoupled))]
     {
         panic!()
     }
@@ -61,16 +55,14 @@ fn get_ecapture_bytes() -> &'static [u8] {
 pub struct CaptureManager {
     executable_path: PathBuf,
     child: Option<Child>,
-    shutdown_tx: Option<watch::Sender<()>>,
 }
 
 impl CaptureManager {
-    pub fn new(base_path: impl AsRef<Path>, shutdown_tx: watch::Sender<()>) -> Self {
+    pub fn new(base_path: impl AsRef<Path>) -> Self {
         let executable_path = base_path.as_ref().join(get_cli_binary_name());
         Self {
             executable_path,
             child: None,
-            shutdown_tx: Some(shutdown_tx),
         }
     }
 
@@ -194,12 +186,14 @@ impl CaptureManager {
     pub async fn run(
         &mut self,
         mut shutdown_rx: watch::Receiver<()>,
+        ecapture_args: String,
     ) -> Result<(), Box<dyn std::error::Error>> {
         self.prepare_binary()?;
         let binary_command = self.executable_path.to_string_lossy().to_string();
         let child = Command::new("sudo") // 使用 sudo 运行 eCapture
             .arg(&binary_command)
             .args(["tls", "--ecaptureq", "ws://127.0.0.1:18088"])
+            // .arg(ecapture_args)
             .stdout(Stdio::null()) // 重定向输出
             .stderr(Stdio::null())
             .spawn()?;

@@ -1,7 +1,11 @@
 use anyhow::Result;
 use base64::{Engine as _, engine::general_purpose};
 use log::{error, info};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{Manager, State};
+use tokio::time::{Duration, sleep};
+use wg::AsyncWaitGroup;
 
 use crate::services::{
     capture::CaptureManager, push_service::PushService, websocket::WebsocketService,
@@ -18,6 +22,11 @@ pub async fn start_capture(
         return Err("Capture session is already running.".into());
     }
 
+    *state.status.write().await = RunState::Capturing;
+
+    let error_inspector = Arc::new(AtomicBool::new(false));
+
+    // channel for capture session
     let (shutdown_tx, _) = tokio::sync::watch::channel(());
 
     // Get the app's data directory for storing the binary
@@ -25,10 +34,13 @@ pub async fn start_capture(
         .path()
         .app_data_dir()
         .map_err(|e| e.to_string())?;
+
+    // get locked configs
     let configs = {
-        let guard = state.configs.lock().await;
-        guard.clone() // Deep copy
+        let configs = state.configs.lock().await.clone();
+        configs
     };
+
     let mut websocket_service = WebsocketService::new(
         configs.ws_url.unwrap(),
         state.df_actor_handle.clone(),
@@ -39,26 +51,68 @@ pub async fn start_capture(
 
     #[cfg(not(decoupled))]
     {
-        let mut capture_manager = CaptureManager::new(data_dir, shutdown_tx.clone());
+        let capture_error_inspector = error_inspector.clone();
+        let mut capture_manager = CaptureManager::new(data_dir);
 
         let rx = shutdown_tx.subscribe();
         info!("Spawning background services...");
+
+        // I love go-style waitgroup
+        let capture_wg = AsyncWaitGroup::new();
+        capture_wg.add(1);
+
+        let capture_wg_clone = capture_wg.clone();
         // spawn ecapture service
         tokio::spawn(async move {
-            if let Err(e) = capture_manager.run(rx).await {
+            if let Err(e) = capture_manager
+                .run(rx, configs.ecapture_args.unwrap())
+                .await
+            {
                 error!("[CaptureManager] Task failed: {}", e);
+                capture_error_inspector.store(true, Ordering::Release);
             }
+            capture_wg_clone.done();
         });
-        // Wait for WebSocket setup
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        {
+            tokio::select! {
+            _ = sleep(Duration::from_millis(900)) => {
+                }
+
+            _ = capture_wg.wait() => {
+                }
+            }
+        }
     }
 
+    let ws_wg = AsyncWaitGroup::new();
+    ws_wg.add(1);
+
+    let ws_error_inspector = error_inspector.clone();
+
+    let ws_wg_clone = ws_wg.clone();
     // spawn websocket listen service
     tokio::spawn(async move {
         if let Err(e) = websocket_service.receiver_task().await {
             error!("[WebsocketService] Task failed: {}", e);
+            ws_error_inspector.store(true, Ordering::Release);
         }
-    }); // Handle push service - create if not exists, reuse if exists
+        ws_wg_clone.done();
+    });
+    {
+        tokio::select! {
+            _ = sleep(Duration::from_millis(100)) => {
+                }
+
+            _ = ws_wg.wait() => {
+            }
+        }
+    }
+
+    if error_inspector.load(Ordering::SeqCst) {
+        error!("capture session launch error");
+        *state.status.write().await = RunState::NotCapturing;
+        return Err("capture session launch error".into());
+    }
 
     let mut handle_guard = state.push_service_handle.lock().await;
     let done_guard = state.done.lock().await;
@@ -76,7 +130,6 @@ pub async fn start_capture(
 
     *state.shutdown_tx.lock().await = Some(shutdown_tx);
 
-    *state.status.write().await = RunState::Capturing;
     info!("Capture session started successfully.");
     Ok(())
 }
