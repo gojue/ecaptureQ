@@ -13,7 +13,7 @@ jobs:
     runs-on: "ubuntu-22.04"
     strategy:
       matrix:
-        arch: [ aarch64, x86_64 ] # 定义一个包含两种架构的矩阵
+        arch: [ aarch64 ] # 定义一个包含两种架构的矩阵 , x86_64 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

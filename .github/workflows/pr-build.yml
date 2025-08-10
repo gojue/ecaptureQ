@@ -156,12 +156,16 @@ jobs:
       # Tauri 构建
       - name: Tauri build (Linux)
         if: matrix.platform == 'linux'
+        env:
+          DECOUPLED_MODE: true
         run: |
             pnpm tauri build
       - name: Tauri build (macOS/Windows)
         if: matrix.platform != 'linux'
+        env:
+          DECOUPLED_MODE: true
         run: |
-            DECOUPLED_MODE=true pnpm tauri build
+          pnpm tauri build
       - name: List bundle files
         run: |
           pwd
@@ -171,7 +175,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: tauri-app-${{ matrix.platform }}-${{ matrix.arch }}-pr${{ github.event.number }}
+          name: pr${{ github.event.number }}-${{ artifact.name }}
           if-no-files-found: ignore
           path: |
             src-tauri/target/release/bundle/macos/eCaptureQ.app
@@ -179,8 +183,6 @@ jobs:
             src-tauri/target/release/bundle/appimage/eCaptureQ*.AppImage
             src-tauri/target/release/bundle/rpm/eCaptureQ*.rpm
             src-tauri/target/release/bundle/deb/eCaptureQ*.rpm
-            src-tauri/target/release/bundle/**/*
-            src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk
           retention-days: 7
 
   comment-pr:
