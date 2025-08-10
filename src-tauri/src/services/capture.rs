@@ -46,7 +46,13 @@ fn get_ecapture_bytes() -> &'static [u8] {
         return include_bytes!("./../../binaries/linux_ecapture_test");
     }
 
-    #[cfg(any(all((not(target_os = "linux")), (not(target_os = "android"))), (decoupled)))]
+    #[cfg(any(
+        all(
+            not(target_os = "linux"),
+            not(target_os = "android")
+        ),
+        decoupled
+    ))]
     {
         panic!()
     }
