@@ -175,7 +175,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: pr${{ github.event.number }}-${{ artifact.name }}
+          name: pr${{ github.event.number }}-${{ env.name }}
           if-no-files-found: ignore
           path: |
             src-tauri/target/release/bundle/macos/eCaptureQ.app

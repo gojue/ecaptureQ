@@ -13,7 +13,7 @@ jobs:
     runs-on: "ubuntu-22.04"
     strategy:
       matrix:
-        arch: [ aarch64 ] # 定义一个包含两种架构的矩阵 , x86_64 
+        arch: [ aarch64 ] # 定义一个包含两种架构的矩阵 , x86_64
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -120,6 +120,8 @@ jobs:
 
       - name: Build and Sign Android App for ${{ matrix.arch }}
         run: |
+          rm -rf src-tauri/gen/android
+          pnpm tauri android init
           pnpm tauri android build --target ${{ matrix.arch }}
 
       - name: Upload artifacts
