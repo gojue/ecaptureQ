@@ -110,12 +110,32 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libsoup-3.0-dev libjavascriptcoregtk-4.1-dev libwebkit2gtk-4.1-dev libgtk-3-dev libssl-dev xdg-utils librsvg2-dev libappindicator3-dev  patchelf
 
-      # 仅为 Android 平台安装额外的依赖
-      - name: Install Android dependencies (android only)
-        if: matrix.platform == 'android'
+      - name: Download and setup eCapture for ${{ matrix.arch }}
+        shell: bash
+        if: matrix.platform == 'linux'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y openjdk-17-jdk
+          if [[ "${{ matrix.arch }}" == "x86_64" ]]; then
+            ECAPTURE_ARCH="amd64"
+          else
+            ECAPTURE_ARCH="arm64"
+          fi
+          pwd
+          ECAPTURE_LATEST=$(curl -s https://api.github.com/repos/gojue/ecapture/releases/latest | grep tag_name | cut -d '"' -f 4)
+          if [[ $? -ne 0 ]]; then
+            echo "Failed to fetch the latest release."
+            exit 1
+          fi
+
+          ECAPTURE_TAR="ecapture-${ECAPTURE_LATEST}-android-${ECAPTURE_ARCH}.tar.gz"
+          ECAPTURE_DIR="ecapture-${ECAPTURE_LATEST}-android-${ECAPTURE_ARCH}"
+
+          wget "https://github.com/gojue/ecapture/releases/download/${ECAPTURE_LATEST}/${ECAPTURE_TAR}" || { echo "Download failed"; exit 1; }
+          tar -zxvf "${ECAPTURE_TAR}" || { echo "Extract failed"; exit 1; }
+
+          mkdir -p src-tauri/binaries
+          cp "${ECAPTURE_DIR}/ecapture" src-tauri/binaries/android_test-aarch64-linux-android || { echo "Copy failed"; exit 1; }
+          cp "${ECAPTURE_DIR}/ecapture" src-tauri/binaries/linux_ecapture_test || { echo "Copy failed"; exit 1; }
+          ls src-tauri/binaries/
 
       # 设置 Node.js 环境
       - name: Install Node
@@ -134,16 +154,14 @@ jobs:
         run: pnpm i
 
       # Tauri 构建
-      - name: Tauri build
+      - name: Tauri build (Linux)
+        if: matrix.platform == 'linux'
         run: |
-          if [[ "${{ matrix.platform }}" == "linux" ]]; then
-            # Linux 构建
             pnpm tauri build
-          else
-            # 其他平台构建
+      - name: Tauri build (macOS/Windows)
+        if: matrix.platform != 'linux'
+        run: |
             DECOUPLED_MODE=true pnpm tauri build
-          fi
-
       - name: List bundle files
         run: |
           pwd
@@ -187,7 +205,7 @@ jobs:
             
               for (const artifact of artifacts.artifacts) {
                 const platform = artifact.name.includes('macos') ? '🍎 macOS' : 
-                                artifact.name.includes('ubuntu') ? '🐧 Linux' : 
+                                artifact.name.includes('linux') ? '🐧 Linux' : 
                                 artifact.name.includes('windows') ? '🪟 Windows' : '📱 Unknown';
                 comment += `- ${platform}: [${artifact.name}](${artifact.archive_download_url})\n`;
               }
