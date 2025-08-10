@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use std::ops::Deref;
 use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock, watch};
 
@@ -7,15 +6,9 @@ use crate::{core::actor::DataFrameActorHandle, services::push_service::PushServi
 
 #[derive(Clone)]
 pub enum RunState {
-    NotCapturing = 0,
-    Capturing = 1,
-    ShuttingDown = 2,
-}
-
-impl RunState {
-    pub fn get_state(&self) -> RunState {
-        self.clone()
-    }
+    NotCapturing,
+    Capturing,
+    ShuttingDown,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
