@@ -46,7 +46,7 @@ fn get_ecapture_bytes() -> &'static [u8] {
         return include_bytes!("./../../binaries/linux_ecapture_test");
     }
 
-    #[cfg(decoupled)]
+    #[cfg(any(all((not(target_os = "linux")), (not(target_os = "android"))), (decoupled)))]
     {
         panic!()
     }
@@ -54,7 +54,6 @@ fn get_ecapture_bytes() -> &'static [u8] {
 
 pub struct CaptureManager {
     executable_path: PathBuf,
-    #[cfg(any(target_os = "android", target_os = "linux"))]
     child: Option<Child>,
     shutdown_tx: Option<watch::Sender<()>>,
 }
