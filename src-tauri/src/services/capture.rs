@@ -31,7 +31,7 @@ fn get_cli_binary_name() -> String {
 
     #[cfg(decoupled)]
     {
-        panic!()
+        return "ecapture".to_string();
     }
 }
 

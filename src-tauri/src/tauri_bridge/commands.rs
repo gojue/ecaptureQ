@@ -38,36 +38,6 @@ pub async fn start_capture(
         let guard = state.configs.lock().await;
         guard.clone() // Deep copy
     };
-    let mut websocket_service = WebsocketService::new(
-        configs.ws_url.unwrap(),
-        state.df_actor_handle.clone(),
-        shutdown_tx.subscribe(),
-        state.status.clone(),
-    )
-    .map_err(|e| e.to_string())?;
-
-    #[cfg(not(decoupled))]
-    {
-        let mut capture_manager = CaptureManager::new(data_dir, shutdown_tx.clone());
-
-        let rx = shutdown_tx.subscribe();
-        info!("Spawning background services...");
-        // spawn ecapture service
-        tokio::spawn(async move {
-            if let Err(e) = capture_manager.run(rx).await {
-                error!("[CaptureManager] Task failed: {}", e);
-            }
-        });
-        // Wait for WebSocket setup
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-    }
-
-
-    // get locked configs
-    let configs = {
-        let configs = state.configs.lock().await.clone();
-        configs
-    };
 
     let mut websocket_service = WebsocketService::new(
         configs.ws_url.unwrap(),
@@ -93,7 +63,7 @@ pub async fn start_capture(
         // spawn ecapture service
         tokio::spawn(async move {
             if let Err(e) = capture_manager
-                .run(rx, configs.ecapture_args.unwrap())
+                .run(rx)
                 .await
             {
                 error!("[CaptureManager] Task failed: {}", e);
@@ -134,20 +104,6 @@ pub async fn start_capture(
             _ = ws_wg.wait() => {
             }
         }
-    }); // Handle push service - create if not exists, reuse if exists
-
-    let mut handle_guard = state.push_service_handle.lock().await;
-    let done_guard = state.done.lock().await;
-    if handle_guard.is_none() {
-        // Create new push service
-        let new_handle = PushService::new(
-            state.df_actor_handle.clone(),
-            "packet-data".to_string(),
-            "SELECT * FROM packets".to_string(),
-            done_guard.subscribe(),
-            app_handle.clone(),
-        );
-        *handle_guard = Some(new_handle);
     }
 
     if error_inspector.load(Ordering::SeqCst) {
@@ -156,6 +112,7 @@ pub async fn start_capture(
         return Err("capture session launch error".into());
     }
 
+    // Handle push service - create if not exists, reuse if exists
     let mut handle_guard = state.push_service_handle.lock().await;
     let done_guard = state.done.lock().await;
     if handle_guard.is_none() {
