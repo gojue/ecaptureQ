@@ -41,7 +41,7 @@ pub async fn run() {
 
     let configs = Configs {
         ws_url: Some("ws://127.0.0.1:18088".to_string()),
-        ecapture_args: None,
+        ecapture_args: Some(" tls --ecaptureq ws://127.0.0.1:18088".to_string()),
     };
 
     let app_state = AppState {
