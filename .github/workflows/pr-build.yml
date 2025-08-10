@@ -50,14 +50,14 @@ jobs:
         # 定义需要构建的平台和架构
         include:
           # Windows
-          - os: windows-latest
-            platform: windows
-            target: x86_64-pc-windows-msvc
-            arch: x86_64
-          - os: windows-latest
-            platform: windows
-            target: aarch64-pc-windows-msvc
-            arch: aarch64
+#          - os: windows-latest
+#            platform: windows
+#            target: x86_64-pc-windows-msvc
+#            arch: x86_64
+#          - os: windows-latest
+#            platform: windows
+#            target: aarch64-pc-windows-msvc
+#            arch: aarch64
           # macOS
           - os: macos-latest
             platform: macos
@@ -76,15 +76,6 @@ jobs:
             platform: linux
             target: aarch64-unknown-linux-gnu
             arch: aarch64
-          # Android
-#          - os: ubuntu-22.04
-#            platform: android
-#            target: aarch64-linux-android
-#            arch: aarch64
-#          - os: ubuntu-22.04
-#            platform: android
-#            target: x86_64-linux-android
-#            arch: x86_64
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -172,18 +163,59 @@ jobs:
           ls -al
           ls -al src-tauri/target
           ls -R src-tauri/target/release/bundle/
-      - name: Upload artifacts
+      - name: Upload macOS app
         uses: actions/upload-artifact@v4
         with:
-          name: pr${{ github.event.number }}-${{ env.name }}
+          name: eCaptureQ.app
+          if-no-files-found: ignore
+          path: src-tauri/target/release/bundle/macos/eCaptureQ.app
+
+      - name: Upload DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: eCaptureQ-dmg
+          if-no-files-found: ignore
+          path: src-tauri/target/release/bundle/dmg/eCaptureQ*.dmg
+
+      - name: Upload AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: eCaptureQ-AppImage
+          if-no-files-found: ignore
+          path: src-tauri/target/release/bundle/appimage/eCaptureQ*.AppImage
+
+      - name: Upload RPM
+        uses: actions/upload-artifact@v4
+        with:
+          name: eCaptureQ-rpm
+          if-no-files-found: ignore
+          path: src-tauri/target/release/bundle/rpm/eCaptureQ*.rpm
+
+      - name: Upload DEB
+        uses: actions/upload-artifact@v4
+        with:
+          name: eCaptureQ-pr${{ github.event.number }}-.deb
+          if-no-files-found: ignore
+          path: src-tauri/target/release/bundle/deb/eCaptureQ*.deb
+          retention-days: 7
+
+      - name: Upload artifacts (Linux)
+        uses: actions/upload-artifact@v4
+        if: matrix.platform == 'linux'
+        with:
+          name: eCaptureQ-pr${{ github.event.number }}-${{ github.sha }}-${{ matrix.arch }}.AppImage
+          if-no-files-found: ignore
+          retention-days: 7
+          path: src-tauri/target/release/bundle/appimage/eCaptureQ*.AppImage
+
+      - name: Upload artifacts (macOS)
+        uses: actions/upload-artifact@v4
+        if: matrix.platform == 'macos'
+        with:
+          name: eCaptureQ-pr${{ github.event.number }}-${{ github.sha }}-${{ matrix.arch }}.dmg
           if-no-files-found: ignore
           path: |
-            src-tauri/target/release/bundle/macos/eCaptureQ.app
             src-tauri/target/release/bundle/dmg/eCaptureQ*.dmg
-            src-tauri/target/release/bundle/appimage/eCaptureQ*.AppImage
-            src-tauri/target/release/bundle/rpm/eCaptureQ*.rpm
-            src-tauri/target/release/bundle/deb/eCaptureQ*.rpm
-          retention-days: 7
 
   comment-pr:
     needs: build

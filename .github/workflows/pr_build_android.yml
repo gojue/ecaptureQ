@@ -127,7 +127,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: tauri-app-${{ matrix.platform }}-pr${{ github.event.number }}
+          name: eCaptureQ-pr${{ github.event.number }}-${{ github.sha }}-${{ matrix.arch }}.apk
           if-no-files-found: ignore
           path: |
             src-tauri/gen/android/app/build/outputs/apk/universal/release/*.apk
