@@ -155,13 +155,15 @@ jobs:
           # 使用 `check_tag_version` 任务的输出版本
           includeRelease: false
           includeUpdaterJson: false
-#          tagName: v${{ needs.check_tag_version.outputs.version }}
+          tagName: v${{ needs.check_tag_version.outputs.version }}
 #          releaseName: "Release v${{ needs.check_tag_version.outputs.version }}"
 #          releaseBody: "Automated release build for all platforms."
           tauriScript: pnpm
       - name: List bundle files
         run: |
           pwd
+          ls -al
+          ls -al src-tauri/target
           ls -R src-tauri/target/release/bundle/
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

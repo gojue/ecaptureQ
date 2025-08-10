@@ -48,9 +48,9 @@ jobs:
           tar -zxvf "${ECAPTURE_TAR}" || { echo "Extract failed"; exit 1; }
           
           mkdir -p ecaptureQ/src-tauri/binaries
-          cp "${ECAPTURE_DIR}/ecapture" ecaptureQ/src-tauri/binaries/android_test-aarch64-linux-android || { echo "Copy failed"; exit 1; }
-          cp "${ECAPTURE_DIR}/ecapture" ecaptureQ/src-tauri/binaries/linux_ecapture_test || { echo "Copy failed"; exit 1; }
-          ls ecaptureQ/src-tauri/binaries/
+          cp "${ECAPTURE_DIR}/ecapture" src-tauri/binaries/android_test-aarch64-linux-android || { echo "Copy failed"; exit 1; }
+          cp "${ECAPTURE_DIR}/ecapture" src-tauri/binaries/linux_ecapture_test || { echo "Copy failed"; exit 1; }
+          ls src-tauri/binaries/
 
       - name: Rust setup
         uses: dtolnay/rust-toolchain@stable
