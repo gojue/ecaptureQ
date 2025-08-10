@@ -11,8 +11,8 @@
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
     "tauri:build:decoupled": "cross-env DECOUPLED_MODE=true pnpm tauri build",
-    "tauri:build:android": "tauri android build --target aarch64",
-    "tauri:init:android": "tauri android init"
+    "android:build": "tauri android build --target aarch64",
+    "android:init": "tauri android init"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
