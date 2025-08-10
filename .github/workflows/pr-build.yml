@@ -163,41 +163,6 @@ jobs:
           ls -al
           ls -al src-tauri/target
           ls -R src-tauri/target/release/bundle/
-      - name: Upload macOS app
-        uses: actions/upload-artifact@v4
-        with:
-          name: eCaptureQ.app
-          if-no-files-found: ignore
-          path: src-tauri/target/release/bundle/macos/eCaptureQ.app
-
-      - name: Upload DMG
-        uses: actions/upload-artifact@v4
-        with:
-          name: eCaptureQ-dmg
-          if-no-files-found: ignore
-          path: src-tauri/target/release/bundle/dmg/eCaptureQ*.dmg
-
-      - name: Upload AppImage
-        uses: actions/upload-artifact@v4
-        with:
-          name: eCaptureQ-AppImage
-          if-no-files-found: ignore
-          path: src-tauri/target/release/bundle/appimage/eCaptureQ*.AppImage
-
-      - name: Upload RPM
-        uses: actions/upload-artifact@v4
-        with:
-          name: eCaptureQ-rpm
-          if-no-files-found: ignore
-          path: src-tauri/target/release/bundle/rpm/eCaptureQ*.rpm
-
-      - name: Upload DEB
-        uses: actions/upload-artifact@v4
-        with:
-          name: eCaptureQ-pr${{ github.event.number }}-.deb
-          if-no-files-found: ignore
-          path: src-tauri/target/release/bundle/deb/eCaptureQ*.deb
-          retention-days: 7
 
       - name: Upload artifacts (Linux)
         uses: actions/upload-artifact@v4
