@@ -119,7 +119,7 @@ jobs:
         run: pnpm install
 
       - name: Build and Sign Android App for ${{ matrix.arch }}
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v0.5.22
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -144,9 +144,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: tauri-app-${{ matrix.platform }}-pr${{ github.event.number }}
+          if-no-files-found: ignore
           path: |
-            src-tauri/target/release/bundle/**/*
-            !src-tauri/target/release/bundle/**/debug/
+            src-tauri/target/release/bundle/deb/eCaptureQ*.deb
+            src-tauri/target/release/bundle/rpm/eCaptureQ*.rpm
+            src-tauri/target/release/bundle/appimage/eCaptureQ*.AppImage
           retention-days: 7
 
   comment-pr:

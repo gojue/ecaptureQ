@@ -135,30 +135,15 @@ jobs:
 
       # Tauri 构建
       - name: Tauri build
-        uses: tauri-apps/tauri-action@v0.5.22
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.ANDROID_SIGNING_DEBUG_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_DEBUG_KEY_PASSWORD }}
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          ANDROID_KEYSTORE_PATH: ${{ secrets.ANDROID_KEYSTORE_PATH }}
-          ANDROID_KEYSTORE_PASS: ${{ secrets.ANDROID_SIGNING_DEBUG_KEY_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_SIGNING_DEBUG_KEY_ALIAS }}
-          ANDROID_KEY_PASS: ${{ secrets.ANDROID_SIGNING_DEBUG_KEY_ALIAS_PASSWORD }}
-          DECOUPLED_MODE: ${{ matrix.platform != 'linux' && matrix.platform != 'android' && 'true' || '' }}
-        with:
-          # 使用 `check_tag_version` 任务的输出版本
-          includeRelease: false
-          includeUpdaterJson: false
-          tagName: v${{ needs.check_tag_version.outputs.version }}
-#          releaseName: "Release v${{ needs.check_tag_version.outputs.version }}"
-#          releaseBody: "Automated release build for all platforms."
-          tauriScript: pnpm
+        run: |
+          if [[ "${{ matrix.platform }}" == "linux" ]]; then
+            # Linux 构建
+            pnpm tauri build
+          else
+            # 其他平台构建
+            DECOUPLED_MODE=true pnpm tauri build
+          fi
+
       - name: List bundle files
         run: |
           pwd
@@ -174,6 +159,8 @@ jobs:
             src-tauri/target/release/bundle/macos/eCaptureQ.app
             src-tauri/target/release/bundle/dmg/eCaptureQ*.dmg
             src-tauri/target/release/bundle/appimage/eCaptureQ*.AppImage
+            src-tauri/target/release/bundle/rpm/eCaptureQ*.rpm
+            src-tauri/target/release/bundle/deb/eCaptureQ*.rpm
             src-tauri/target/release/bundle/**/*
             src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk
           retention-days: 7
