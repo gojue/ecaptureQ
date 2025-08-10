@@ -1,17 +1,27 @@
-use crate::core::actor;
-use crate::core::data_processing::parse_eq_message;
-use crate::core::models::{PacketData, ParsedMessage, HeartbeatMessage, ProcessLogMessage};
+use anyhow::Result;
+use std::sync::Arc;
+
 use futures_util::stream::StreamExt;
-use std::time::Duration;
-use tokio::sync::watch;
-use tokio_tungstenite::{connect_async_with_config, tungstenite::protocol::WebSocketConfig};
-use tokio_tungstenite::tungstenite::client::IntoClientRequest;
-use tokio_tungstenite::tungstenite::http::HeaderValue;
+use log::{info, error};
+use tokio::sync::{RwLock, watch};
+use tokio::time::{Duration, sleep};
+use tokio_tungstenite::{
+    connect_async_with_config,
+    tungstenite::{client::IntoClientRequest, http::HeaderValue, protocol::WebSocketConfig},
+};
+
+use crate::core::{
+    actor,
+    data_processing::parse_eq_message,
+    models::{HeartbeatMessage, PacketData, ParsedMessage, ProcessLogMessage},
+};
+use crate::tauri_bridge::state::RunState;
 
 pub struct WebsocketService {
     ws_url: String,
     df_handle: actor::DataFrameActorHandle,
     done: watch::Receiver<()>,
+    run_status: Arc<RwLock<RunState>>,
 }
 
 const BATCH_SIZE: usize = 20;
@@ -22,23 +32,25 @@ impl WebsocketService {
         ws_url: String,
         df_handle: actor::DataFrameActorHandle,
         done: watch::Receiver<()>,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+        run_status: Arc<RwLock<RunState>>,
+    ) -> Result<Self> {
         Ok(Self {
             ws_url,
             df_handle,
             done,
+            run_status,
         })
     }
 
-    pub async fn receiver_task(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn receiver_task(&mut self) -> Result<()> {
         log::info!("Attempting WebSocket connection to: {}", self.ws_url);
-        
+
         let mut request = self.ws_url.as_str().into_client_request()?;
-        
+
         request
             .headers_mut()
             .insert("Origin", HeaderValue::from_static("http://localhost/"));
-        
+
         let config = WebSocketConfig::default();
         let (ws_stream, _) = connect_async_with_config(request, Some(config), false).await?;
         log::info!("WebSocket connected");
@@ -57,7 +69,7 @@ impl WebsocketService {
                 biased;
 
                 _ = self.done.changed() => {
-                    println!("Websocket service shutting down");
+                    info!("Websocket service shutting down");
                     break;
                 }
 
@@ -71,7 +83,15 @@ impl WebsocketService {
                     let msg = match message {
                         Ok(msg) => msg,
                         Err(e) => {
-                            eprintln!("WebSocket message error: {:?}", e);
+                            error!("WebSocket message error: {:?}", e);
+                            match self.run_status.read().await.clone() {
+                                RunState::Capturing => {
+                                    sleep(Duration::from_millis(300)).await;
+                                }
+                                _ => {
+                                    break;
+                                }
+                            }
                             break;
                         }
                     };
@@ -101,7 +121,7 @@ impl WebsocketService {
                             }
                         }
                     }
-                    
+
                     if buffer.len() >= BATCH_SIZE {
                         self.df_handle.update_batch(std::mem::take(&mut buffer)).await;
                         flush_timer.reset();

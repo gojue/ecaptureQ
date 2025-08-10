@@ -1,12 +1,21 @@
-use crate::core::actor::DataFrameActorHandle;
-use crate::services::push_service::PushServiceHandle;
-use tokio::sync::Mutex;
-use tokio::sync::watch;
-use tokio::task::JoinHandle;
 use serde::{Deserialize, Serialize};
+use std::ops::Deref;
+use std::sync::Arc;
+use tokio::sync::{Mutex, RwLock, watch};
 
-pub struct CaptureSessionHandles {
-    pub websocket_service_handle: JoinHandle<()>,
+use crate::{core::actor::DataFrameActorHandle, services::push_service::PushServiceHandle};
+
+#[derive(Clone)]
+pub enum RunState {
+    NotCapturing = 0,
+    Capturing = 1,
+    ShuttingDown = 2,
+}
+
+impl RunState {
+    pub fn get_state(&self) -> RunState {
+        self.clone()
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -27,18 +36,16 @@ impl Configs {
     }
 }
 
-
-
-
 pub struct AppState {
     pub push_service_handle: Mutex<Option<PushServiceHandle>>,
     pub df_actor_handle: DataFrameActorHandle,
     pub shutdown_tx: Mutex<Option<watch::Sender<()>>>,
-    pub session_handles: Mutex<Option<CaptureSessionHandles>>,
 
     // will trigger if the whole app shutdown
     pub done: Mutex<watch::Sender<()>>,
 
     // runtime configs
-    pub configs: Mutex<Configs>
+    pub configs: Mutex<Configs>,
+
+    pub status: Arc<RwLock<RunState>>,
 }

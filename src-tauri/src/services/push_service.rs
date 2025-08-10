@@ -1,4 +1,5 @@
 use crate::core::actor::DataFrameActorHandle;
+use log::{info, error};
 use std::sync::Arc;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
@@ -20,7 +21,7 @@ impl PushServiceHandle {
     pub async fn reset_offset(&self) {
         let mut offset = self.offset.lock().await;
         *offset = 0;
-        println!("Offset has been reset to 0.");
+        info!("Offset has been reset to 0.");
     }
 }
 
@@ -63,14 +64,14 @@ impl PushService {
 
     pub async fn run(&mut self) {
         let mut flush_timer = tokio::time::interval(Duration::from_millis(300));
-        println!("Push service started.");
+        info!("Push service started.");
 
         loop {
             tokio::select! {
                 biased;
 
                 _ = self.done.changed() => {
-                    println!("Push service shutting down");
+                    info!("Push service shutting down");
                     break;
                 }
 
@@ -87,15 +88,15 @@ impl PushService {
                         if new_rows_count > 0 {
                             // update offset
                             *offset += new_rows_count;
-                            println!("Fetched {} new rows. New offset: {}", new_rows_count, *offset);
+                            info!("Fetched {} new rows. New offset: {}", new_rows_count, *offset);
                             if let Ok(vecs) = crate::tauri_bridge::converters::df_to_packet_data_vec(&new_df).map_err(|e| e.to_string()) {
                                 if let Err(e) = self.app_handle.emit(self.tauri_interface.as_str(), &vecs) {
-                                    eprintln!("Failed to send log to frontend: {}", e);
+                                    error!("Failed to send log to frontend: {}", e);
                                 }
                             }
                         }
                     } else if let Err(e) = new_df_result {
-                        eprintln!("Error fetching packets: {}", e.to_string());
+                        error!("Error fetching packets: {}", e.to_string());
                     }
                 }
             }

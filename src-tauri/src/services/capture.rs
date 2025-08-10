@@ -1,15 +1,16 @@
-use std::path::{Path, PathBuf};
-use std::fs;
-use std::io::Write;
-use std::os::unix::fs::PermissionsExt; // 用于设置文件权限
-use std::process::Stdio;
-use std::time::Duration;
-use tokio::process::{Child, Command}; // 使用 Tokio 的 Command 和 Child
-use tokio::sync::watch;
+use anyhow::{Error, Result};
+use log::{info, error};
 use nix::sys::signal::{Signal, kill as send_signal};
 use nix::unistd::Pid;
-use sha2::{Sha256, Digest};
-use anyhow::{Error, Result};
+use sha2::{Digest, Sha256};
+use std::fs;
+use std::io::Write;
+use std::os::unix::fs::PermissionsExt; // Used for setting file permissions
+use std::path::{Path, PathBuf};
+use std::process::Stdio;
+use std::time::Duration;
+use tokio::process::{Child, Command}; // Use Tokio's Command and Child
+use tokio::sync::watch;
 
 fn get_cli_binary_name() -> String {
     #[cfg(target_os = "android")]
@@ -72,19 +73,19 @@ impl CaptureManager {
     fn prepare_binary(&self) -> Result<(), Box<dyn std::error::Error>> {
         if self.executable_path.exists() {
             // fs::remove_file(&self.executable_path)?;
-            println!("found exist binary file");
-            return Ok(())
+            info!("Found existing binary file");
+            return Ok(());
         }
 
         let mut dest_file = fs::File::create(&self.executable_path)?;
         dest_file.write_all(get_ecapture_bytes())?;
-        dest_file.sync_all()?; // 确保内容刷入磁盘
+        dest_file.sync_all()?; // Ensure content is flushed to disk
 
         let mut perms = fs::metadata(&self.executable_path)?.permissions();
         perms.set_mode(0o755);
         fs::set_permissions(&self.executable_path, perms)?;
 
-        println!("eCapture binary prepared at: {:?}", self.executable_path);
+        info!("eCapture binary prepared at: {:?}", self.executable_path);
         Ok(())
     }
 
@@ -92,25 +93,25 @@ impl CaptureManager {
     fn prepare_binary(&self) -> Result<()> {
         if self.executable_path.exists() {
             // fs::remove_file(&self.executable_path)?;
-            println!("found exist binary file");
-            return Ok(())
+            info!("Found existing binary file");
+            return Ok(());
         }
 
         let mut dest_file = fs::File::create(&self.executable_path)?;
         dest_file.write_all(get_ecapture_bytes())?;
-        dest_file.sync_all()?; // 确保内容刷入磁盘
+        dest_file.sync_all()?; // Ensure content is flushed to disk
 
         let mut perms = fs::metadata(&self.executable_path)?.permissions();
         perms.set_mode(0o755);
         fs::set_permissions(&self.executable_path, perms)?;
 
-        println!("eCapture binary prepared at: {:?}", self.executable_path);
+        info!("eCapture binary prepared at: {:?}", self.executable_path);
         Ok(())
     }
 
     #[cfg(any(target_os = "android", target_os = "linux"))]
     fn cleanup(&self) -> std::io::Result<()> {
-        println!("Cleaning up eCapture binary...");
+        info!("Cleaning up eCapture binary...");
         fs::remove_file(&self.executable_path)
     }
 
@@ -122,7 +123,10 @@ impl CaptureManager {
         self.prepare_binary()?;
 
         let binary_command = self.executable_path.to_string_lossy().to_string();
-        let full_command = format!("{} tls --ecaptureq ws://192.168.71.123:28257", binary_command);
+        let full_command = format!(
+            "{} tls --ecaptureq ws://192.168.71.123:28257",
+            binary_command
+        );
         let mut child = Command::new("su") // 使用 tokio::process::Command
             .arg("-c")
             .arg(&full_command)
@@ -130,7 +134,7 @@ impl CaptureManager {
             .stderr(Stdio::null())
             .spawn()?;
 
-        println!("eCapture process spawned with PID: {:?}", child.id());
+        info!("eCapture process spawned with PID: {:?}", child.id());
         self.child = Some(child); // 将 child 存入 struct
 
         tokio::select! {
@@ -142,7 +146,7 @@ impl CaptureManager {
                     let pid = child.id().ok_or("Failed to get child PID")?;
 
                     // 在 Android 上, 使用 `su -c kill`
-                    println!("Running on Android, using 'su -c kill'...");
+                    info!("Running on Android, using 'su -c kill'...");
                     let kill_command = "pkill android_test";
                     let status = Command::new("su")
                         .arg("-c")
@@ -151,18 +155,18 @@ impl CaptureManager {
                         .await?;
 
                     if status.success() {
-                        println!("'su -c kill {}' command sent successfully.", pid);
+                        info!("'su -c kill {}' command sent successfully.", pid);
                     } else {
-                        eprintln!("'su -c kill {}' command failed with status: {}", pid, status);
+                        error!("'su -c kill {}' command failed with status: {}", pid, status);
                     }
 
 
                     tokio::select! {
                         result = child.wait() => {
-                            println!("eCapture process exited gracefully with result: {:?}", result);
+                            info!("eCapture process exited gracefully with result: {:?}", result);
                         }
                         _ = tokio::time::sleep(Duration::from_secs(3)) => {
-                            eprintln!("Process did not exit gracefully after 5s. Forcing kill...");
+                            error!("Process did not exit gracefully after 5s. Forcing kill...");
                             self.child.as_mut().unwrap().kill().await?;
                         }
                     }
@@ -171,8 +175,8 @@ impl CaptureManager {
 
             result = self.child.as_mut().unwrap().wait() => {
                 match result {
-                    Ok(status) => eprintln!("eCapture process exited unexpectedly with status: {}", status),
-                    Err(e) => eprintln!("Error waiting for eCapture process: {}", e),
+                    Ok(status) => error!("eCapture process exited unexpectedly with status: {}", status),
+                    Err(e) => error!("Error waiting for eCapture process: {}", e),
                 }
             }
         }
@@ -195,7 +199,7 @@ impl CaptureManager {
             .stderr(Stdio::null())
             .spawn()?;
 
-        println!("eCapture process spawned with PID: {:?}", child.id());
+        info!("eCapture process spawned with PID: {:?}", child.id());
         self.child = Some(child); // 将 child 存入 struct
 
         tokio::select! {
@@ -210,10 +214,10 @@ impl CaptureManager {
 
                     tokio::select! {
                         result = child.wait() => {
-                            println!("eCapture process exited gracefully with result: {:?}", result);
+                            info!("eCapture process exited gracefully with result: {:?}", result);
                         }
                         _ = tokio::time::sleep(Duration::from_secs(1)) => {
-                            eprintln!("Process did not exit gracefully after 1s. Forcing kill...");
+                            error!("Process did not exit gracefully after 1s. Forcing kill...");
                             self.child.as_mut().unwrap().kill().await?;
                         }
                     }
@@ -222,8 +226,8 @@ impl CaptureManager {
 
             result = self.child.as_mut().unwrap().wait() => {
                 match result {
-                    Ok(status) => eprintln!("eCapture process exited unexpectedly with status: {}", status),
-                    Err(e) => eprintln!("Error waiting for eCapture process: {}", e),
+                    Ok(status) => error!("eCapture process exited unexpectedly with status: {}", status),
+                    Err(e) => error!("Error waiting for eCapture process: {}", e),
                 }
             }
         }
@@ -240,12 +244,12 @@ impl Drop for CaptureManager {
         if let Some(child) = self.child.as_mut() {
             if let Some(pid) = child.id() {
                 if let Err(_e) = send_signal(Pid::from_raw(pid as i32), Signal::SIGINT) {
-                    eprintln!("Can not kill ecapture in drop trait");
-                    return
+                    error!("Can not kill ecapture in drop trait");
+                    return;
                 }
-                println!("killed ecapture in drop trait")
+                info!("killed ecapture in drop trait")
             }
-            println!("ecapture was killed, nothing to do")
+            info!("ecapture was killed, nothing to do")
         }
     }
 }
