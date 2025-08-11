@@ -7,6 +7,8 @@ use nix::unistd::Pid;
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::io::Write;
+#[cfg(target_os = "linux")]
+use std::os::unix::fs::PermissionsExt; // Used for setting file permissions
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::Duration;
