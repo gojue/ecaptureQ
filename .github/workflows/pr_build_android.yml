@@ -18,7 +18,7 @@ jobs:
     runs-on: "ubuntu-22.04"
     strategy:
       matrix:
-        arch: [ aarch64 ] # 定义一个包含两种架构的矩阵 , x86_64
+        arch: [ aarch64, x86_64 ] # 定义一个包含两种架构的矩阵
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -140,7 +140,7 @@ jobs:
         run: |
           rm -rf src-tauri/gen/android
           pnpm tauri android init
-          pnpm tauri android build --target ${{ matrix.arch }}
+          pnpm tauri android build
         env:
           NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/26.1.10909125
 
@@ -169,7 +169,7 @@ jobs:
             const runId = context.runId;
             const prNumber = context.payload.pull_request.number;
             
-            let comment = `## 🔨 PR Build Results\n\n`;
+            let comment = `## 🔨 PR Build Results (Android)\n\n`;
             if (artifacts.artifacts.length > 0) {
               comment += `✅ Build completed successfully!\n\n`;
               comment += `### 📦 Download Artifacts:\n`;

@@ -52,14 +52,14 @@ jobs:
         # 定义需要构建的平台和架构
         include:
           # Windows
-#          - os: windows-latest
-#            platform: windows
-#            target: x86_64-pc-windows-msvc
-#            arch: x86_64
-#          - os: windows-latest
-#            platform: windows
-#            target: aarch64-pc-windows-msvc
-#            arch: aarch64
+          - os: windows-latest
+            platform: windows
+            target: x86_64-pc-windows-msvc
+            arch: x86_64
+          - os: windows-latest
+            platform: windows
+            target: aarch64-pc-windows-msvc
+            arch: aarch64
           # macOS
           - os: macos-latest
             platform: macos
@@ -183,6 +183,14 @@ jobs:
           path: |
             src-tauri/target/release/bundle/dmg/eCaptureQ*.dmg
 
+      - name: Upload artifacts (Windows)
+        uses: actions/upload-artifact@v4
+        if: matrix.platform == 'windows'
+        with:
+          name: eCaptureQ-pr${{ github.event.number }}-${{ github.run_id }}-${{ matrix.arch }}.msi
+          retention-days: 7
+          path: |
+            src-tauri/target/release/bundle/exe/eCaptureQ*.msi
   comment-pr:
     runs-on: ubuntu-22.04
     name: Comment PR with Download Links
@@ -199,7 +207,7 @@ jobs:
               issue_number: prNumber,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `🔧 **Debug Build Complete**
+              body: `🔧 **Debug Build Complete (macOS、Linux、Windows)**
 
               📦 Download Links:
               - [PR ${prNumber} Debug Binary](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId})
