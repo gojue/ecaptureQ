@@ -8,6 +8,8 @@ on:
 # 授予工作流写入权限，用于创建 Release 和上传产物
 permissions:
   contents: write
+  issues: write
+  pull-requests: write
 
 # 定义环境变量
 env:
