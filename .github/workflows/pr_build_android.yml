@@ -146,6 +146,8 @@ jobs:
 #          OPENSSL_STATIC: "0"
 #          RUST_BACKTRACE: 1
         run: |
+          rm -rf src-tauri/gen/android
+          pnpm tauri android init
           pnpm tauri android build --target ${{ matrix.arch }}
 
       - name: Sign APK
