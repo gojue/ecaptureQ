@@ -137,12 +137,18 @@ jobs:
         run: pnpm install
 
       - name: Build and Sign Android App for ${{ matrix.arch }}
+        env:
+          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/26.1.10909125
+          OPENSSL_DIR: /usr
+          OPENSSL_LIB_DIR: /usr/lib/x86_64-linux-gnu
+          OPENSSL_INCLUDE_DIR: /usr/include/openssl
+          PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig
+          OPENSSL_STATIC: "0"
+          RUST_BACKTRACE: 1
         run: |
           rm -rf src-tauri/gen/android
           pnpm tauri android init
-          pnpm tauri android build
-        env:
-          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/26.1.10909125
+          pnpm tauri android build --target ${{ matrix.arch }}
 
       - name: Sign APK
         run: |
