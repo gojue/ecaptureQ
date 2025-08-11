@@ -29,8 +29,15 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libsoup-3.0-dev libjavascriptcoregtk-4.1-dev libwebkit2gtk-4.1-dev libgtk-3-dev libssl-dev xdg-utils librsvg2-dev libappindicator3-dev  patchelf pkg-config 
-
+          sudo apt-get install -y pkg-config libsoup-3.0-dev libjavascriptcoregtk-4.1-dev libwebkit2gtk-4.1-dev libgtk-3-dev xdg-utils librsvg2-dev libappindicator3-dev  patchelf 
+          # 卸载 libssl-dev 和相关包
+          sudo apt-get remove --purge libssl-dev libssl3 openssl
+          # 清理依赖
+          sudo apt-get autoremove --purge
+          # 更新包列表
+          sudo apt update
+          # 重新安装
+          sudo apt-get install libssl-dev libssl3 openssl
       - name: Download and setup eCapture for ${{ matrix.arch }}
         shell: bash
         run: |
@@ -139,15 +146,13 @@ jobs:
       - name: Build and Sign Android App for ${{ matrix.arch }}
         env:
           NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/26.1.10909125
-          OPENSSL_DIR: /usr
-          OPENSSL_LIB_DIR: /usr/lib/x86_64-linux-gnu
-          OPENSSL_INCLUDE_DIR: /usr/include/openssl
-          PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig
-          OPENSSL_STATIC: "0"
-          RUST_BACKTRACE: 1
+#          OPENSSL_DIR: /usr
+#          OPENSSL_LIB_DIR: /usr/lib/x86_64-linux-gnu
+#          OPENSSL_INCLUDE_DIR: /usr/include/openssl
+#          PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig
+#          OPENSSL_STATIC: "0"
+#          RUST_BACKTRACE: 1
         run: |
-          rm -rf src-tauri/gen/android
-          pnpm tauri android init
           pnpm tauri android build --target ${{ matrix.arch }}
 
       - name: Sign APK
