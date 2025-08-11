@@ -1,0 +1,208 @@
+name: PR Build and Test (Android)
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-android:
+    runs-on: "ubuntu-22.04"
+    strategy:
+      matrix:
+        arch: [ aarch64, x86_64 ] # 定义一个包含两种架构的矩阵
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libsoup-3.0-dev libjavascriptcoregtk-4.1-dev libwebkit2gtk-4.1-dev libgtk-3-dev xdg-utils librsvg2-dev libappindicator3-dev  patchelf 
+          sudo apt-get install --reinstall -y pkg-config libssl-dev libssl3 openssl
+      - name: Download and setup eCapture for ${{ matrix.arch }}
+        shell: bash
+        run: |
+          if [[ "${{ matrix.arch }}" == "x86_64" ]]; then
+            ECAPTURE_ARCH="amd64"
+          else
+            ECAPTURE_ARCH="arm64"
+          fi
+          pwd
+          ECAPTURE_LATEST=$(curl -s https://api.github.com/repos/gojue/ecapture/releases/latest | grep tag_name | cut -d '"' -f 4)
+          if [[ $? -ne 0 ]]; then
+            echo "Failed to fetch the latest release."
+            exit 1
+          fi
+          
+          ECAPTURE_TAR="ecapture-${ECAPTURE_LATEST}-android-${ECAPTURE_ARCH}.tar.gz"
+          ECAPTURE_DIR="ecapture-${ECAPTURE_LATEST}-android-${ECAPTURE_ARCH}"
+          
+          wget "https://github.com/gojue/ecapture/releases/download/${ECAPTURE_LATEST}/${ECAPTURE_TAR}" || { echo "Download failed"; exit 1; }
+          tar -zxvf "${ECAPTURE_TAR}" || { echo "Extract failed"; exit 1; }
+          
+          ls -al
+          mkdir -p src-tauri/binaries
+          cp "${ECAPTURE_DIR}/ecapture" src-tauri/binaries/android_test-aarch64-linux-android || { echo "Copy failed"; exit 1; }
+          cp "${ECAPTURE_DIR}/ecapture" src-tauri/binaries/linux_ecapture_test || { echo "Copy failed"; exit 1; }
+          ls src-tauri/binaries/
+
+      - name: Rust setup
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Node.js setup
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.19.4'  # 尝试稳定版本
+          cache: ''  # 禁用缓存
+      - name: install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '23'
+
+      # 下载并配置 Android SDK/NDK
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          api-level: 34
+          build-tools: 34.0.0
+          ndk-version: 26.1.10909125
+
+      - name: Install NDK
+        run: sdkmanager "ndk;26.1.10909125"
+
+      - name: Debug OpenSSL
+        run: |
+          echo "OpenSSL version:"
+          openssl version
+          echo "PKG_CONFIG_PATH:"
+          echo $PKG_CONFIG_PATH
+          echo "OpenSSL pkg-config:"
+          pkg-config --modversion openssl || echo "OpenSSL pkg-config not found"
+          echo "System libraries:"
+          ldconfig -p | grep ssl
+      # --- 关键步骤：创建 keystore.properties 文件 ---
+      - name: Create keystore.properties for Android signing
+        run: |
+          # 动态创建 src-tauri/gen/android 目录（如果不存在）
+          mkdir -p src-tauri/gen/android
+          
+          # 将 Base64 编码的密钥文件解码，并保存到 Runner 的临时目录
+          echo "${{ secrets.ANDROID_SIGNING_DEBUG_KEY }}" | base64 --decode > android_keystore.jks
+          
+          # 将签名信息写入 keystore.properties 文件
+          cat <<EOF > src-tauri/gen/android/keystore.properties
+          password=${{ secrets.ANDROID_SIGNING_DEBUG_KEY_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_SIGNING_DEBUG_KEY_ALIAS }}
+          storeFile=${{ github.workspace }}/android_keystore.jks
+          keyPassword=${{ secrets.ANDROID_SIGNING_DEBUG_KEY_ALIAS_PASSWORD }}
+          EOF
+        env:
+          GITHUB_WORKSPACE: ${{ github.workspace }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - name: Check Node.js version
+        run: |
+          node -v
+          npm -v
+          pnpm -v
+
+      - name: Install frontend dependencies
+        run: pnpm install
+
+      - name: Build and Sign Android App for ${{ matrix.arch }}
+        env:
+          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/26.1.10909125
+#          OPENSSL_DIR: /usr
+#          OPENSSL_LIB_DIR: /usr/lib/x86_64-linux-gnu
+#          OPENSSL_INCLUDE_DIR: /usr/include/openssl
+#          PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig
+#          OPENSSL_STATIC: "0"
+#          RUST_BACKTRACE: 1
+        run: |
+          rm -rf src-tauri/gen/android
+          pnpm tauri android init
+          pnpm tauri android build --target ${{ matrix.arch }}
+
+      - name: Sign APK
+        run: |
+          ${{ env.ANDROID_HOME }}/build-tools/34.0.0/apksigner sign --ks src-tauri/gen/android/release.decrypted.jks \
+          src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: eCaptureQ-pr${{ github.event.number }}-${{ github.sha }}-${{ matrix.arch }}.apk
+          if-no-files-found: ignore
+          path: |
+            src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-signed.apk
+          retention-days: 7
+
+  comment-pr:
+    needs: build-android
+    runs-on: ubuntu-latest
+    steps:
+      - name: Comment PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runId = context.runId;
+            const prNumber = context.payload.pull_request.number;
+            
+            let comment = `## 🔨 PR Build Results (Android)\n\n`;
+            if (artifacts.artifacts.length > 0) {
+              comment += `✅ Build completed successfully!\n\n`;
+              comment += `### 📦 Download Artifacts:\n`;
+            
+              for (const artifact of artifacts.artifacts) {
+                let arch = 'Unknown';
+                if (artifact.name.includes('aarch64') || artifact.name.includes('arm64')) {
+                  arch = 'aarch64 (ARM64)';
+              } else if (artifact.name.includes('x86_64')|| artifact.name.includes('amd64')) {
+                  arch = 'x86_64';
+              }
+              comment += `- 📱 Android [${arch}]: [${artifact.name}](${artifact.archive_download_url})\n`;
+              }
+            
+              comment += `\n💡 **How to test:**\n`;
+              comment += `1. Download the artifact for your platform\n`;
+              comment += `2. Extract the archive\n`;
+              comment += `3. Install/run the application\n`;
+              comment += `4. Report any issues in this PR\n\n`;
+              comment += `⏰ Artifacts will be available for 7 days.\n`;
+            } else {
+              comment += `❌ Build failed. Please check the workflow logs for details.\n`;
+            }
+            
+            github.rest.issues.createComment({
+              issue_number: prNumber,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment,
+            });

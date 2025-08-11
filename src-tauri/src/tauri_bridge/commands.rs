@@ -3,13 +3,14 @@ use base64::{Engine as _, engine::general_purpose};
 use log::{error, info};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use tauri::{Manager, State};
+use tauri::Manager;
 use tokio::time::{Duration, sleep};
 use wg::AsyncWaitGroup;
 
-use crate::services::{
-    capture::CaptureManager, push_service::PushService, websocket::WebsocketService,
-};
+
+#[cfg(all(not(decoupled), any(target_os = "linux", target_os = "android")))]
+use crate::services::capture::CaptureManager;
+use crate::services::{push_service::PushService, websocket::WebsocketService};
 use crate::tauri_bridge::state::{AppState, Configs, RunState};
 
 #[tauri::command]
@@ -30,15 +31,14 @@ pub async fn start_capture(
     let (shutdown_tx, _) = tokio::sync::watch::channel(());
 
     // Get the app's data directory for storing the binary
+    #[cfg(all(not(decoupled), any(target_os = "linux", target_os = "android")))]
     let data_dir = app_handle
         .path()
         .app_data_dir()
         .map_err(|e| e.to_string())?;
-
-    // get locked configs
     let configs = {
-        let configs = state.configs.lock().await.clone();
-        configs
+        let guard = state.configs.lock().await;
+        guard.clone() // Deep copy
     };
 
     let mut websocket_service = WebsocketService::new(
@@ -49,7 +49,7 @@ pub async fn start_capture(
     )
     .map_err(|e| e.to_string())?;
 
-    #[cfg(not(decoupled))]
+    #[cfg(all(not(decoupled), any(target_os = "linux", target_os = "android")))]
     {
         let capture_error_inspector = error_inspector.clone();
         let mut capture_manager = CaptureManager::new(data_dir);
@@ -64,10 +64,17 @@ pub async fn start_capture(
         let capture_wg_clone = capture_wg.clone();
         // spawn ecapture service
         tokio::spawn(async move {
-            if let Err(e) = capture_manager
-                .run(rx, configs.ecapture_args.unwrap())
-                .await
-            {
+            #[cfg(target_os = "linux")]
+            let result = capture_manager
+                .run(rx, configs.ecapture_args.unwrap_or_default())
+                .await;
+            
+            #[cfg(target_os = "android")]
+            let result = capture_manager
+                .run(rx)
+                .await;
+            
+            if let Err(e) = result {
                 error!("[CaptureManager] Task failed: {}", e);
                 capture_error_inspector.store(true, Ordering::Release);
             }
@@ -114,6 +121,7 @@ pub async fn start_capture(
         return Err("capture session launch error".into());
     }
 
+    // Handle push service - create if not exists, reuse if exists
     let mut handle_guard = state.push_service_handle.lock().await;
     let done_guard = state.done.lock().await;
     if handle_guard.is_none() {
