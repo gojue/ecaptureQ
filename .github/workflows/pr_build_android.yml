@@ -85,6 +85,9 @@ jobs:
           build-tools: 34.0.0
           ndk-version: 26.1.10909125
 
+      - name: Install NDK
+        run: sdkmanager "ndk;26.1.10909125"
+
       # --- 关键步骤：创建 keystore.properties 文件 ---
       - name: Create keystore.properties for Android signing
         run: |
@@ -123,6 +126,13 @@ jobs:
           rm -rf src-tauri/gen/android
           pnpm tauri android init
           pnpm tauri android build --target ${{ matrix.arch }}
+        env:
+          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/26.1.10909125
+
+      - name: Sign APK
+        run: |
+          ${{ env.ANDROID_HOME }}/build-tools/34.0.0/apksigner sign --ks src-tauri/gen/android/release.decrypted.jks \
+          src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -130,26 +140,21 @@ jobs:
           name: eCaptureQ-pr${{ github.event.number }}-${{ github.sha }}-${{ matrix.arch }}.apk
           if-no-files-found: ignore
           path: |
-            src-tauri/gen/android/app/build/outputs/apk/universal/release/*.apk
+            src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-signed.apk
           retention-days: 7
 
   comment-pr:
     needs: build-android
     runs-on: ubuntu-latest
-    if: always()
     steps:
       - name: Comment PR
         uses: actions/github-script@v7
         with:
           script: |
-            const { data: artifacts } = await github.rest.actions.listWorkflowRunArtifacts({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              run_id: context.runId,
-            });
-
-            let comment = `## 🔨 PR Build Results\n\n`;
+            const runId = context.runId;
+            const prNumber = context.payload.pull_request.number;
             
+            let comment = `## 🔨 PR Build Results\n\n`;
             if (artifacts.artifacts.length > 0) {
               comment += `✅ Build completed successfully!\n\n`;
               comment += `### 📦 Download Artifacts:\n`;
@@ -173,30 +178,10 @@ jobs:
             } else {
               comment += `❌ Build failed. Please check the workflow logs for details.\n`;
             }
-
-            const { data: comments } = await github.rest.issues.listComments({
+            
+            github.rest.issues.createComment({
+              issue_number: prNumber,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.issue.number,
+              body: comment,
             });
-
-            const botComment = comments.find(comment => 
-              comment.user.type === 'Bot' && 
-              comment.body.includes('🔨 PR Build Results')
-            );
-
-            if (botComment) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: botComment.id,
-                body: comment
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body: comment
-              });
-            }

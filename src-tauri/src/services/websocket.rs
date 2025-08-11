@@ -2,9 +2,9 @@ use anyhow::Result;
 use std::sync::Arc;
 
 use futures_util::stream::StreamExt;
-use log::{debug, error, info};
+use log::{error, info};
 use tokio::sync::{RwLock, watch};
-use tokio::time::{Duration, sleep};
+use tokio::time::Duration;
 use tokio_tungstenite::{
     connect_async_with_config,
     tungstenite::{client::IntoClientRequest, http::HeaderValue, protocol::WebSocketConfig},

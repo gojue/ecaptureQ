@@ -2,7 +2,7 @@
 
 # --- 可配置区域 ---
 # 你的应用包名 (tauri.conf.json 中的 identifier)
-PACKAGE_NAME="com.ecaptureq.gojue"
+PACKAGE_NAME="com.gojue.ecaptureq"
 # 你的 Rust 库名 (src-tauri/Cargo.toml 中的 name, 带下划线的那个)
 CRATE_NAME="ecaptureq_lib"
 # ------------------

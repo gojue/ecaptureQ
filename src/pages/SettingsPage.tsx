@@ -113,11 +113,11 @@ export function SettingsPage() {
                 type="text"
                 value={configs.ws_url || ''}
                 onChange={(e) => updateConfigs({ ws_url: e.target.value })}
-                placeholder="ws://127.0.0.1:18088"
+                placeholder="ws://127.0.0.1:28257"
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
               />
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Default: ws://127.0.0.1:18088 (leave empty to use default)
+                Default: ws://127.0.0.1:28257 (leave empty to use default)
               </p>
             </div>
           </div>

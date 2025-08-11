@@ -41,7 +41,7 @@ jobs:
           echo "version=${PKG_VERSION}" >> $GITHUB_OUTPUT
 
   # 任务 2: 为 Windows, macOS, Linux, 和 Android 构建和发布
-  build:
+  build-debug-artifacts:
     name: Build and Release
     needs: check_tag_version
     strategy:
@@ -168,8 +168,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: matrix.platform == 'linux'
         with:
-          name: eCaptureQ-pr${{ github.event.number }}-${{ github.sha }}-${{ matrix.arch }}.AppImage
-          if-no-files-found: ignore
+          name: eCaptureQ-pr${{ github.event.number }}-${{ github.run_id }}-${{ matrix.arch }}.AppImage
           retention-days: 7
           path: src-tauri/target/release/bundle/appimage/eCaptureQ*.AppImage
 
@@ -177,71 +176,31 @@ jobs:
         uses: actions/upload-artifact@v4
         if: matrix.platform == 'macos'
         with:
-          name: eCaptureQ-pr${{ github.event.number }}-${{ github.sha }}-${{ matrix.arch }}.dmg
-          if-no-files-found: ignore
+          name: eCaptureQ-pr${{ github.event.number }}-${{ github.run_id }}-${{ matrix.arch }}.dmg
+          retention-days: 7
           path: |
             src-tauri/target/release/bundle/dmg/eCaptureQ*.dmg
 
   comment-pr:
-    needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+    name: Comment PR with Download Links
+    needs: build-debug-artifacts
     steps:
-      - name: Comment PR
+      - name: Comment PR with Download Links
         uses: actions/github-script@v7
         with:
           script: |
-            const { data: artifacts } = await github.rest.actions.listWorkflowRunArtifacts({
+            const runId = context.runId;
+            const prNumber = context.payload.pull_request.number;
+
+            github.rest.issues.createComment({
+              issue_number: prNumber,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              run_id: context.runId,
+              body: `🔧 **Debug Build Complete**
+
+              📦 Download Links:
+              - [PR ${prNumber} Debug Binary](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId})
+
+              ⏰ Files will be retained for 7 days, please download and test promptly.`
             });
-
-            let comment = `## 🔨 PR Build Results\n\n`;
-            
-            if (artifacts.artifacts.length > 0) {
-              comment += `✅ Build completed successfully!\n\n`;
-              comment += `### 📦 Download Artifacts:\n`;
-            
-              for (const artifact of artifacts.artifacts) {
-                const platform = artifact.name.includes('macos') ? '🍎 macOS' : 
-                                artifact.name.includes('linux') ? '🐧 Linux' : 
-                                artifact.name.includes('windows') ? '🪟 Windows' : '📱 Unknown';
-                comment += `- ${platform}: [${artifact.name}](${artifact.archive_download_url})\n`;
-              }
-            
-              comment += `\n💡 **How to test:**\n`;
-              comment += `1. Download the artifact for your platform\n`;
-              comment += `2. Extract the archive\n`;
-              comment += `3. Install/run the application\n`;
-              comment += `4. Report any issues in this PR\n\n`;
-              comment += `⏰ Artifacts will be available for 7 days.\n`;
-            } else {
-              comment += `❌ Build failed. Please check the workflow logs for details.\n`;
-            }
-
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-            });
-
-            const botComment = comments.find(comment => 
-              comment.user.type === 'Bot' && 
-              comment.body.includes('🔨 PR Build Results')
-            );
-
-            if (botComment) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: botComment.id,
-                body: comment
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body: comment
-              });
-            }

@@ -1,6 +1,8 @@
-use anyhow::{Error, Result};
+use anyhow::Result;
 use log::{error, info};
+#[cfg(target_os = "linux")]
 use nix::sys::signal::{Signal, kill as send_signal};
+#[cfg(target_os = "linux")]
 use nix::unistd::Pid;
 use sha2::{Digest, Sha256};
 use std::fs;
@@ -32,6 +34,12 @@ fn get_cli_binary_name() -> String {
     #[cfg(decoupled)]
     {
         return "ecapture".to_string();
+    }
+
+    // Default fallback for other platforms
+    #[cfg(not(any(target_os = "android", target_os = "linux", decoupled)))]
+    {
+        "ecapture".to_string()
     }
 }
 
@@ -192,7 +200,7 @@ impl CaptureManager {
         let binary_command = self.executable_path.to_string_lossy().to_string();
         let child = Command::new("sudo") // 使用 sudo 运行 eCapture
             .arg(&binary_command)
-            .args(["tls", "--ecaptureq", "ws://127.0.0.1:18088"])
+            .args(["tls", "--ecaptureq", "ws://127.0.0.1:28257"])
             // .arg(ecapture_args)
             .stdout(Stdio::null()) // 重定向输出
             .stderr(Stdio::null())
