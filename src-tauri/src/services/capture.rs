@@ -1,12 +1,13 @@
 use anyhow::{Error, Result, anyhow};
 use log::{error, info};
-#[cfg(target_os = "linux")]
+#[cfg(not(target_os = "windows"))]
 use nix::sys::signal::{Signal, kill as send_signal};
-#[cfg(target_os = "linux")]
+#[cfg(not(target_os = "windows"))]
 use nix::unistd::Pid;
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::io::Write;
+#[cfg(not(target_os = "windows"))]
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
@@ -15,34 +16,44 @@ use tokio::process::{Child, Command}; // Use Tokio's Command and Child
 use tokio::sync::watch;
 
 fn get_cli_binary_name() -> String {
-    #[cfg(target_os = "android")]
-    {
-        let mut hasher = Sha256::new();
-        hasher.update(crate::services::capture::get_ecapture_bytes());
-        let hash_string = hex::encode(hasher.finalize());
-        return format!("android_ecapture_arm64_{}", hash_string);
-    }
-
-    #[cfg(all(target_os = "linux", not(decoupled)))]
+    // Android x86_64
+    #[cfg(all(target_os = "android", target_arch = "x86_64"))]
     {
         let mut hasher = Sha256::new();
         hasher.update(get_ecapture_bytes());
         let hash_string = hex::encode(hasher.finalize());
-        return format!("linux_ecapture_amd64_{}", hash_string);
+        return format!("android_ecapture_x86_64_{}", hash_string);
     }
 
-    #[cfg(decoupled)]
+    // Android arm64
+    #[cfg(all(target_os = "android", target_arch = "aarch64"))]
     {
-        return "ecapture".to_string();
+        let mut hasher = Sha256::new();
+        hasher.update(get_ecapture_bytes());
+        let hash_string = hex::encode(hasher.finalize());
+        return format!("android_ecapture_arm64_{}", hash_string);
     }
 
-    // Default fallback for other platforms
-    #[cfg(not(any(target_os = "android", target_os = "linux", decoupled)))]
+    // Linux x86_64
+    #[cfg(all(target_os = "linux", target_arch = "x86_64", not(decoupled)))]
     {
-        "ecapture".to_string()
+        let mut hasher = Sha256::new();
+        hasher.update(get_ecapture_bytes());
+        let hash_string = hex::encode(hasher.finalize());
+        return format!("linux_ecapture_x86_64_{}", hash_string);
     }
+
+    // Linux arm64
+    #[cfg(all(target_os = "linux", target_arch = "aarch64", not(decoupled)))]
+    {
+        let mut hasher = Sha256::new();
+        hasher.update(get_ecapture_bytes());
+        let hash_string = hex::encode(hasher.finalize());
+        return format!("linux_ecapture_arm64_{}", hash_string);
+    }
+
+    "ecapture".to_string()
 }
-
 fn get_ecapture_bytes() -> &'static [u8] {
     // Android x86_64
     #[cfg(all(target_os = "android", target_arch = "x86_64"))]
