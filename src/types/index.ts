@@ -1,6 +1,6 @@
 // Packet data structure returned from backend API
 export interface PacketData {
-  timestamp: number;        // Unix nanosecond timestamp (i64)
+  timestamp: number;        // Unix timestamp in seconds (i64)
   uuid: string;             // Packet unique identifier
   src_ip: string;
   src_port: number;         // u32

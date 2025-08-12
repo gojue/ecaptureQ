@@ -8,7 +8,6 @@ use crate::{core::actor::DataFrameActorHandle, services::push_service::PushServi
 pub enum RunState {
     NotCapturing,
     Capturing,
-    ShuttingDown,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

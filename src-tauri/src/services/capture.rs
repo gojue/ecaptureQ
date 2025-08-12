@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Error, Result, anyhow};
 use log::{error, info};
 #[cfg(target_os = "linux")]
 use nix::sys::signal::{Signal, kill as send_signal};
@@ -7,8 +7,7 @@ use nix::unistd::Pid;
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::io::Write;
-#[cfg(target_os = "linux")]
-use std::os::unix::fs::PermissionsExt; // Used for setting file permissions
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::Duration;
@@ -45,22 +44,35 @@ fn get_cli_binary_name() -> String {
 }
 
 fn get_ecapture_bytes() -> &'static [u8] {
-    #[cfg(target_os = "android")]
+    // Android x86_64
+    #[cfg(all(target_os = "android", target_arch = "x86_64"))]
     {
-        return include_bytes!("./../../binaries/android_test-aarch64-linux-android");
+        return include_bytes!("../../binaries/android_ecapture_x86_64");
     }
 
-    #[cfg(all(target_os = "linux", not(decoupled)))]
+    // Android arm64
+    #[cfg(all(target_os = "android", target_arch = "aarch64"))]
     {
-        return include_bytes!("./../../binaries/linux_ecapture_test");
+        return include_bytes!("../../binaries/android_ecapture_arm64");
+    }
+
+    // Linux x86_64
+    #[cfg(all(target_os = "linux", target_arch = "x86_64", not(decoupled)))]
+    {
+        return include_bytes!("../../binaries/linux_ecapture_x86_64");
+    }
+
+    // Linux arm64
+    #[cfg(all(target_os = "linux", target_arch = "aarch64", not(decoupled)))]
+    {
+        return include_bytes!("../../binaries/linux_ecapture_arm64");
     }
 
     #[cfg(any(all(not(target_os = "linux"), not(target_os = "android")), decoupled))]
     {
-        panic!()
+        panic!("Unsupported platform or architecture");
     }
 }
-
 pub struct CaptureManager {
     executable_path: PathBuf,
     child: Option<Child>,
@@ -196,14 +208,13 @@ impl CaptureManager {
         &mut self,
         mut shutdown_rx: watch::Receiver<()>,
         ecapture_args: String,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<()> {
         self.prepare_binary()?;
         let binary_command = self.executable_path.to_string_lossy().to_string();
-        let child = Command::new("sudo") // 使用 sudo 运行 eCapture
-            .arg(&binary_command)
-            .args(["tls", "--ecaptureq", "ws://127.0.0.1:28257"])
-            // .arg(ecapture_args)
-            .stdout(Stdio::null()) // 重定向输出
+        let args_vec: Vec<&str> = ecapture_args.split_whitespace().collect();
+        let child = Command::new(&binary_command)
+            .args(args_vec)
+            .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn()?;
 
@@ -216,7 +227,7 @@ impl CaptureManager {
             _ = shutdown_rx.changed() => {
 
                 if let Some(child) = self.child.as_mut() {
-                    let pid = child.id().ok_or("Failed to get child PID")?;
+                    let pid = child.id().ok_or_else(|| anyhow!("can not get child pid"))?;
 
                     send_signal(Pid::from_raw(pid as i32), Signal::SIGINT)?;
 
@@ -237,6 +248,7 @@ impl CaptureManager {
                     Ok(status) => error!("eCapture process exited unexpectedly with status: {}", status),
                     Err(e) => error!("Error waiting for eCapture process: {}", e),
                 }
+                return Err(anyhow!("ecapture failed launch"))
             }
         }
 

@@ -80,13 +80,11 @@ pub async fn start_capture(
             }
             capture_wg_clone.done();
         });
-        {
-            tokio::select! {
-            _ = sleep(Duration::from_millis(900)) => {
-                }
+        tokio::select! {
+        _ = sleep(Duration::from_millis(900)) => {
+            }
 
-            _ = capture_wg.wait() => {
-                }
+        _ = capture_wg.wait() => {
             }
         }
     }
@@ -105,19 +103,20 @@ pub async fn start_capture(
         }
         ws_wg_clone.done();
     });
-    {
-        tokio::select! {
-            _ = sleep(Duration::from_millis(100)) => {
-                }
-
-            _ = ws_wg.wait() => {
+    tokio::select! {
+        _ = sleep(Duration::from_millis(100)) => {
             }
+
+        _ = ws_wg.wait() => {
         }
     }
 
     if error_inspector.load(Ordering::SeqCst) {
         error!("capture session launch error");
         *state.status.write().await = RunState::NotCapturing;
+        shutdown_tx
+            .send(())
+            .map_err(|_| "Failed to send shutdown signal.".to_string())?;
         return Err("capture session launch error".into());
     }
 
@@ -144,6 +143,9 @@ pub async fn start_capture(
 
 #[tauri::command]
 pub async fn stop_capture(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    if let RunState::NotCapturing = state.status.read().await.clone() {
+        return Err("Capture session is already running.".into());
+    }
     if let Some(shutdown_tx) = state.shutdown_tx.lock().await.take() {
         shutdown_tx
             .send(())
