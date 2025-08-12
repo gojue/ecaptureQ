@@ -28,7 +28,8 @@ const TableRow = memo(({ index, style, data }: {
       if (!timestamp || isNaN(timestamp)) {
         return 'Invalid';
       }
-      const date = new Date(timestamp / 1000000);
+      // Convert seconds to milliseconds for correct display
+      const date = new Date(timestamp * 1000);
       if (isNaN(date.getTime())) {
         return 'Invalid';
       }
@@ -92,8 +93,12 @@ const TableRow = memo(({ index, style, data }: {
         {formatTimestamp(packet.timestamp)}
       </div>
       <div className="w-40 py-3 truncate pr-4 text-sm">
-        <span className="font-medium">{packet.pname || 'N/A'}</span>
-        <span className="text-gray-500 dark:text-gray-400"> ({packet.pid !== undefined ? packet.pid : 'N/A'})</span>
+        <span className="font-medium">
+          {packet.pname || 'N/A'}
+        </span>
+        <span className="text-gray-500 dark:text-gray-400">
+          {' '}({packet.pid !== undefined ? packet.pid : 'N/A'})
+        </span>
       </div>
       <div className="w-48 py-3 truncate pr-4 font-mono text-sm text-gray-600 dark:text-gray-400">
         {packet.src_ip || 'N/A'}:{packet.src_port || 0}

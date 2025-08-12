@@ -39,7 +39,7 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col overflow-auto">
       {isMobile && (
         <div className="flex items-center p-4 border-b border-gray-200 dark:border-gray-700">
           <button

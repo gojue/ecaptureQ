@@ -9,14 +9,14 @@ interface NewPacketCardProps {
 
 export function NewPacketCard({ packet, onClick, showTimestamp = true }: NewPacketCardProps) {
   try {
-    // Format timestamp (nanoseconds to readable format)
+    // Format timestamp (seconds to readable format)
     const formatTimestamp = (timestamp: number) => {
       try {
         if (!timestamp || isNaN(timestamp)) {
           return 'Invalid time';
         }
-        // Convert nanoseconds to milliseconds for correct display
-        const date = new Date(timestamp / 1000000);
+        // Convert seconds to milliseconds for correct display
+        const date = new Date(timestamp * 1000);
         if (isNaN(date.getTime())) {
           return 'Invalid date';
         }
@@ -112,8 +112,12 @@ export function NewPacketCard({ packet, onClick, showTimestamp = true }: NewPack
       {/* Process info */}
       <div className="flex items-center space-x-1 text-xs text-gray-600 dark:text-gray-400">
         <Monitor className="w-3 h-3 flex-shrink-0" />
-        <span className="truncate">{packet.pname || 'N/A'}</span>
-        <span className="text-gray-400">({packet.pid !== undefined ? packet.pid : 'N/A'})</span>
+        <span className="truncate">
+          {packet.pname || 'N/A'}
+        </span>
+        <span className="text-gray-400">
+          ({packet.pid !== undefined ? packet.pid : 'N/A'})
+        </span>
       </div>
     </div>
   );

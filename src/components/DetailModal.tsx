@@ -52,15 +52,15 @@ export function DetailModal({ packet, onClose }: DetailModalProps) {
   }
 
   try {
-    // Format timestamp - convert nanoseconds to milliseconds
+    // Format timestamp - convert seconds to milliseconds
     const formatTimestamp = (timestamp: number) => {
       try {
         // Handle undefined/null timestamp
         if (!timestamp || isNaN(timestamp)) {
           return 'Invalid timestamp';
         }
-        // Convert nanoseconds to milliseconds
-        const date = new Date(timestamp / 1000000);
+        // Convert seconds to milliseconds
+        const date = new Date(timestamp * 1000);
         if (isNaN(date.getTime())) {
           return 'Invalid date';
         }
@@ -229,11 +229,15 @@ export function DetailModal({ packet, onClose }: DetailModalProps) {
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="text-gray-500 dark:text-gray-400">Process Name:</span>
-                    <div className="font-semibold">{packet.pname || 'N/A'}</div>
+                    <div className="font-semibold">
+                      {packet.pname || 'N/A'}
+                    </div>
                   </div>
                   <div>
                     <span className="text-gray-500 dark:text-gray-400">Process ID:</span>
-                    <div>{packet.pid !== undefined ? packet.pid : 'N/A'}</div>
+                    <div>
+                      {packet.pid !== undefined ? packet.pid : 'N/A'}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -245,10 +249,9 @@ export function DetailModal({ packet, onClose }: DetailModalProps) {
                 Payload Data
               </h3>
               
-              {/* Raw Text */}
+              {/* Payload Content */}
               <div>
-                <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Raw Text:</h4>
-                <div className="bg-gray-100 dark:bg-gray-900 rounded-md p-4 h-96 overflow-auto">
+                <div className="bg-gray-100 dark:bg-gray-900 rounded-md p-4 h-[500px] overflow-auto">
                   <pre className="text-sm font-mono whitespace-pre-wrap break-all">
                     {decodedPayload}
                   </pre>

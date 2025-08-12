@@ -92,7 +92,7 @@ export function AppLayout() {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col overflow-hidden">
+      <main className="flex-1 flex flex-col">
         <Routes>
           <Route path="/" element={<CapturePage appState={appState} />} />
           <Route path="/settings" element={<SettingsPage />} />

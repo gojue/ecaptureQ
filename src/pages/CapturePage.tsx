@@ -73,7 +73,7 @@ export function CapturePage({ appState: providedAppState }: CapturePageProps) {
   }, [selectPacket]);
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col overflow-hidden">
       {/* Control Bar */}
       <div className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
         <div className="px-6 py-4">
