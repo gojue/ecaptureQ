@@ -7,7 +7,6 @@ use tauri::Manager;
 use tokio::time::{Duration, sleep};
 use wg::AsyncWaitGroup;
 
-
 #[cfg(all(not(decoupled), any(target_os = "linux", target_os = "android")))]
 use crate::services::capture::CaptureManager;
 use crate::services::{push_service::PushService, websocket::WebsocketService};
@@ -64,16 +63,10 @@ pub async fn start_capture(
         let capture_wg_clone = capture_wg.clone();
         // spawn ecapture service
         tokio::spawn(async move {
-            #[cfg(target_os = "linux")]
             let result = capture_manager
                 .run(rx, configs.ecapture_args.unwrap_or_default())
                 .await;
-            
-            #[cfg(target_os = "android")]
-            let result = capture_manager
-                .run(rx)
-                .await;
-            
+
             if let Err(e) = result {
                 error!("[CaptureManager] Task failed: {}", e);
                 capture_error_inspector.store(true, Ordering::Release);
