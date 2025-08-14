@@ -207,6 +207,7 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           DECOUPLED_MODE: true
+          RUST_TARGET: ${{ matrix.target }}
           NODE_OPTIONS: "--max_old_space_size=4096"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.ANDROID_SIGNING_RELEASE_KEY }}
@@ -221,8 +222,8 @@ jobs:
           tagName: v__VERSION__
           releaseName: "eCaptureQ v__VERSION__"
           releaseBody: "More new features are now supported."
+          appVersion: v__VERSION__
           tauriScript: pnpm
-          args: --target ${{ matrix.target }}
 
       - name: eCaptureQ build (Android) ${{ matrix.arch }}
         if: matrix.platform == 'android'
