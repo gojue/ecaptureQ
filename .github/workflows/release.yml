@@ -90,11 +90,11 @@ jobs:
           # Android
           - os: ubuntu-22.04
             platform: android
-            target: x86_64
+            target: x86_64-linux-android
             arch: x86_64
           - os: ubuntu-22.04
             platform: android
-            target: aarch64
+            target: aarch64-linux-android
             arch: aarch64
     runs-on: ${{ matrix.os }}
     steps:
