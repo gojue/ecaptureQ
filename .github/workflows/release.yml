@@ -201,7 +201,6 @@ jobs:
       - name: Pnpm install
         run: |
           pnpm i
-          pnpm run prebuild ${{ matrix.target }}
 
       - name: eCaptureQ build (non-Android)
         if: matrix.platform != 'android'
