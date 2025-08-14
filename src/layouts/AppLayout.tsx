@@ -22,7 +22,7 @@ export function AppLayout() {
   if (isMobile) {
     // Mobile Layout
     return (
-      <div className="h-screen flex flex-col bg-gray-100 dark:bg-gray-900">
+      <div className="h-[100dvh] flex flex-col bg-gray-100 dark:bg-gray-900 pt-[env(safe-area-inset-top)]">
         {/* Top App Bar - only show on capture page */}
         {location.pathname === '/' && (
           <header className="bg-white dark:bg-gray-800 shadow-md h-16 flex items-center justify-between px-4 z-10 flex-shrink-0">

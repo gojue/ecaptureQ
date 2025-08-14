@@ -2,6 +2,7 @@ import { X, Clock, Globe, Monitor, Database } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import type { PacketData } from '@/types';
 import { ApiService } from '@/services/apiService';
+import { useResponsive } from '@/hooks/useResponsive';
 
 interface DetailModalProps {
   packet: PacketData | null;
@@ -11,6 +12,7 @@ interface DetailModalProps {
 export function DetailModal({ packet, onClose }: DetailModalProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'payload'>('overview');
   const [decodedPayload, setDecodedPayload] = useState<string>('Loading...');
+  const { isMobile } = useResponsive();
 
   if (!packet) return null;
 
@@ -133,8 +135,14 @@ export function DetailModal({ packet, onClose }: DetailModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+    <div className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 ${
+      isMobile ? 'pt-[env(safe-area-inset-top)] p-0' : 'p-4'
+    }`}>
+      <div className={`bg-white dark:bg-gray-800 rounded-lg shadow-xl flex flex-col ${
+        isMobile 
+          ? 'w-full h-full max-h-none rounded-none' 
+          : 'max-w-4xl w-full max-h-[90vh]'
+      }`}>
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
@@ -173,7 +181,7 @@ export function DetailModal({ packet, onClose }: DetailModalProps) {
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-auto p-4">
+        <div className="flex-1 overflow-auto p-4 flex flex-col">
           {activeTab === 'overview' ? (
             <div className="space-y-6">
               {/* Basic Information */}
@@ -182,14 +190,14 @@ export function DetailModal({ packet, onClose }: DetailModalProps) {
                   <Clock className="w-4 h-4 mr-2" />
                   Basic Information
                 </h3>
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className={`gap-4 text-sm ${isMobile ? 'grid-cols-1' : 'grid-cols-2'} grid`}>
                   <div>
                     <span className="text-gray-500 dark:text-gray-400">Timestamp:</span>
                     <div className="font-mono">{formatTimestamp(packet.timestamp)}</div>
                   </div>
                   <div>
                     <span className="text-gray-500 dark:text-gray-400">UUID:</span>
-                    <div className="font-mono text-xs">{packet.uuid || 'N/A'}</div>
+                    <div className={`font-mono text-xs break-all ${isMobile ? 'pr-4' : ''}`}>{packet.uuid || 'N/A'}</div>
                   </div>
                   <div>
                     <span className="text-gray-500 dark:text-gray-400">Protocol Type:</span>
@@ -208,7 +216,7 @@ export function DetailModal({ packet, onClose }: DetailModalProps) {
                   <Globe className="w-4 h-4 mr-2" />
                   Network Information
                 </h3>
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className={`gap-4 text-sm ${isMobile ? 'grid-cols-1' : 'grid-cols-2'} grid`}>
                   <div>
                     <span className="text-gray-500 dark:text-gray-400">Source:</span>
                     <div className="font-mono">{packet.src_ip || 'N/A'}:{packet.src_port || 0}</div>
@@ -226,7 +234,7 @@ export function DetailModal({ packet, onClose }: DetailModalProps) {
                   <Monitor className="w-4 h-4 mr-2" />
                   Process Information
                 </h3>
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className={`gap-4 text-sm ${isMobile ? 'grid-cols-1' : 'grid-cols-2'} grid`}>
                   <div>
                     <span className="text-gray-500 dark:text-gray-400">Process Name:</span>
                     <div className="font-semibold">
@@ -243,15 +251,17 @@ export function DetailModal({ packet, onClose }: DetailModalProps) {
               </div>
             </div>
           ) : (
-            <div className="space-y-4">
-              <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 flex items-center">
+            <div className="flex flex-col h-full">
+              <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 flex items-center mb-4">
                 <Database className="w-4 h-4 mr-2" />
                 Payload Data
               </h3>
               
               {/* Payload Content */}
-              <div>
-                <div className="bg-gray-100 dark:bg-gray-900 rounded-md p-4 h-[500px] overflow-auto">
+              <div className="flex-1 flex flex-col">
+                <div className={`bg-gray-100 dark:bg-gray-900 rounded-md p-4 overflow-auto flex-1 ${
+                  isMobile ? 'mb-4' : 'mb-0'
+                }`}>
                   <pre className="text-sm font-mono whitespace-pre-wrap break-all">
                     {decodedPayload}
                   </pre>
