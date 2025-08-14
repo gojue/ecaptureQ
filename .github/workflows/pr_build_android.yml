@@ -142,19 +142,13 @@ jobs:
           pnpm tauri android init
           pnpm tauri android build --target ${{ matrix.arch }}
 
-      - name: Sign APK
-        run: |
-          ${{ env.ANDROID_HOME }}/build-tools/34.0.0/apksigner sign --ks src-tauri/gen/android/release.decrypted.jks \
-          src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
-
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: eCaptureQ-pr${{ github.event.number }}-${{ github.sha }}-${{ matrix.arch }}.apk
-          if-no-files-found: ignore
-          path: |
-            src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-signed.apk
+          name: eCaptureQ-pr${{ github.event.number }}-${{ github.run_id }}-${{ matrix.arch }}.apk
           retention-days: 7
+          path: |
+            src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
 
   comment-pr:
     needs: build-android

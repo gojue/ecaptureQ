@@ -206,6 +206,7 @@ jobs:
         if: matrix.platform != 'android'
         uses: tauri-apps/tauri-action@v0
         env:
+          DECOUPLED_MODE: true
           NODE_OPTIONS: "--max_old_space_size=4096"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.ANDROID_SIGNING_RELEASE_KEY }}
