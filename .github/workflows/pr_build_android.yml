@@ -48,14 +48,12 @@ jobs:
           
           ECAPTURE_TAR="ecapture-${ECAPTURE_LATEST}-android-${ECAPTURE_ARCH}.tar.gz"
           ECAPTURE_DIR="ecapture-${ECAPTURE_LATEST}-android-${ECAPTURE_ARCH}"
-          
+
           wget "https://github.com/gojue/ecapture/releases/download/${ECAPTURE_LATEST}/${ECAPTURE_TAR}" || { echo "Download failed"; exit 1; }
           tar -zxvf "${ECAPTURE_TAR}" || { echo "Extract failed"; exit 1; }
-          
-          ls -al
+
           mkdir -p src-tauri/binaries
-          cp "${ECAPTURE_DIR}/ecapture" src-tauri/binaries/android_test-aarch64-linux-android || { echo "Copy failed"; exit 1; }
-          cp "${ECAPTURE_DIR}/ecapture" src-tauri/binaries/linux_ecapture_test || { echo "Copy failed"; exit 1; }
+          cp "${ECAPTURE_DIR}/ecapture" src-tauri/binaries/android_ecapture_${ECAPTURE_ARCH} || { echo "Copy failed"; exit 1; }
           ls src-tauri/binaries/
 
       - name: Rust setup
@@ -139,12 +137,6 @@ jobs:
       - name: Build and Sign Android App for ${{ matrix.arch }}
         env:
           NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/26.1.10909125
-#          OPENSSL_DIR: /usr
-#          OPENSSL_LIB_DIR: /usr/lib/x86_64-linux-gnu
-#          OPENSSL_INCLUDE_DIR: /usr/include/openssl
-#          PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig
-#          OPENSSL_STATIC: "0"
-#          RUST_BACKTRACE: 1
         run: |
           rm -rf src-tauri/gen/android
           pnpm tauri android init

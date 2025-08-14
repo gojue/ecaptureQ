@@ -76,6 +76,7 @@ pub async fn run() {
         })
         .manage(app_state)
         .plugin(log_plugin)
+        .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             commands::start_capture,
             commands::stop_capture,

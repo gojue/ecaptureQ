@@ -1,25 +1,28 @@
-name: PR Build and Test
+name: Release
 
+# 验证是否正确，先使用PR 的触发条件
+#on:
+#  push:
+#    branches:
+#      - main
+#      - master
+#    tags:
+#      - "v*.*.*"
 on:
   pull_request:
     branches: [ main, develop ]
     types: [opened, synchronize, reopened]
 
-# 授予工作流写入权限，用于创建 Release 和上传产物
-permissions:
-  contents: write
-  issues: write
-  pull-requests: write
+permissions: write-all
+
+concurrency:
+  group: "${{ github.workflow }} - ${{ github.head_ref || github.ref }}"
+  cancel-in-progress: true
 
 # 定义环境变量
 env:
   CARGO_INCREMENTAL: 0
   RUST_BACKTRACE: short
-
-# 确保每个提交只运行一次工作流
-concurrency:
-  group: "${{ github.workflow }} - ${{ github.head_ref || github.ref }}"
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   # 任务 1: 检查 Git Tag 和 package.json 的版本是否一致
@@ -38,12 +41,18 @@ jobs:
       - name: Get version from package.json
         id: get_version
         run: |
+          TAG_REF="${GITHUB_REF##*/}"
+          echo "Current tag: $TAG_REF"
           PKG_VERSION=$(jq -r .version package.json)
           echo "package.json version: $PKG_VERSION"
-          echo "version=${PKG_VERSION}" >> $GITHUB_OUTPUT
+          if [[ "$TAG_REF" != "v$PKG_VERSION" ]]; then
+            echo "Tag ($TAG_REF) does not match package.json version (v$PKG_VERSION)."
+            exit 1
+          fi
+          echo "Tag and package.json version are consistent."
 
   # 任务 2: 为 Windows, macOS, Linux, 和 Android 构建和发布
-  build-debug-artifacts:
+  build-artifacts:
     name: Build and Release
     needs: check_tag_version
     strategy:
@@ -78,7 +87,15 @@ jobs:
             platform: linux
             target: aarch64-unknown-linux-gnu
             arch: aarch64
-
+          # Android
+          - os: ubuntu-22.04
+            platform: android
+            target: x86_64
+            arch: x86_64
+          - os: ubuntu-22.04
+            platform: android
+            target: aarch64
+            arch: aarch64
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
@@ -87,6 +104,26 @@ jobs:
       # 安装 Rust Stable
       - name: Install Rust Stable
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Set up Java
+        if: matrix.platform == 'android'
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '23'
+
+      # 下载并配置 Android SDK/NDK
+      - name: Setup Android SDK
+        if: matrix.platform == 'android'
+        uses: android-actions/setup-android@v3
+        with:
+          api-level: 34
+          build-tools: 34.0.0
+          ndk-version: 26.1.10909125
+
+      - name: Install NDK
+        if: matrix.platform == 'android'
+        run: sdkmanager "ndk;26.1.10909125"
 
       # 添加 Rust 编译目标
       - name: Add Rust Target
@@ -105,7 +142,7 @@ jobs:
 
       - name: Download and setup eCapture for ${{ matrix.arch }}
         shell: bash
-        if: matrix.platform == 'linux'
+        if: matrix.platform == 'linux' || matrix.platform == 'android'
         run: |
           if [[ "${{ matrix.arch }}" == "x86_64" ]]; then
             ECAPTURE_ARCH="amd64"
@@ -134,77 +171,69 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-      
+
       # 设置 pnpm
       - uses: pnpm/action-setup@v4
         name: Install pnpm
         with:
           version: latest
 
+      - name: Create keystore.properties for Android signing
+        if: matrix.platform == 'android'
+        run: |
+          # 动态创建 src-tauri/gen/android 目录（如果不存在）
+          mkdir -p src-tauri/gen/android
+
+          # 将 Base64 编码的密钥文件解码，并保存到 Runner 的临时目录
+          echo "${{ secrets.ANDROID_SIGNING_DEBUG_KEY }}" | base64 --decode > android_keystore.jks
+
+          # 将签名信息写入 keystore.properties 文件
+          cat <<EOF > src-tauri/gen/android/keystore.properties
+          password=${{ secrets.ANDROID_SIGNING_DEBUG_KEY_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_SIGNING_DEBUG_KEY_ALIAS }}
+          storeFile=${{ github.workspace }}/android_keystore.jks
+          keyPassword=${{ secrets.ANDROID_SIGNING_DEBUG_KEY_ALIAS_PASSWORD }}
+          EOF
+        env:
+          GITHUB_WORKSPACE: ${{ github.workspace }}
+
       # 安装前端依赖
       - name: Pnpm install
-        run: pnpm i
-
-      # Tauri 构建
-      - name: Tauri build (Linux)
-        if: matrix.platform == 'linux'
-        env:
-          DECOUPLED_MODE: true
         run: |
-            pnpm tauri build
-      - name: Tauri build (macOS/Windows)
-        if: matrix.platform != 'linux'
+          pnpm i
+          pnpm run prebuild ${{ matrix.target }}
+
+      - name: eCaptureQ build (non-Android)
+        if: matrix.platform != 'android'
+        uses: tauri-apps/tauri-action@v0
         env:
-          DECOUPLED_MODE: true
+          NODE_OPTIONS: "--max_old_space_size=4096"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.ANDROID_SIGNING_RELEASE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_RELEASE_KEY_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        with:
+          tagName: v__VERSION__
+          releaseName: "eCaptureQ v__VERSION__"
+          releaseBody: "More new features are now supported."
+          tauriScript: pnpm
+          args: --target ${{ matrix.target }}
+
+      - name: eCaptureQ build (Android) ${{ matrix.arch }}
+        if: matrix.platform == 'android'
+        env:
+          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/26.1.10909125
         run: |
-          pnpm tauri build
+          rm -rf src-tauri/gen/android
+          pnpm tauri android init
+          pnpm tauri android build --target ${{ matrix.arch }}
 
-      - name: Upload artifacts (Linux)
-        uses: actions/upload-artifact@v4
-        if: matrix.platform == 'linux'
-        with:
-          name: eCaptureQ-pr${{ github.event.number }}-${{ github.run_id }}-${{ matrix.arch }}.AppImage
-          retention-days: 7
-          path: src-tauri/target/release/bundle/appimage/eCaptureQ*.AppImage
-
-      - name: Upload artifacts (macOS)
-        uses: actions/upload-artifact@v4
-        if: matrix.platform == 'macos'
-        with:
-          name: eCaptureQ-pr${{ github.event.number }}-${{ github.run_id }}-${{ matrix.arch }}.dmg
-          retention-days: 7
-          path: |
-            src-tauri/target/release/bundle/dmg/eCaptureQ*.dmg
-
-      - name: Upload artifacts (Windows)
-        uses: actions/upload-artifact@v4
-        if: matrix.platform == 'windows'
-        with:
-          name: eCaptureQ-pr${{ github.event.number }}-${{ github.run_id }}-${{ matrix.arch }}.msi
-          retention-days: 7
-          path: |
-            src-tauri/target/release/bundle/msi/eCaptureQ*.msi
-
-  comment-pr:
-    runs-on: ubuntu-22.04
-    name: Comment PR with Download Links
-    needs: build-debug-artifacts
-    steps:
-      - name: Comment PR with Download Links
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const runId = context.runId;
-            const prNumber = context.payload.pull_request.number;
-
-            github.rest.issues.createComment({
-              issue_number: prNumber,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `🔧 **Debug Build Complete (macOS、Linux、Windows)**
-
-              📦 Download Links:
-              - [PR ${prNumber} Debug Binary](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId})
-
-              ⏰ Files will be retained for 7 days, please download and test promptly.`
-            });
+      - name: Sign APK
+        run: |
+          ${{ env.ANDROID_HOME }}/build-tools/34.0.0/apksigner sign --ks src-tauri/gen/android/release.decrypted.jks \
+          src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
