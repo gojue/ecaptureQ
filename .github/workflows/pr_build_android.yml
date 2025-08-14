@@ -161,34 +161,14 @@ jobs:
             const runId = context.runId;
             const prNumber = context.payload.pull_request.number;
             
-            let comment = `## 🔨 PR Build Results (Android)\n\n`;
-            if (artifacts.artifacts.length > 0) {
-              comment += `✅ Build completed successfully!\n\n`;
-              comment += `### 📦 Download Artifacts:\n`;
-            
-              for (const artifact of artifacts.artifacts) {
-                let arch = 'Unknown';
-                if (artifact.name.includes('aarch64') || artifact.name.includes('arm64')) {
-                  arch = 'aarch64 (ARM64)';
-              } else if (artifact.name.includes('x86_64')|| artifact.name.includes('amd64')) {
-                  arch = 'x86_64';
-              }
-              comment += `- 📱 Android [${arch}]: [${artifact.name}](${artifact.archive_download_url})\n`;
-              }
-            
-              comment += `\n💡 **How to test:**\n`;
-              comment += `1. Download the artifact for your platform\n`;
-              comment += `2. Extract the archive\n`;
-              comment += `3. Install/run the application\n`;
-              comment += `4. Report any issues in this PR\n\n`;
-              comment += `⏰ Artifacts will be available for 7 days.\n`;
-            } else {
-              comment += `❌ Build failed. Please check the workflow logs for details.\n`;
-            }
-            
             github.rest.issues.createComment({
               issue_number: prNumber,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: comment,
+              body: `🔧 **Debug Build Complete (Android)**
+
+              📦 Download Links:
+              - [PR ${prNumber} Debug Binary](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId})
+
+              ⏰ Files will be retained for 7 days, please download and test promptly.`
             });
