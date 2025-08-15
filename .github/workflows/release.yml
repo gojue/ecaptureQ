@@ -248,7 +248,7 @@ jobs:
           ANDROID_SIGNING_RELEASE_KEY_ALIAS_PASSWORD: ${{ secrets.ANDROID_SIGNING_RELEASE_KEY_ALIAS_PASSWORD }}
         run: |
           ls -la src-tauri/gen/android/keystore.properties
-          ls -la src-tauri/gen/android/your-keystore.jks
+          ls -la src-tauri/gen/android/release.decrypted.jks
           ${{ env.ANDROID_HOME }}/build-tools/34.0.0/apksigner sign \
           --ks ${{ github.workspace }}/src-tauri/gen/android/release.decrypted.jks \
           --ks-key-alias env:ANDROID_SIGNING_RELEASE_KEY_ALIAS \
