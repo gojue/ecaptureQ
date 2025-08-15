@@ -45,6 +45,7 @@ jobs:
           echo "Current tag: $TAG_REF"
           PKG_VERSION=$(jq -r .version package.json)
           echo "package.json version: $PKG_VERSION"
+          echo "version=$PKG_VERSION" >> $GITHUB_OUTPUT
           if [[ "$TAG_REF" != "v$PKG_VERSION" ]]; then
             echo "Tag ($TAG_REF) does not match package.json version (v$PKG_VERSION)."
             exit 0
@@ -223,10 +224,10 @@ jobs:
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
-          tagName: v${{ github.ref }}
+          tagName: v${{ steps.get_version.outputs.version }}
           appName: eCaptureQ
-          appVersion: ${{ github.ref }}
-          releaseName: "eCaptureQ v${{ github.ref }}"
+          appVersion: ${{ steps.get_version.outputs.version }}
+          releaseName: "eCaptureQ v${{ steps.get_version.outputs.version }}"
           releaseBody: ""
           releaseDraft: true
           prerelease: 'false'
@@ -241,21 +242,21 @@ jobs:
       - name: Rename APK file
         if: matrix.platform == 'android'
         run: |
-          mv ./src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-signed.apk ./src-tauri/gen/android/app/build/outputs/apk/universal/release/eCaprureQ_v${{ github.ref }}_${{ matrix.arch }}.apk
+          mv ./src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-signed.apk ./src-tauri/gen/android/app/build/outputs/apk/universal/release/eCaprureQ_v${{ steps.get_version.outputs.version }}_${{ matrix.arch }}.apk
 
       - name: Sign APK
         if: matrix.platform == 'android'
         run: |
           ${{ env.ANDROID_HOME }}/build-tools/34.0.0/apksigner sign --ks ${{ github.workspace }}/src-tauri/gen/android/release.decrypted.jks \
-          src-tauri/gen/android/app/build/outputs/apk/universal/release/eCaprureQ_v${{ github.ref }}_${{ matrix.arch }}.apk
+          src-tauri/gen/android/app/build/outputs/apk/universal/release/eCaprureQ_v${{ steps.get_version.outputs.version }}_${{ matrix.arch }}.apk
 
       - name: Publish
         if: matrix.platform == 'android'
         uses: softprops/action-gh-release@v1
         with:
           draft: true
-          name: eCaptureQ v${{ github.ref }}
-          tag_name: v${{ github.ref }}
+          name: eCaptureQ v${{ steps.get_version.outputs.version }}
+          tag_name: v${{ steps.get_version.outputs.version }}
           generate_release_notes: true
           files: |
-            ./src-tauri/gen/android/app/build/outputs/apk/universal/release/eCaptureQ_v${{ github.ref }}_${{ matrix.arch }}.apk
+            ./src-tauri/gen/android/app/build/outputs/apk/universal/release/eCaptureQ_v${{ steps.get_version.outputs.version }}_${{ matrix.arch }}.apk
