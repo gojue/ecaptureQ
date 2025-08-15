@@ -51,10 +51,42 @@ jobs:
           fi
           echo "Tag and package.json version are consistent."
 
+  generate-changelog:
+    name: Generate Changelog
+    runs-on: ubuntu-latest
+    needs: check_tag_version
+    outputs:
+      changelog: ${{ steps.changelog.outputs.log }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 获取所有历史记录以访问所有 tags
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # 获取最新的两个 tag
+          LATEST_TAG=$(git describe --tags `git rev-list --tags --max-count=1`)
+          PREVIOUS_TAG=$(git describe --tags `git rev-list --tags --skip=1 --max-count=1`)
+          
+          echo "Latest Tag: $LATEST_TAG"
+          echo "Previous Tag: $PREVIOUS_TAG"
+          
+          # 生成这两个 tag 之间的 commit log
+          LOG_CONTENT=$(git log ${PREVIOUS_TAG}..${LATEST_TAG} --pretty=format:"* %s (%h)")
+          
+          # 处理多行字符串以便输出
+          LOG_CONTENT="${LOG_CONTENT//'%'/'%25'}"
+          LOG_CONTENT="${LOG_CONTENT//$'\n'/'%0A'}"
+          LOG_CONTENT="${LOG_CONTENT//$'\r'/'%0D'}"
+          
+          echo "log=$LOG_CONTENT" >> $GITHUB_OUTPUT
+
   # 任务 2: 为 Windows, macOS, Linux, 和 Android 构建和发布
   build-artifacts:
     name: Build and Release
-    needs: check_tag_version
+    needs: [check_tag_version, generate-changelog]
     strategy:
       fail-fast: false
       matrix:
@@ -188,7 +220,6 @@ jobs:
         run: |
           # 动态创建 src-tauri/gen/android 目录（如果不存在）
           pwd
-          pnpm tauri android init
           mkdir -p src-tauri/gen/android
 
           # 将 Base64 编码的密钥文件解码，并保存到 Runner 的临时目录
@@ -226,26 +257,26 @@ jobs:
           appName: eCaptureQ
           appVersion: ${{ github.ref }}
           releaseName: "eCaptureQ v${{ github.ref }}"
-          releaseBody: "More new features are now supported."
+          releaseBody: "${{ needs.generate-changelog.outputs.changelog }}"
 
       - name: eCaptureQ build (Android) ${{ matrix.arch }}
         if: matrix.platform == 'android'
         env:
           NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/26.1.10909125
         run: |
+          pnpm tauri android init
           pnpm tauri android build --target ${{ matrix.arch }}
-
-      - name: Sign APK
-        if: matrix.platform == 'android'
-        run: |
-          ${{ env.ANDROID_HOME }}/build-tools/34.0.0/apksigner sign --ks ${{ github.workspace }}/src-tauri/gen/android/release.decrypted.jks \
-          src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
-
 
       - name: Rename APK file
         if: matrix.platform == 'android'
         run: |
           mv ./src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-signed.apk ./src-tauri/gen/android/app/build/outputs/apk/universal/release/eCaprureQ_v${{ github.ref }}_${{ matrix.arch }}.apk
+
+      - name: Sign APK
+        if: matrix.platform == 'android'
+        run: |
+          ${{ env.ANDROID_HOME }}/build-tools/34.0.0/apksigner sign --ks ${{ github.workspace }}/src-tauri/gen/android/release.decrypted.jks \
+          src-tauri/gen/android/app/build/outputs/apk/universal/release/eCaprureQ_v${{ github.ref }}_${{ matrix.arch }}.apk
 
       - name: Publish
         if: matrix.platform == 'android'
