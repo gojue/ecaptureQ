@@ -39,12 +39,6 @@
       "icons/icon.ico",
       "icons/icon.png"
     ],
-    "android": {
-      "keystorePath": "./gen/android/keystore.properties",
-      "signing": {
-        "enabled": true
-      }
-    },
     "publisher": "gojue",
     "copyright": "Copyright © 2025 gojue",
     "homepage": "https://github.com/gojue/ecaptureQ",

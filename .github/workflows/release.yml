@@ -241,17 +241,25 @@ jobs:
 
       - name: Sign APK
         if: matrix.platform == 'android'
+        env:
+          ANDROID_SIGNING_RELEASE_KEY: ${{ secrets.ANDROID_SIGNING_RELEASE_KEY }}
+          ANDROID_SIGNING_RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_SIGNING_RELEASE_KEY_ALIAS }}
+          ANDROID_SIGNING_RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_RELEASE_KEY_PASSWORD }}
+          ANDROID_SIGNING_RELEASE_KEY_ALIAS_PASSWORD: ${{ secrets.ANDROID_SIGNING_RELEASE_KEY_ALIAS_PASSWORD }}
         run: |
           ls -la src-tauri/gen/android/keystore.properties
           ls -la src-tauri/gen/android/your-keystore.jks
           ${{ env.ANDROID_HOME }}/build-tools/34.0.0/apksigner sign \
           --ks ${{ github.workspace }}/src-tauri/gen/android/release.decrypted.jks \
+          --ks-key-alias env:ANDROID_SIGNING_RELEASE_KEY_ALIAS \
+          --ks-pass env:ANDROID_SIGNING_RELEASE_KEY_PASSWORD \
+          --key-pass env:ANDROID_SIGNING_RELEASE_KEY_ALIAS_PASSWORD \
+          --v1-signing-enabled true \
+          --v2-signing-enabled true \
+          --v3-signing-enabled true \
+          --verbose \
+          --out "./src-tauri/gen/android/app/build/outputs/apk/universal/release/eCaprureQ_v${{ steps.get_version.outputs.version }}_${{ matrix.arch }}.apk" \
           src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
-
-      - name: Rename APK file
-        if: matrix.platform == 'android'
-        run: |
-          mv ./src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk ./src-tauri/gen/android/app/build/outputs/apk/universal/release/eCaprureQ_v${{ steps.get_version.outputs.version }}_${{ matrix.arch }}.apk
 
       - name: Publish
         if: matrix.platform == 'android'
