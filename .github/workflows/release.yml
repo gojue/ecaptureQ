@@ -257,7 +257,9 @@ jobs:
           appName: eCaptureQ
           appVersion: ${{ github.ref }}
           releaseName: "eCaptureQ v${{ github.ref }}"
-          releaseBody: "${{ needs.generate-changelog.outputs.changelog }}"
+          releaseBody: ""
+          releaseDraft: true
+          prerelease: 'false'
 
       - name: eCaptureQ build (Android) ${{ matrix.arch }}
         if: matrix.platform == 'android'
