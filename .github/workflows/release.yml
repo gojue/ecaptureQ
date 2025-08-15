@@ -26,7 +26,7 @@ env:
 
 jobs:
   # 任务 1: 检查 Git Tag 和 package.json 的版本是否一致
-  check_tag_version:
+  get_version:
     name: Check Release Tag and package.json Version Consistency
     runs-on: ubuntu-latest
     outputs:
@@ -55,7 +55,7 @@ jobs:
   # 任务 2: 为 Windows, macOS, Linux, 和 Android 构建和发布
   build-artifacts:
     name: Build and Release
-    needs: [check_tag_version]
+    needs: [get_version]
     strategy:
       fail-fast: false
       matrix:
@@ -239,16 +239,16 @@ jobs:
         run: |
           pnpm tauri android build --target ${{ matrix.arch }}
 
-      - name: Rename APK file
-        if: matrix.platform == 'android'
-        run: |
-          mv ./src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-signed.apk ./src-tauri/gen/android/app/build/outputs/apk/universal/release/eCaprureQ_v${{ steps.get_version.outputs.version }}_${{ matrix.arch }}.apk
-
       - name: Sign APK
         if: matrix.platform == 'android'
         run: |
           ${{ env.ANDROID_HOME }}/build-tools/34.0.0/apksigner sign --ks ${{ github.workspace }}/src-tauri/gen/android/release.decrypted.jks \
-          src-tauri/gen/android/app/build/outputs/apk/universal/release/eCaprureQ_v${{ steps.get_version.outputs.version }}_${{ matrix.arch }}.apk
+          src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
+
+      - name: Rename APK file
+        if: matrix.platform == 'android'
+        run: |
+          mv ./src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk ./src-tauri/gen/android/app/build/outputs/apk/universal/release/eCaprureQ_v${{ steps.get_version.outputs.version }}_${{ matrix.arch }}.apk
 
       - name: Publish
         if: matrix.platform == 'android'
