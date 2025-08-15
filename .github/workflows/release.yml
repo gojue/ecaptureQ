@@ -185,13 +185,13 @@ jobs:
           mkdir -p src-tauri/gen/android
 
           # 将 Base64 编码的密钥文件解码，并保存到 Runner 的临时目录
-          echo "${{ secrets.ANDROID_SIGNING_DEBUG_KEY }}" | base64 --decode > android_keystore.jks
+          echo "${{ secrets.ANDROID_SIGNING_DEBUG_KEY }}" | base64 --decode > src-tauri/gen/android/release.decrypted.jks
 
           # 将签名信息写入 keystore.properties 文件
           cat <<EOF > src-tauri/gen/android/keystore.properties
           password=${{ secrets.ANDROID_SIGNING_DEBUG_KEY_PASSWORD }}
           keyAlias=${{ secrets.ANDROID_SIGNING_DEBUG_KEY_ALIAS }}
-          storeFile=${{ github.workspace }}/android_keystore.jks
+          storeFile=${{ github.workspace }}/src-tauri/gen/android/release.decrypted.jks
           keyPassword=${{ secrets.ANDROID_SIGNING_DEBUG_KEY_ALIAS_PASSWORD }}
           EOF
         env:
@@ -204,7 +204,7 @@ jobs:
 
       - name: eCaptureQ build (non-Android)
         if: matrix.platform != 'android'
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v0.5.22
         env:
           DECOUPLED_MODE: true
           RUST_TARGET: ${{ matrix.target }}
@@ -219,11 +219,11 @@ jobs:
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
-          tagName: v__VERSION__
-          releaseName: "eCaptureQ v__VERSION__"
+          tagName: v${{ steps.get_version.outputs.version }}
+          appName: eCaptureQ
+          appVersion: ${{ steps.get_version.outputs.version }}
+          releaseName: "eCaptureQ v${{ steps.get_version.outputs.version }}"
           releaseBody: "More new features are now supported."
-          appVersion: v__VERSION__
-          tauriScript: pnpm
 
       - name: eCaptureQ build (Android) ${{ matrix.arch }}
         if: matrix.platform == 'android'
@@ -235,6 +235,24 @@ jobs:
           pnpm tauri android build --target ${{ matrix.arch }}
 
       - name: Sign APK
+        if: matrix.platform == 'android'
         run: |
-          ${{ env.ANDROID_HOME }}/build-tools/34.0.0/apksigner sign --ks src-tauri/gen/android/release.decrypted.jks \
+          ${{ env.ANDROID_HOME }}/build-tools/34.0.0/apksigner sign --ks ${{ github.workspace }}/src-tauri/gen/android/release.decrypted.jks \
           src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
+
+
+      - name: Rename APK file
+        if: matrix.platform == 'android'
+        run: |
+          mv ./src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-signed.apk ./src-tauri/gen/android/app/build/outputs/apk/universal/release/eCaprureQ_v${{ steps.get_version.outputs.version }}_${{ matrix.arch }}.apk
+
+      - name: Publish
+        if: matrix.platform == 'android'
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          name: eCaptureQ v${{ steps.get_version.outputs.version }}
+          tag_name: v${{ steps.get_version.outputs.version }}
+          generate_release_notes: true
+          files: |
+            ./src-tauri/gen/android/app/build/outputs/apk/universal/release/eCaptureQ_v${{ steps.get_version.outputs.version }}_${{ matrix.arch }}.apk
