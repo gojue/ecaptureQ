@@ -185,14 +185,14 @@ jobs:
           mkdir -p src-tauri/gen/android
 
           # 将 Base64 编码的密钥文件解码，并保存到 Runner 的临时目录
-          echo "${{ secrets.ANDROID_SIGNING_DEBUG_KEY }}" | base64 --decode > src-tauri/gen/android/release.decrypted.jks
+          echo "${{ secrets.ANDROID_SIGNING_RELEASE_KEY }}" | base64 --decode > src-tauri/gen/android/release.decrypted.jks
 
           # 将签名信息写入 keystore.properties 文件
           cat <<EOF > src-tauri/gen/android/keystore.properties
-          password=${{ secrets.ANDROID_SIGNING_DEBUG_KEY_PASSWORD }}
-          keyAlias=${{ secrets.ANDROID_SIGNING_DEBUG_KEY_ALIAS }}
+          password=${{ secrets.ANDROID_SIGNING_RELEASE_KEY_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_SIGNING_RELEASE_KEY_ALIAS }}
           storeFile=${{ github.workspace }}/src-tauri/gen/android/release.decrypted.jks
-          keyPassword=${{ secrets.ANDROID_SIGNING_DEBUG_KEY_ALIAS_PASSWORD }}
+          keyPassword=${{ secrets.ANDROID_SIGNING_RELEASE_KEY_ALIAS_PASSWORD }}
           EOF
         env:
           GITHUB_WORKSPACE: ${{ github.workspace }}
