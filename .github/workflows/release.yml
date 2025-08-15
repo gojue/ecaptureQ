@@ -188,6 +188,7 @@ jobs:
         run: |
           # 动态创建 src-tauri/gen/android 目录（如果不存在）
           pwd
+          pnpm tauri android init
           mkdir -p src-tauri/gen/android
 
           # 将 Base64 编码的密钥文件解码，并保存到 Runner 的临时目录
@@ -202,6 +203,7 @@ jobs:
           EOF
         env:
           GITHUB_WORKSPACE: ${{ github.workspace }}
+          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/26.1.10909125
 
 
       - name: eCaptureQ build (non-Android)
@@ -234,7 +236,6 @@ jobs:
         env:
           NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/26.1.10909125
         run: |
-          pnpm tauri android init
           pnpm tauri android build --target ${{ matrix.arch }}
 
       - name: Rename APK file
