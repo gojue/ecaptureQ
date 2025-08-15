@@ -16,10 +16,8 @@
     "android:init": "tauri android init"
   },
   "dependencies": {
-    "@tauri-apps/api": "^2",
-    "@tauri-apps/plugin-opener": "^2",
-    "@tauri-apps/plugin-store": "^2",
-    "@tauri-apps/plugin-websocket": "^2",
+    "@tauri-apps/api": "^2.7.0",
+    "@tauri-apps/plugin-shell": "^2.3.0",
     "lucide-react": "^0.344.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -31,7 +29,6 @@
     "@types/node": "^24.0.10",
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.1",
-    "@types/react-router-dom": "^5.3.3",
     "@types/react-window": "^1.8.8",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.17",

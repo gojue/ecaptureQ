@@ -1,8 +1,9 @@
-import { ArrowLeft, Save, RotateCcw, Loader2, Server, Terminal } from 'lucide-react';
+import { ArrowLeft, Save, RotateCcw, Loader2, Server, Terminal, Github } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useConfigs } from '@/hooks/useConfigs';
 import { useState } from 'react';
+import { open } from '@tauri-apps/plugin-shell';
 
 export function SettingsPage() {
   const navigate = useNavigate();
@@ -27,7 +28,10 @@ export function SettingsPage() {
     resetConfigs();
   };
 
-  if (isLoading) {
+  // Handle GitHub link click - open in system default browser
+  const handleGitHubClick = async () => {
+    await open('https://github.com/gojue/ecaptureQ');
+  };  if (isLoading) {
     return (
       <div className="h-full flex items-center justify-center">
         <div className="flex items-center space-x-2 text-gray-500 dark:text-gray-400">
@@ -53,6 +57,30 @@ export function SettingsPage() {
       )}
       
       <div className="flex-1 p-8 max-w-4xl mx-auto w-full">
+        {/* GitHub Repository Link */}
+        <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <Github className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+              <div>
+                <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  ecaptureQ Repository
+                </h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Source code, documentation, and issue tracking
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleGitHubClick}
+              className="flex items-center space-x-2 px-3 py-2 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-md transition-colors"
+            >
+              <span className="text-sm">Visit GitHub</span>
+              <Github className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Settings</h2>
           
@@ -163,8 +191,6 @@ export function SettingsPage() {
             <ul className="text-sm text-blue-700 dark:text-blue-400 space-y-1">
               <li>• Changes take effect after restarting the capture session</li>
               <li>• WebSocket URL should match your eCapture server configuration</li>
-              <li>• Leave fields empty to use application defaults</li>
-              <li>• Invalid configurations may prevent the application from working properly</li>
             </ul>
           </div>
         </div>

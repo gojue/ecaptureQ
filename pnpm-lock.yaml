@@ -9,17 +9,11 @@ importers:
   .:
     dependencies:
       '@tauri-apps/api':
-        specifier: ^2
+        specifier: ^2.7.0
         version: 2.7.0
-      '@tauri-apps/plugin-opener':
-        specifier: ^2
-        version: 2.4.0
-      '@tauri-apps/plugin-store':
-        specifier: ^2
+      '@tauri-apps/plugin-shell':
+        specifier: ^2.3.0
         version: 2.3.0
-      '@tauri-apps/plugin-websocket':
-        specifier: ^2
-        version: 2.4.0
       lucide-react:
         specifier: ^0.344.0
         version: 0.344.0(react@18.3.1)
@@ -48,9 +42,6 @@ importers:
       '@types/react-dom':
         specifier: ^18.3.1
         version: 18.3.7(@types/react@18.3.23)
-      '@types/react-router-dom':
-        specifier: ^5.3.3
-        version: 5.3.3
       '@types/react-window':
         specifier: ^1.8.8
         version: 1.8.8
@@ -542,14 +533,8 @@ packages:
     engines: {node: '>= 10'}
     hasBin: true
 
-  '@tauri-apps/plugin-opener@2.4.0':
-    resolution: {integrity: sha512-43VyN8JJtvKWJY72WI/KNZszTpDpzHULFxQs0CJBIYUdCRowQ6Q1feWTDb979N7nldqSuDOaBupZ6wz2nvuWwQ==}
-
-  '@tauri-apps/plugin-store@2.3.0':
-    resolution: {integrity: sha512-mre8er0nXPhyEWQzWCpUd+UnEoBQYcoA5JYlwpwOV9wcxKqlXTGfminpKsE37ic8NUb2BIZqf0QQ9/U3ib2+/A==}
-
-  '@tauri-apps/plugin-websocket@2.4.0':
-    resolution: {integrity: sha512-0TpWqPBb5G3I1qPE/rPnPUmMyAQTWsw2B75Ab6SQ6X4EcypPGyqTyvt3OXymG6PzJeZ+D9wE614Fnf0wXnj1mg==}
+  '@tauri-apps/plugin-shell@2.3.0':
+    resolution: {integrity: sha512-6GIRxO2z64uxPX4CCTuhQzefvCC0ew7HjdBhMALiGw74vFBDY95VWueAHOHgNOMV4UOUAFupyidN9YulTe5xlA==}
 
   '@types/babel__core@7.20.5':
     resolution: {integrity: sha512-qoQprZvz5wQFJwMDqeseRXWv3rqMvhgpbXFfVyWhbx9X47POIA6i/+dXefEmZKoAgOaTdaIgNSMqMIU61yRyzA==}
@@ -566,9 +551,6 @@ packages:
   '@types/estree@1.0.8':
     resolution: {integrity: sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w==}
 
-  '@types/history@4.7.11':
-    resolution: {integrity: sha512-qjDJRrmvBMiTx+jyLxvLfJU7UznFuokDv4f3WRuriHKERccVpFU+8XMQUAbDzoiJCsmexxRExQeMwwCdamSKDA==}
-
   '@types/node@24.1.0':
     resolution: {integrity: sha512-ut5FthK5moxFKH2T1CUOC6ctR67rQRvvHdFLCD2Ql6KXmMuCrjsSsRI9UsLCm9M18BMwClv4pn327UvB7eeO1w==}
 
@@ -579,12 +561,6 @@ packages:
     resolution: {integrity: sha512-MEe3UeoENYVFXzoXEWsvcpg6ZvlrFNlOQ7EOsvhI3CfAXwzPfO8Qwuxd40nepsYKqyyVQnTdEfv68q91yLcKrQ==}
     peerDependencies:
       '@types/react': ^18.0.0
-
-  '@types/react-router-dom@5.3.3':
-    resolution: {integrity: sha512-kpqnYK4wcdm5UaWI3fLcELopqLrHgLqNsdpHauzlQktfkHL3npOSwtj1Uz9oKBAzs7lFtVkV8j83voAz2D8fhw==}
-
-  '@types/react-router@5.1.20':
-    resolution: {integrity: sha512-jGjmu/ZqS7FjSH6owMcD5qpq19+1RS9DeVRqfl1FeBMxTDQAGwlMWOcs52NDoXaNKyG3d1cYQFMs9rCrb88o9Q==}
 
   '@types/react-window@1.8.8':
     resolution: {integrity: sha512-8Ls660bHR1AUA2kuRvVG9D/4XpRC6wjAaPT9dil7Ckc76eP9TKWZwwmgfq8Q1LANX3QNDnoU4Zp48A3w+zK69Q==}
@@ -1546,15 +1522,7 @@ snapshots:
       '@tauri-apps/cli-win32-ia32-msvc': 2.7.1
       '@tauri-apps/cli-win32-x64-msvc': 2.7.1
 
-  '@tauri-apps/plugin-opener@2.4.0':
-    dependencies:
-      '@tauri-apps/api': 2.7.0
-
-  '@tauri-apps/plugin-store@2.3.0':
-    dependencies:
-      '@tauri-apps/api': 2.7.0
-
-  '@tauri-apps/plugin-websocket@2.4.0':
+  '@tauri-apps/plugin-shell@2.3.0':
     dependencies:
       '@tauri-apps/api': 2.7.0
 
@@ -1581,8 +1549,6 @@ snapshots:
 
   '@types/estree@1.0.8': {}
 
-  '@types/history@4.7.11': {}
-
   '@types/node@24.1.0':
     dependencies:
       undici-types: 7.8.0
@@ -1591,17 +1557,6 @@ snapshots:
 
   '@types/react-dom@18.3.7(@types/react@18.3.23)':
     dependencies:
-      '@types/react': 18.3.23
-
-  '@types/react-router-dom@5.3.3':
-    dependencies:
-      '@types/history': 4.7.11
-      '@types/react': 18.3.23
-      '@types/react-router': 5.1.20
-
-  '@types/react-router@5.1.20':
-    dependencies:
-      '@types/history': 4.7.11
       '@types/react': 18.3.23
 
   '@types/react-window@1.8.8':
