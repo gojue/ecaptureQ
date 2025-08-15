@@ -242,8 +242,10 @@ jobs:
       - name: Sign APK
         if: matrix.platform == 'android'
         run: |
-          du -sh ./src-tauri/gen/android/release.decrypted.jks
-          ${{ env.ANDROID_HOME }}/build-tools/34.0.0/apksigner sign --ks ${{ github.workspace }}/src-tauri/gen/android/release.decrypted.jks \
+          ls -la src-tauri/gen/android/keystore.properties
+          ls -la src-tauri/gen/android/your-keystore.jks
+          ${{ env.ANDROID_HOME }}/build-tools/34.0.0/apksigner sign \
+          --ks ${{ github.workspace }}/src-tauri/gen/android/release.decrypted.jks \
           src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
 
       - name: Rename APK file
