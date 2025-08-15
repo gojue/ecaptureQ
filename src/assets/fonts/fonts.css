@@ -4,5 +4,5 @@
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url('./source-han-sans-regular.otf') format('opentype');
+  src: url('./source-han-sans-regular.ttf') format('truetype');
 }

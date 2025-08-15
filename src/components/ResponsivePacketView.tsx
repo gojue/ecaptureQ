@@ -159,40 +159,34 @@ export function ResponsivePacketView({
   const containerRef = useRef<HTMLDivElement>(null);
   const [listHeight, setListHeight] = useState(600);
   const { isMobile } = useResponsive();
-  const [isNearBottom, setIsNearBottom] = useState(true); // 只用于手机端
+  const [isNearBottom, setIsNearBottom] = useState(true); // Track if user is near bottom
 
-  // 手机端滚动事件处理器
+  // Unified scroll event handler for both desktop and mobile
   const handleScroll = useCallback(({ scrollOffset }: any) => {
-    // 只有手机端（卡片模式）才进行智能判断
-    if (viewMode !== 'cards' || packets.length === 0) return;
+    if (packets.length === 0) return;
     
-    const totalHeight = packets.length * CARD_HEIGHT;
+    const itemHeight = viewMode === 'table' ? TABLE_ROW_HEIGHT : CARD_HEIGHT;
+    const totalHeight = packets.length * itemHeight;
     const visibleHeight = listHeight;
     const distanceFromBottom = totalHeight - (scrollOffset + visibleHeight);
     
-    // 手机端：距离底部不超过1个卡片高度时认为在底部
-    setIsNearBottom(distanceFromBottom <= CARD_HEIGHT);
+    // Consider near bottom if within one item height from bottom
+    setIsNearBottom(distanceFromBottom <= itemHeight);
   }, [packets.length, listHeight, viewMode]);
 
-  // 自动滚动逻辑：桌面端直接滚动，手机端智能判断
+  // Unified smart auto-scroll logic for both desktop and mobile
   useEffect(() => {
-    if (autoScroll && packets.length > 0 && listRef.current) {
-      if (viewMode === 'table') {
-        // 桌面端表格模式：保持原始逻辑，直接滚动
-        listRef.current.scrollToItem(packets.length - 1);
-      } else if (viewMode === 'cards' && isNearBottom) {
-        // 手机端卡片模式：只有在底部附近才滚动
-        listRef.current.scrollToItem(packets.length - 1);
-      }
+    if (autoScroll && packets.length > 0 && listRef.current && isNearBottom) {
+      listRef.current.scrollToItem(packets.length - 1);
     }
-  }, [packets.length, autoScroll, viewMode, isNearBottom]);
+  }, [packets.length, autoScroll, isNearBottom]);
 
   // Update list height based on container size
   useEffect(() => {
     const updateHeight = () => {
       if (containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
-        // 根据设备类型设置底部边距：手机端不需要，桌面端需要
+        // Set bottom margin based on device type: mobile needs less, desktop needs more
         const bottomMargin = isMobile ? 10 : 40;
         const availableHeight = window.innerHeight - rect.top - bottomMargin;
         setListHeight(Math.max(200, availableHeight));
@@ -243,7 +237,7 @@ export function ResponsivePacketView({
             itemSize={itemHeight}
             itemData={itemData}
             overscanCount={5}
-            onScroll={viewMode === 'cards' ? handleScroll : undefined}
+            onScroll={handleScroll}
           >
             {RowComponent}
           </List>
