@@ -1,5 +1,5 @@
 {
-  "name": "ecaptureq",
+  "name": "eaptureq",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -10,7 +10,7 @@
     "clean": "rm -rf dist node_modules .turbo && pnpm install",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build",
+    "tauri:build": "tsc && vite build && tauri build",
     "tauri:build:decoupled": "cross-env DECOUPLED_MODE=true pnpm tauri build",
     "android:build": "tauri android build --target aarch64",
     "android:init": "tauri android init"

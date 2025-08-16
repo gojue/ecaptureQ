@@ -119,15 +119,14 @@ jobs:
             exit 1
           fi
 
-          ECAPTURE_TAR="ecapture-${ECAPTURE_LATEST}-android-${ECAPTURE_ARCH}.tar.gz"
-          ECAPTURE_DIR="ecapture-${ECAPTURE_LATEST}-android-${ECAPTURE_ARCH}"
+          ECAPTURE_TAR="ecapture-${ECAPTURE_LATEST}-${{ matrix.platform }}-${ECAPTURE_ARCH}.tar.gz"
+          ECAPTURE_DIR="ecapture-${ECAPTURE_LATEST}-${{ matrix.platform }}-${ECAPTURE_ARCH}"
 
           wget "https://github.com/gojue/ecapture/releases/download/${ECAPTURE_LATEST}/${ECAPTURE_TAR}" || { echo "Download failed"; exit 1; }
           tar -zxvf "${ECAPTURE_TAR}" || { echo "Extract failed"; exit 1; }
 
           mkdir -p src-tauri/binaries
-          cp "${ECAPTURE_DIR}/ecapture" src-tauri/binaries/android_test-aarch64-linux-android || { echo "Copy failed"; exit 1; }
-          cp "${ECAPTURE_DIR}/ecapture" src-tauri/binaries/linux_ecapture_test || { echo "Copy failed"; exit 1; }
+          cp "${ECAPTURE_DIR}/ecapture" src-tauri/binaries/${{ matrix.platform }}_ecapture_${ECAPTURE_ARCH} || { echo "Copy failed"; exit 1; }
           ls src-tauri/binaries/
 
       # 设置 Node.js 环境

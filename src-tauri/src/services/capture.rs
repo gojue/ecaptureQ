@@ -56,36 +56,37 @@ fn get_cli_binary_name() -> String {
 
     "ecapture".to_string()
 }
+
+// Android x86_64
+#[cfg(all(target_os = "android", target_arch = "x86_64"))]
 fn get_ecapture_bytes() -> &'static [u8] {
-    // Android x86_64
-    #[cfg(all(target_os = "android", target_arch = "x86_64"))]
-    {
-        return include_bytes!("../../binaries/android_ecapture_amd64");
-    }
-
-    // Android arm64
-    #[cfg(all(target_os = "android", target_arch = "aarch64"))]
-    {
-        return include_bytes!("../../binaries/android_ecapture_arm64");
-    }
-
-    // Linux x86_64
-    #[cfg(all(target_os = "linux", target_arch = "x86_64", not(decoupled)))]
-    {
-        return include_bytes!("../../binaries/linux_ecapture_amd64");
-    }
-
-    // Linux arm64
-    #[cfg(all(target_os = "linux", target_arch = "aarch64", not(decoupled)))]
-    {
-        return include_bytes!("../../binaries/linux_ecapture_arm64");
-    }
-
-    #[cfg(any(all(not(target_os = "linux"), not(target_os = "android")), decoupled))]
-    {
-        panic!("Unsupported platform or architecture");
-    }
+    include_bytes!("../../binaries/android_ecapture_amd64")
 }
+
+// Android arm64
+#[cfg(all(target_os = "android", target_arch = "aarch64"))]
+fn get_ecapture_bytes() -> &'static [u8] {
+    include_bytes!("../../binaries/android_ecapture_arm64")
+}
+
+// Linux x86_64
+#[cfg(all(target_os = "linux", target_arch = "x86_64", not(decoupled)))]
+fn get_ecapture_bytes() -> &'static [u8] {
+    include_bytes!("../../binaries/linux_ecapture_amd64")
+}
+
+// Linux arm64
+#[cfg(all(target_os = "linux", target_arch = "aarch64", not(decoupled)))]
+fn get_ecapture_bytes() -> &'static [u8] {
+    include_bytes!("../../binaries/linux_ecapture_arm64")
+}
+
+// Fallback for unsupported platforms.
+#[cfg(any(all(not(target_os = "linux"), not(target_os = "android")), decoupled))]
+fn get_ecapture_bytes() -> &'static [u8] {
+    panic!("Unsupported platform or architecture");
+}
+
 pub struct CaptureManager {
     executable_path: PathBuf,
     child: Option<Child>,
