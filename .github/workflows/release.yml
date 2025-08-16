@@ -131,25 +131,9 @@ jobs:
       - name: Pnpm install
         run: pnpm i
 
-      - name: Create keystore.properties for Android signing
-        if: matrix.platform == 'android'
-        env:
-          GITHUB_WORKSPACE: ${{ github.workspace }}
-          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/26.1.10909125
-        run: |
-          pnpm tauri android init
-          echo "${{ secrets.ANDROID_SIGNING_RELEASE_KEY }}" | base64 --decode > release.decrypted.jks
-          mkdir -p src-tauri/gen/android
-          cat <<EOF > src-tauri/gen/android/keystore.properties
-          password=${{ secrets.ANDROID_SIGNING_RELEASE_KEY_PASSWORD }}
-          keyAlias=${{ secrets.ANDROID_SIGNING_RELEASE_KEY_ALIAS }}
-          storeFile=${{ github.workspace }}/release.decrypted.jks
-          keyPassword=${{ secrets.ANDROID_SIGNING_RELEASE_KEY_ALIAS_PASSWORD }}
-          EOF
-
       - name: Download and Setup eCapture (Just Before Build)
         shell: bash
-        if: matrix.platform == 'linux' || matrix.platform == 'android'
+        if: matrix.platform == 'linux'
         run: |
           echo ">>> Setting up eCapture for ${{ matrix.platform }}-${{ matrix.arch }}..."
           if [[ "${{ matrix.arch }}" == "x86_64" ]]; then
@@ -181,14 +165,12 @@ jobs:
           fi
           echo "Found ecapture executable at: ${SOURCE_FILE}"
 
-          # Corrected path: Place binaries inside src-tauri/
           mkdir -p src-tauri/binaries
           DEST_FILE="src-tauri/binaries/${{ matrix.platform }}_ecapture_${ECAPTURE_ARCH}"
           
           echo "Copying ${SOURCE_FILE} to ${DEST_FILE}"
           cp "${SOURCE_FILE}" "${DEST_FILE}" || { echo "Copy failed"; exit 1; }
           
-          # Corrected path: Verify the file in its new location
           echo ">>> Verification Step: Listing contents of src-tauri/binaries/ directory..."
           ls -l src-tauri/binaries/
           echo ">>> Setup complete. Proceeding to build."
@@ -204,10 +186,24 @@ jobs:
         run: |
           pnpm tauri android build --target ${{ matrix.arch }}
 
-      - name: Rename Android Artifact
+      - name: Sign Android APK
+        if: matrix.platform == 'android'
+        id: sign_apk
+        uses: r0adkll/sign-android-release@v1
+        with:
+          releaseDirectory: src-tauri/gen/android/app/build/outputs/apk/universal/release
+          signingKeyBase64: ${{ secrets.ANDROID_SIGNING_RELEASE_KEY }}
+          alias: ${{ secrets.ANDROID_SIGNING_RELEASE_KEY_ALIAS }}
+          keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
+          keyPassword: ${{ secrets.KEY_PASSWORD }}
+        env:
+          BUILD_TOOLS_VERSION: "34.0.0"
+
+      - name: Rename Signed Artifact
         if: matrix.platform == 'android'
         run: |
-          mv src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk ./eCaptureQ_v${{ needs.get_version.outputs.version }}_${{ matrix.arch }}.apk
+          echo "Signed APK path is: ${{ steps.sign_apk.outputs.signedReleaseFile }}"
+          mv "${{ steps.sign_apk.outputs.signedReleaseFile }}" "./eCaptureQ_v${{ needs.get_version.outputs.version }}_${{ matrix.arch }}.apk"
 
       - name: Publish Desktop Artifacts
         if: matrix.platform != 'android'
