@@ -40,8 +40,9 @@ jobs:
           fi
           echo "Tag and package.json version are consistent."
 
+  # Job 1: 构建 Windows, macOS, Linux x86_64 和 Android
   build-artifacts:
-    name: Build and Release
+    name: Build Main Artifacts
     needs: [get_version]
     strategy:
       fail-fast: false
@@ -68,10 +69,6 @@ jobs:
             target: x86_64-unknown-linux-gnu
             arch: x86_64
           - os: ubuntu-22.04
-            platform: linux
-            target: aarch64-unknown-linux-gnu
-            arch: aarch64
-          - os: ubuntu-22.04
             platform: android
             target: x86_64-linux-android
             arch: x86_64
@@ -87,21 +84,16 @@ jobs:
       - name: Install Rust Stable
         uses: dtolnay/rust-toolchain@stable
 
+      # ... Android 相关步骤保持不变 ...
       - name: Set up Java
         if: matrix.platform == 'android'
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
-
       - name: Setup Android SDK
         if: matrix.platform == 'android'
         uses: android-actions/setup-android@v3
-        with:
-          api-level: 34
-          build-tools: 34.0.0
-          ndk-version: 26.1.10909125
-
       - name: Install NDK
         if: matrix.platform == 'android'
         run: sdkmanager "ndk;26.1.10909125"
@@ -112,8 +104,9 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
 
-      - name: Install dependencies (ubuntu only)
-        if: matrix.os == 'ubuntu-22.04'
+      # 这个步骤现在只为 x86_64 Linux 安装原生依赖
+      - name: Install dependencies (ubuntu x86_64 only)
+        if: matrix.platform == 'linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libsoup-3.0-dev libjavascriptcoregtk-4.1-dev libwebkit2gtk-4.1-dev libgtk-3-dev libssl-dev xdg-utils librsvg2-dev libappindicator3-dev patchelf
@@ -122,25 +115,25 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-
       - uses: pnpm/action-setup@v4
         name: Install pnpm
         with:
           version: latest
-
       - name: Pnpm install
         run: pnpm i
 
+      # ... Android 初始化步骤保持不变 ...
       - name: Initialize Tauri Android Project
         if: matrix.platform == 'android'
         env:
           NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/26.1.10909125
         run: pnpm tauri android init
 
-      - name: Download and Setup eCapture (for Linux/Android build)
+      - name: Download and Setup eCapture
         shell: bash
         if: matrix.platform == 'linux' || matrix.platform == 'android'
         run: |
+          # 这部分逻辑现在对于这个 Job 来说总是正确的
           echo ">>> Setting up eCapture for ${{ matrix.platform }}-${{ matrix.arch }}..."
           if [[ "${{ matrix.arch }}" == "x86_64" ]]; then
             ECAPTURE_ARCH="amd64"
@@ -150,32 +143,26 @@ jobs:
           ECAPTURE_LATEST=$(curl -s https://api.github.com/repos/gojue/ecapture/releases/latest | grep tag_name | cut -d '"' -f 4)
           if [[ -z "$ECAPTURE_LATEST" ]]; then echo "Failed to fetch eCapture version."; exit 1; fi
           ECAPTURE_TAR="ecapture-${ECAPTURE_LATEST}-${{ matrix.platform }}-${ECAPTURE_ARCH}.tar.gz"
-          echo "Downloading ${ECAPTURE_TAR}..."
-          wget "https://github.com/gojue/ecapture/releases/download/${ECAPTURE_LATEST}/${ECAPTURE_TAR}" || { echo "Download failed"; exit 1; }
-          echo "Extracting archive..."
-          tar -zxvf "${ECAPTURE_TAR}" || { echo "Extract failed"; exit 1; }
+          wget "https://github.com/gojue/ecapture/releases/download/${ECAPTURE_LATEST}/${ECAPTURE_TAR}"
+          tar -zxvf "${ECAPTURE_TAR}"
           SOURCE_FILE=$(find . -name ecapture -type f | head -n 1)
-          if [[ -z "$SOURCE_FILE" ]]; then echo "ERROR: Could not find 'ecapture' executable!"; ls -R; exit 1; fi
-          echo "Found ecapture executable at: ${SOURCE_FILE}"
           mkdir -p src-tauri/binaries
           DEST_FILE="src-tauri/binaries/${{ matrix.platform }}_ecapture_${ECAPTURE_ARCH}"
-          echo "Copying ${SOURCE_FILE} to ${DEST_FILE}"
-          cp "${SOURCE_FILE}" "${DEST_FILE}" || { echo "Copy failed"; exit 1; }
-          echo ">>> Verification Step: Listing contents of src-tauri/binaries/ directory..."
+          cp "${SOURCE_FILE}" "${DEST_FILE}"
           ls -l src-tauri/binaries/
-          echo ">>> Setup complete."
 
+      # --- 修改点: 为所有桌面构建添加 --target 参数 ---
       - name: Build Desktop Artifacts (Windows/macOS/Linux)
         if: matrix.platform != 'android'
-        run: pnpm tauri build
+        run: pnpm tauri build --target ${{ matrix.target }}
 
+      # ... Android 构建和发布步骤保持不变 ...
       - name: Build Android Artifact
         if: matrix.platform == 'android'
         env:
           NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/26.1.10909125
         run: |
           pnpm tauri android build --target ${{ matrix.arch }}
-
       - name: Sign Android APK
         if: matrix.platform == 'android'
         id: sign_apk
@@ -188,27 +175,10 @@ jobs:
           keyPassword: ${{ secrets.KEY_PASSWORD }}
         env:
           BUILD_TOOLS_VERSION: "34.0.0"
-
       - name: Rename Signed Artifact
         if: matrix.platform == 'android'
         run: |
-          echo "Signed APK path is: ${{ steps.sign_apk.outputs.signedReleaseFile }}"
           mv "${{ steps.sign_apk.outputs.signedReleaseFile }}" "./eCaptureQ_v${{ needs.get_version.outputs.version }}_${{ matrix.arch }}.apk"
-
-      - name: Publish Desktop Artifacts
-        if: matrix.platform != 'android'
-        uses: softprops/action-gh-release@v1
-        with:
-          draft: true
-          name: eCaptureQ v${{ needs.get_version.outputs.version }}
-          tag_name: v${{ needs.get_version.outputs.version }}
-          generate_release_notes: true
-          files: |
-            src-tauri/target/release/bundle/msi/eCaptureQ_*.msi
-            src-tauri/target/release/bundle/nsis/eCaptureQ_*-setup.exe
-            src-tauri/target/release/bundle/dmg/eCaptureQ_*.dmg
-            src-tauri/target/release/bundle/appimage/eCaptureQ_*.AppImage
-
       - name: Publish Android Artifact
         if: matrix.platform == 'android'
         uses: softprops/action-gh-release@v1
@@ -218,3 +188,123 @@ jobs:
           tag_name: v${{ needs.get_version.outputs.version }}
           generate_release_notes: true
           files: ./eCaptureQ_v${{ needs.get_version.outputs.version }}_${{ matrix.arch }}.apk
+
+      # --- 修改点: 确保文件路径正确匹配 target ---
+      - name: Publish Desktop Artifacts
+        if: matrix.platform != 'android'
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          name: eCaptureQ v${{ needs.get_version.outputs.version }}
+          tag_name: v${{ needs.get_version.outputs.version }}
+          generate_release_notes: true
+          files: |
+            src-tauri/target/${{ matrix.target }}/release/bundle/msi/eCaptureQ_*.msi
+            src-tauri/target/${{ matrix.target }}/release/bundle/nsis/eCaptureQ_*-setup.exe
+            src-tauri/target/${{ matrix.target }}/release/bundle/dmg/eCaptureQ_*.dmg
+            src-tauri/target/${{ matrix.target }}/release/bundle/appimage/eCaptureQ_*.AppImage
+            src-tauri/target/${{ matrix.target }}/release/bundle/deb/*.deb
+
+  # --- 新增 Job: 专门用于交叉编译 Linux ARM ---
+  build-linux-arm:
+    name: Build and Release for Linux ARM
+    needs: [get_version]
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-unknown-linux-gnu
+            arch: arm64
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust Stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Add Rust Target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: pnpm/action-setup@v4
+        name: Install pnpm
+        with:
+          version: latest
+      - name: Pnpm install
+        run: pnpm i
+
+      # --- 核心步骤: 设置交叉编译环境 ---
+      - name: Setup cross-compilation environment for Linux ARM
+        run: |
+          # 1. 添加 ARM 架构支持
+          sudo dpkg --add-architecture arm64
+          # 2. 修改 apt 源，使其能找到 ARM 架构的包
+          # 使用 sed 在现有源的每一行末尾添加 [arch=amd64] 
+          sudo sed -i -e 's/$/ \[arch=amd64\]/' /etc/apt/sources.list
+          # 添加 ARM 的源
+          cat <<EOF | sudo tee -a /etc/apt/sources.list
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy main restricted universe multiverse
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates main restricted universe multiverse
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-security main restricted universe multiverse
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-backports main restricted universe multiverse
+          EOF
+          sudo apt-get update
+
+      # --- 核心步骤: 安装 aarch64 版本的依赖库 ---
+      - name: Install ARM dependencies
+        run: |
+          sudo apt-get install -y \
+            libsoup-3.0-dev:arm64 \
+            libjavascriptcoregtk-4.1-dev:arm64 \
+            libwebkit2gtk-4.1-dev:arm64 \
+            libgtk-3-dev:arm64 \
+            libssl-dev:arm64 \
+            xdg-utils:arm64 \
+            librsvg2-dev:arm64 \
+            libappindicator3-dev:arm64 \
+            patchelf:arm64
+
+      # --- 核心步骤: 安装 C 语言的交叉编译器 ---
+      - name: Install C cross-compiler for aarch64
+        run: sudo apt-get install -y gcc-aarch64-linux-gnu
+
+      - name: Download and Setup eCapture for Linux ARM
+        shell: bash
+        run: |
+          echo ">>> Setting up eCapture for linux-arm64..."
+          ECAPTURE_LATEST=$(curl -s https://api.github.com/repos/gojue/ecapture/releases/latest | grep tag_name | cut -d '"' -f 4)
+          ECAPTURE_TAR="ecapture-${ECAPTURE_LATEST}-linux-arm64.tar.gz"
+          wget "https://github.com/gojue/ecapture/releases/download/${ECAPTURE_LATEST}/${ECAPTURE_TAR}"
+          tar -zxvf "${ECAPTURE_TAR}"
+          SOURCE_FILE=$(find . -name ecapture -type f | head -n 1)
+          mkdir -p src-tauri/binaries
+          DEST_FILE="src-tauri/binaries/linux_ecapture_arm64"
+          cp "${SOURCE_FILE}" "${DEST_FILE}"
+          ls -l src-tauri/binaries/
+
+      # --- 核心步骤: 执行交叉编译，并设置所需的环境变量 ---
+      - name: Build Linux ARM Artifact
+        env:
+          # 设置 pkg-config 环境变量，让构建系统能找到 aarch64 的库
+          PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
+          PKG_CONFIG_ALLOW_CROSS: 1
+        run: pnpm tauri build --target ${{ matrix.target }}
+
+      # --- 新增步骤: 为这个 Job 单独发布产物 ---
+      - name: Publish Linux ARM Artifacts
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          name: eCaptureQ v${{ needs.get_version.outputs.version }}
+          tag_name: v${{ needs.get_version.outputs.version }}
+          generate_release_notes: true
+          files: |
+            src-tauri/target/${{ matrix.target }}/release/bundle/appimage/eCaptureQ_*.AppImage
+            src-tauri/target/${{ matrix.target }}/release/bundle/deb/*.deb
