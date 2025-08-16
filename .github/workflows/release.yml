@@ -233,10 +233,8 @@ jobs:
       - name: Pnpm install
         run: pnpm i
 
-      # --- 修正后的核心步骤: 设置交叉编译环境 ---
       - name: Setup cross-compilation environment for Linux ARM
         run: |
-          # 1. 创建全新的、格式正确的 sources.list 文件
           cat > /tmp/sources.list << EOF
           deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy main restricted universe multiverse
           deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy-updates main restricted universe multiverse
@@ -247,12 +245,8 @@ jobs:
           deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-security main restricted universe multiverse
           deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-backports main restricted universe multiverse
           EOF
-          
-          # 2. 备份旧文件并替换为新文件
           sudo mv /etc/apt/sources.list /etc/apt/sources.list.bak
           sudo mv /tmp/sources.list /etc/apt/sources.list
-          
-          # 3. 添加 ARM 架构支持并更新
           sudo dpkg --add-architecture arm64
           sudo apt-get update
 
@@ -288,6 +282,7 @@ jobs:
 
       - name: Build Linux ARM Artifact
         env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: "aarch64-linux-gnu-gcc"
           PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
           PKG_CONFIG_ALLOW_CROSS: 1
         run: pnpm tauri build --target ${{ matrix.target }}
