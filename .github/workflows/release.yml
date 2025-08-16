@@ -1,9 +1,8 @@
 name: Release
-
 on:
-  pull_request:
-    branches: [ main, develop ]
-    types: [opened, synchronize, reopened]
+  push:
+    tags:
+      - "v*"
 
 permissions: write-all
 
@@ -36,7 +35,7 @@ jobs:
           echo "version=$PKG_VERSION" >> $GITHUB_OUTPUT
           if [[ "$TAG_REF" != "v$PKG_VERSION" ]]; then
             echo "Tag ($TAG_REF) does not match package.json version (v$PKG_VERSION)."
-            exit 0
+            exit 1
           fi
           echo "Tag and package.json version are consistent."
 
@@ -201,7 +200,7 @@ jobs:
   # Job 2: 专门用于交叉编译 Linux ARM
   build-linux-arm:
     name: Build and Release for Linux ARM
-    needs: [get_version]
+    needs: [get_version,build-artifacts]
     runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
