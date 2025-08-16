@@ -91,16 +91,6 @@ jobs:
       - name: Install NDK
         run: sdkmanager "ndk;26.1.10909125"
 
-      - name: Debug OpenSSL
-        run: |
-          echo "OpenSSL version:"
-          openssl version
-          echo "PKG_CONFIG_PATH:"
-          echo $PKG_CONFIG_PATH
-          echo "OpenSSL pkg-config:"
-          pkg-config --modversion openssl || echo "OpenSSL pkg-config not found"
-          echo "System libraries:"
-          ldconfig -p | grep ssl
       # --- 关键步骤：创建 keystore.properties 文件 ---
       - name: Create keystore.properties for Android signing
         run: |

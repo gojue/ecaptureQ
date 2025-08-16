@@ -1,13 +1,5 @@
 name: Release
 
-# 验证是否正确，先使用PR 的触发条件
-#on:
-#  push:
-#    branches:
-#      - main
-#      - master
-#    tags:
-#      - "v*.*.*"
 on:
   pull_request:
     branches: [ main, develop ]
@@ -19,13 +11,11 @@ concurrency:
   group: "${{ github.workflow }} - ${{ github.head_ref || github.ref }}"
   cancel-in-progress: true
 
-# 定义环境变量
 env:
   CARGO_INCREMENTAL: 0
   RUST_BACKTRACE: short
 
 jobs:
-  # 任务 1: 检查 Git Tag 和 package.json 的版本是否一致
   get_version:
     name: Check Release Tag and package.json Version Consistency
     runs-on: ubuntu-latest
@@ -34,10 +24,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Install jq for JSON parsing
         run: sudo apt-get update && sudo apt-get install -y jq
-
       - name: Get version from package.json
         id: get_version
         run: |
@@ -52,16 +40,13 @@ jobs:
           fi
           echo "Tag and package.json version are consistent."
 
-  # 任务 2: 为 Windows, macOS, Linux, 和 Android 构建和发布
   build-artifacts:
     name: Build and Release
     needs: [get_version]
     strategy:
       fail-fast: false
       matrix:
-        # 定义需要构建的平台和架构
         include:
-          # Windows
           - os: windows-latest
             platform: windows
             target: x86_64-pc-windows-msvc
@@ -70,7 +55,6 @@ jobs:
             platform: windows
             target: aarch64-pc-windows-msvc
             arch: aarch64
-          # macOS
           - os: macos-latest
             platform: macos
             target: aarch64-apple-darwin
@@ -79,7 +63,6 @@ jobs:
             platform: macos
             target: x86_64-apple-darwin
             arch: x86_64
-          # Linux
           - os: ubuntu-22.04
             platform: linux
             target: x86_64-unknown-linux-gnu
@@ -88,7 +71,6 @@ jobs:
             platform: linux
             target: aarch64-unknown-linux-gnu
             arch: aarch64
-          # Android
           - os: ubuntu-22.04
             platform: android
             target: x86_64-linux-android
@@ -102,7 +84,6 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # 安装 Rust Stable
       - name: Install Rust Stable
         uses: dtolnay/rust-toolchain@stable
 
@@ -113,7 +94,6 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      # 下载并配置 Android SDK/NDK
       - name: Setup Android SDK
         if: matrix.platform == 'android'
         uses: android-actions/setup-android@v3
@@ -126,15 +106,12 @@ jobs:
         if: matrix.platform == 'android'
         run: sdkmanager "ndk;26.1.10909125"
 
-      # 添加 Rust 编译目标
       - name: Add Rust Target
         run: rustup target add ${{ matrix.target }}
 
-      # Rust 缓存
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
 
-      # 仅在 Ubuntu 上安装依赖
       - name: Install dependencies (ubuntu only)
         if: matrix.os == 'ubuntu-22.04'
         run: |
@@ -150,88 +127,54 @@ jobs:
           else
             ECAPTURE_ARCH="arm64"
           fi
-          pwd
           ECAPTURE_LATEST=$(curl -s https://api.github.com/repos/gojue/ecapture/releases/latest | grep tag_name | cut -d '"' -f 4)
-          if [[ $? -ne 0 ]]; then
-            echo "Failed to fetch the latest release."
-            exit 1
-          fi
-
           ECAPTURE_TAR="ecapture-${ECAPTURE_LATEST}-${{ matrix.platform }}-${ECAPTURE_ARCH}.tar.gz"
           ECAPTURE_DIR="ecapture-${ECAPTURE_LATEST}-${{ matrix.platform }}-${ECAPTURE_ARCH}"
-
-          wget "https://github.com/gojue/ecapture/releases/download/${ECAPTURE_LATEST}/${ECAPTURE_TAR}" || { echo "Download failed"; exit 1; }
-          tar -zxvf "${ECAPTURE_TAR}" || { echo "Extract failed"; exit 1; }
-
+          wget "https://github.com/gojue/ecapture/releases/download/${ECAPTURE_LATEST}/${ECAPTURE_TAR}" || exit 1
+          tar -zxvf "${ECAPTURE_TAR}" || exit 1
           mkdir -p src-tauri/binaries
-          cp "${ECAPTURE_DIR}/ecapture" src-tauri/binaries/${{ matrix.platform }}_ecapture_${ECAPTURE_ARCH} || { echo "Copy failed"; exit 1; }
-          ls src-tauri/binaries/
+          cp "${ECAPTURE_DIR}/ecapture" src-tauri/binaries/${{ matrix.platform }}_ecapture_${ECAPTURE_ARCH} || exit 1
 
-      # 设置 Node.js 环境
       - name: Install Node
         uses: actions/setup-node@v4
         with:
           node-version: "22"
 
-      # 设置 pnpm
       - uses: pnpm/action-setup@v4
         name: Install pnpm
         with:
           version: latest
 
-      # 安装前端依赖
       - name: Pnpm install
-        run: |
-          pnpm i
+        run: pnpm i
 
       - name: Create keystore.properties for Android signing
         if: matrix.platform == 'android'
         run: |
-          # 动态创建 src-tauri/gen/android 目录（如果不存在）
-          pwd
           pnpm tauri android init
-          mkdir -p src-tauri/gen/android
-
-          # 将 Base64 编码的密钥文件解码，并保存到 Runner 的临时目录
-          echo "${{ secrets.ANDROID_SIGNING_RELEASE_KEY }}" | base64 --decode > src-tauri/gen/android/release.decrypted.jks
-
-          # 将签名信息写入 keystore.properties 文件
+          echo "${{ secrets.ANDROID_SIGNING_RELEASE_KEY }}" | base64 --decode > release.decrypted.jks
           cat <<EOF > src-tauri/gen/android/keystore.properties
           password=${{ secrets.ANDROID_SIGNING_RELEASE_KEY_PASSWORD }}
           keyAlias=${{ secrets.ANDROID_SIGNING_RELEASE_KEY_ALIAS }}
-          storeFile=${{ github.workspace }}/src-tauri/gen/android/release.decrypted.jks
+          storeFile=${{ github.workspace }}/release.decrypted.jks
           keyPassword=${{ secrets.ANDROID_SIGNING_RELEASE_KEY_ALIAS_PASSWORD }}
           EOF
         env:
           GITHUB_WORKSPACE: ${{ github.workspace }}
-          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/26.1.10909125
-
 
       - name: eCaptureQ build (non-Android)
         if: matrix.platform != 'android'
-        uses: tauri-apps/tauri-action@v0.5.22
+        uses: tauri-apps/tauri-action@v0
         env:
-          DECOUPLED_MODE: true
-          RUST_TARGET: ${{ matrix.target }}
-          NODE_OPTIONS: "--max_old_space_size=4096"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.ANDROID_SIGNING_RELEASE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_RELEASE_KEY_PASSWORD }}
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
-          tagName: v${{ steps.get_version.outputs.version }}
-          appName: eCaptureQ
-          appVersion: ${{ steps.get_version.outputs.version }}
-          releaseName: "eCaptureQ v${{ steps.get_version.outputs.version }}"
+          tagName: v${{ needs.get_version.outputs.version }}
+          releaseName: "eCaptureQ v${{ needs.get_version.outputs.version }}"
           releaseBody: ""
           releaseDraft: true
-          prerelease: 'false'
+          prerelease: false
 
+      # [修改] 构建并自动签名安卓应用
       - name: eCaptureQ build (Android) ${{ matrix.arch }}
         if: matrix.platform == 'android'
         env:
@@ -239,35 +182,21 @@ jobs:
         run: |
           pnpm tauri android build --target ${{ matrix.arch }}
 
-      - name: Sign APK
-        if: matrix.platform == 'android'
-        env:
-          ANDROID_SIGNING_RELEASE_KEY: ${{ secrets.ANDROID_SIGNING_RELEASE_KEY }}
-          ANDROID_SIGNING_RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_SIGNING_RELEASE_KEY_ALIAS }}
-          ANDROID_SIGNING_RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_RELEASE_KEY_PASSWORD }}
-          ANDROID_SIGNING_RELEASE_KEY_ALIAS_PASSWORD: ${{ secrets.ANDROID_SIGNING_RELEASE_KEY_ALIAS_PASSWORD }}
-        run: |
-          ls -la src-tauri/gen/android/keystore.properties
-          ls -la src-tauri/gen/android/release.decrypted.jks
-          ${{ env.ANDROID_HOME }}/build-tools/34.0.0/apksigner sign \
-          --ks ${{ github.workspace }}/src-tauri/gen/android/release.decrypted.jks \
-          --ks-key-alias env:ANDROID_SIGNING_RELEASE_KEY_ALIAS \
-          --ks-pass env:ANDROID_SIGNING_RELEASE_KEY_PASSWORD \
-          --key-pass env:ANDROID_SIGNING_RELEASE_KEY_ALIAS_PASSWORD \
-          --v1-signing-enabled true \
-          --v2-signing-enabled true \
-          --v3-signing-enabled true \
-          --verbose \
-          --out "./src-tauri/gen/android/app/build/outputs/apk/universal/release/eCaprureQ_v${{ steps.get_version.outputs.version }}_${{ matrix.arch }}.apk" \
-          src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
+      # [删除] 整个手动签名的步骤被删除，因为上一步已经自动完成了
 
+      # [新增] 重命名已签名的 APK 以便发布
+      - name: Rename Artifact
+        if: matrix.platform == 'android'
+        run: |
+          mv src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk ./eCaptureQ_v${{ needs.get_version.outputs.version }}_${{ matrix.arch }}.apk
+
+      # [修改] 发布重命名后的 APK 文件
       - name: Publish
         if: matrix.platform == 'android'
         uses: softprops/action-gh-release@v1
         with:
           draft: true
-          name: eCaptureQ v${{ steps.get_version.outputs.version }}
-          tag_name: v${{ steps.get_version.outputs.version }}
+          name: eCaptureQ v${{ needs.get_version.outputs.version }}
+          tag_name: v${{ needs.get_version.outputs.version }}
           generate_release_notes: true
-          files: |
-            ./src-tauri/gen/android/app/build/outputs/apk/universal/release/eCaptureQ_v${{ steps.get_version.outputs.version }}_${{ matrix.arch }}.apk
+          files: ./eCaptureQ_v${{ needs.get_version.outputs.version }}_${{ matrix.arch }}.apk
