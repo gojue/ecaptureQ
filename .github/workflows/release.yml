@@ -131,9 +131,14 @@ jobs:
       - name: Pnpm install
         run: pnpm i
 
-      - name: Download and Setup eCapture (Just Before Build)
+      - name: Initialize Tauri Android Project
+        if: matrix.platform == 'android'
+        run: pnpm tauri android init
+
+      - name: Download and Setup eCapture (for Linux/Android build)
         shell: bash
-        if: matrix.platform == 'linux'
+        # 因为你的 Rust 代码在编译 Android 时也需要 include_bytes!，所以这里也需要下载
+        if: matrix.platform == 'linux' || matrix.platform == 'android'
         run: |
           echo ">>> Setting up eCapture for ${{ matrix.platform }}-${{ matrix.arch }}..."
           if [[ "${{ matrix.arch }}" == "x86_64" ]]; then
@@ -141,39 +146,23 @@ jobs:
           else
             ECAPTURE_ARCH="arm64"
           fi
-          
           ECAPTURE_LATEST=$(curl -s https://api.github.com/repos/gojue/ecapture/releases/latest | grep tag_name | cut -d '"' -f 4)
-          if [[ -z "$ECAPTURE_LATEST" ]]; then
-            echo "Failed to fetch the latest eCapture release version."
-            exit 1
-          fi
-
+          if [[ -z "$ECAPTURE_LATEST" ]]; then echo "Failed to fetch eCapture version."; exit 1; fi
           ECAPTURE_TAR="ecapture-${ECAPTURE_LATEST}-${{ matrix.platform }}-${ECAPTURE_ARCH}.tar.gz"
-          
           echo "Downloading ${ECAPTURE_TAR}..."
           wget "https://github.com/gojue/ecapture/releases/download/${ECAPTURE_LATEST}/${ECAPTURE_TAR}" || { echo "Download failed"; exit 1; }
-          
           echo "Extracting archive..."
           tar -zxvf "${ECAPTURE_TAR}" || { echo "Extract failed"; exit 1; }
-          
           SOURCE_FILE=$(find . -name ecapture -type f | head -n 1)
-          if [[ -z "$SOURCE_FILE" ]]; then
-            echo "ERROR: Could not find 'ecapture' executable after extraction!"
-            echo "--- Listing all extracted files for debugging ---"
-            ls -R
-            exit 1
-          fi
+          if [[ -z "$SOURCE_FILE" ]]; then echo "ERROR: Could not find 'ecapture' executable!"; ls -R; exit 1; fi
           echo "Found ecapture executable at: ${SOURCE_FILE}"
-
           mkdir -p src-tauri/binaries
           DEST_FILE="src-tauri/binaries/${{ matrix.platform }}_ecapture_${ECAPTURE_ARCH}"
-          
           echo "Copying ${SOURCE_FILE} to ${DEST_FILE}"
           cp "${SOURCE_FILE}" "${DEST_FILE}" || { echo "Copy failed"; exit 1; }
-          
           echo ">>> Verification Step: Listing contents of src-tauri/binaries/ directory..."
           ls -l src-tauri/binaries/
-          echo ">>> Setup complete. Proceeding to build."
+          echo ">>> Setup complete."
 
       - name: Build Desktop Artifacts (Windows/macOS/Linux)
         if: matrix.platform != 'android'
