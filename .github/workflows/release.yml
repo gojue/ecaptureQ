@@ -118,40 +118,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libsoup-3.0-dev libjavascriptcoregtk-4.1-dev libwebkit2gtk-4.1-dev libgtk-3-dev libssl-dev xdg-utils librsvg2-dev libappindicator3-dev patchelf
 
-      - name: Download and setup eCapture
-        shell: bash
-        if: matrix.platform == 'linux' || matrix.platform == 'android'
-        run: |
-          if [[ "${{ matrix.arch }}" == "x86_64" ]]; then
-            ECAPTURE_ARCH="amd64"
-          else
-            ECAPTURE_ARCH="arm64"
-          fi
-          
-          ECAPTURE_LATEST=$(curl -s https://api.github.com/repos/gojue/ecapture/releases/latest | grep tag_name | cut -d '"' -f 4)
-          if [[ -z "$ECAPTURE_LATEST" ]]; then
-            echo "Failed to fetch the latest eCapture release version."
-            exit 1
-          fi
-
-          # This logic now correctly uses the platform name from the matrix
-          ECAPTURE_TAR="ecapture-${ECAPTURE_LATEST}-${{ matrix.platform }}-${ECAPTURE_ARCH}.tar.gz"
-          ECAPTURE_DIR="ecapture-${ECAPTURE_LATEST}-${{ matrix.platform }}-${ECAPTURE_ARCH}"
-
-          wget "https://github.com/gojue/ecapture/releases/download/${ECAPTURE_LATEST}/${ECAPTURE_TAR}" || { echo "Download for ${{ matrix.platform }} failed"; exit 1; }
-          tar -zxvf "${ECAPTURE_TAR}" || { echo "Extract failed"; exit 1; }
-          
-          # Place the binary in the root `binaries/` directory as required by the Rust code
-          mkdir -p binaries
-          
-          SOURCE_FILE="${ECAPTURE_DIR}/ecapture"
-          DEST_FILE="binaries/${{ matrix.platform }}_ecapture_${ECAPTURE_ARCH}"
-          
-          cp "${SOURCE_FILE}" "${DEST_FILE}" || { echo "Copy failed"; exit 1; }
-          
-          echo "Contents of binaries directory:"
-          ls -l binaries/
-
       - name: Install Node
         uses: actions/setup-node@v4
         with:
@@ -180,6 +146,52 @@ jobs:
           storeFile=${{ github.workspace }}/release.decrypted.jks
           keyPassword=${{ secrets.ANDROID_SIGNING_RELEASE_KEY_ALIAS_PASSWORD }}
           EOF
+
+      - name: Download and Setup eCapture (Just Before Build)
+        shell: bash
+        if: matrix.platform == 'linux' || matrix.platform == 'android'
+        run: |
+          echo ">>> Setting up eCapture for ${{ matrix.platform }}-${{ matrix.arch }}..."
+          if [[ "${{ matrix.arch }}" == "x86_64" ]]; then
+            ECAPTURE_ARCH="amd64"
+          else
+            ECAPTURE_ARCH="arm64"
+          fi
+          
+          ECAPTURE_LATEST=$(curl -s https://api.github.com/repos/gojue/ecapture/releases/latest | grep tag_name | cut -d '"' -f 4)
+          if [[ -z "$ECAPTURE_LATEST" ]]; then
+            echo "Failed to fetch the latest eCapture release version."
+            exit 1
+          fi
+
+          ECAPTURE_TAR="ecapture-${ECAPTURE_LATEST}-${{ matrix.platform }}-${ECAPTURE_ARCH}.tar.gz"
+          
+          echo "Downloading ${ECAPTURE_TAR}..."
+          wget "https://github.com/gojue/ecapture/releases/download/${ECAPTURE_LATEST}/${ECAPTURE_TAR}" || { echo "Download failed"; exit 1; }
+          
+          echo "Extracting archive..."
+          tar -zxvf "${ECAPTURE_TAR}" || { echo "Extract failed"; exit 1; }
+          
+          SOURCE_FILE=$(find . -name ecapture -type f | head -n 1)
+          if [[ -z "$SOURCE_FILE" ]]; then
+            echo "ERROR: Could not find 'ecapture' executable after extraction!"
+            echo "--- Listing all extracted files for debugging ---"
+            ls -R
+            exit 1
+          fi
+          echo "Found ecapture executable at: ${SOURCE_FILE}"
+
+          # Corrected path: Place binaries inside src-tauri/
+          mkdir -p src-tauri/binaries
+          DEST_FILE="src-tauri/binaries/${{ matrix.platform }}_ecapture_${ECAPTURE_ARCH}"
+          
+          echo "Copying ${SOURCE_FILE} to ${DEST_FILE}"
+          cp "${SOURCE_FILE}" "${DEST_FILE}" || { echo "Copy failed"; exit 1; }
+          
+          # Corrected path: Verify the file in its new location
+          echo ">>> Verification Step: Listing contents of src-tauri/binaries/ directory..."
+          ls -l src-tauri/binaries/
+          echo ">>> Setup complete. Proceeding to build."
 
       - name: Build Desktop Artifacts (Windows/macOS/Linux)
         if: matrix.platform != 'android'
