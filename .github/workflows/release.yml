@@ -118,7 +118,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libsoup-3.0-dev libjavascriptcoregtk-4.1-dev libwebkit2gtk-4.1-dev libgtk-3-dev libssl-dev xdg-utils librsvg2-dev libappindicator3-dev patchelf
 
-      # [修正] 修正了 ecapture 的下载逻辑
       - name: Download and setup eCapture for ${{ matrix.arch }}
         shell: bash
         if: matrix.platform == 'linux' || matrix.platform == 'android'
@@ -129,7 +128,6 @@ jobs:
             ECAPTURE_ARCH="arm64"
           fi
           
-          # 判断平台，如果是 android，则下载 linux 版本的 ecapture
           ECAPTURE_PLATFORM="${{ matrix.platform }}"
           if [[ "${{ matrix.platform }}" == "android" ]]; then
             echo "Android platform detected. Using 'linux' binaries for eCapture."
@@ -145,21 +143,14 @@ jobs:
           ECAPTURE_TAR="ecapture-${ECAPTURE_LATEST}-${ECAPTURE_PLATFORM}-${ECAPTURE_ARCH}.tar.gz"
           ECAPTURE_DIR="ecapture-${ECAPTURE_LATEST}-${ECAPTURE_PLATFORM}-${ECAPTURE_ARCH}"
 
-          echo "Downloading: ${ECAPTURE_TAR}"
           wget "https://github.com/gojue/ecapture/releases/download/${ECAPTURE_LATEST}/${ECAPTURE_TAR}" || { echo "Download failed"; exit 1; }
-          
-          echo "Extracting from: ${ECAPTURE_TAR}"
           tar -zxvf "${ECAPTURE_TAR}" || { echo "Extract failed"; exit 1; }
-
           mkdir -p src-tauri/binaries
           
           SOURCE_FILE="${ECAPTURE_DIR}/ecapture"
           DEST_FILE="src-tauri/binaries/${{ matrix.platform }}_ecapture_${ECAPTURE_ARCH}"
           
-          echo "Copying from ${SOURCE_FILE} to ${DEST_FILE}"
           cp "${SOURCE_FILE}" "${DEST_FILE}" || { echo "Copy failed"; exit 1; }
-          
-          echo "Contents of binaries directory:"
           ls src-tauri/binaries/
 
       - name: Install Node
@@ -175,16 +166,14 @@ jobs:
       - name: Pnpm install
         run: pnpm i
 
-      # [修正] 为此步骤添加了 NDK_HOME 环境变量
       - name: Create keystore.properties for Android signing
         if: matrix.platform == 'android'
         env:
           GITHUB_WORKSPACE: ${{ github.workspace }}
-          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/26.1.10909125
+          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/26.1.10909125 # <-- 这里采纳了您范例中的正确设置
         run: |
           pnpm tauri android init
           echo "${{ secrets.ANDROID_SIGNING_RELEASE_KEY }}" | base64 --decode > release.decrypted.jks
-          # 确保目录存在，增加稳健性
           mkdir -p src-tauri/gen/android
           cat <<EOF > src-tauri/gen/android/keystore.properties
           password=${{ secrets.ANDROID_SIGNING_RELEASE_KEY_PASSWORD }}
@@ -193,19 +182,11 @@ jobs:
           keyPassword=${{ secrets.ANDROID_SIGNING_RELEASE_KEY_ALIAS_PASSWORD }}
           EOF
 
-      - name: eCaptureQ build (non-Android)
+      - name: Build Desktop Artifacts (Windows/macOS/Linux)
         if: matrix.platform != 'android'
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tagName: v${{ needs.get_version.outputs.version }}
-          releaseName: "eCaptureQ v${{ needs.get_version.outputs.version }}"
-          releaseBody: ""
-          releaseDraft: true
-          prerelease: false
+        run: pnpm tauri build
 
-      - name: eCaptureQ build (Android) ${{ matrix.arch }}
+      - name: Build Android Artifact
         if: matrix.platform == 'android'
         env:
           NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/26.1.10909125
@@ -216,6 +197,20 @@ jobs:
         if: matrix.platform == 'android'
         run: |
           mv src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk ./eCaptureQ_v${{ needs.get_version.outputs.version }}_${{ matrix.arch }}.apk
+
+      - name: Publish Desktop Artifacts
+        if: matrix.platform != 'android'
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          name: eCaptureQ v${{ needs.get_version.outputs.version }}
+          tag_name: v${{ needs.get_version.outputs.version }}
+          generate_release_notes: true
+          files: |
+            src-tauri/target/release/bundle/msi/eCaptureQ_*.msi
+            src-tauri/target/release/bundle/nsis/eCaptureQ_*-setup.exe
+            src-tauri/target/release/bundle/dmg/eCaptureQ_*.dmg
+            src-tauri/target/release/bundle/appimage/eCaptureQ_*.AppImage
 
       - name: Publish Android Artifact
         if: matrix.platform == 'android'

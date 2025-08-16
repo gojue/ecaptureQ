@@ -28,7 +28,6 @@
     "withGlobalTauri": false
   },
   "bundle": {
-    "outputName": "{{name}}_{{version}}_{{arch}}",
     "active": true,
     "targets": ["deb", "rpm", "appimage", "nsis", "msi", "app", "dmg"],
     "icon": [
