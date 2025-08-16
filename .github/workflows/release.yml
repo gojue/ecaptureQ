@@ -84,7 +84,6 @@ jobs:
       - name: Install Rust Stable
         uses: dtolnay/rust-toolchain@stable
 
-      # ... Android 相关步骤保持不变 ...
       - name: Set up Java
         if: matrix.platform == 'android'
         uses: actions/setup-java@v4
@@ -104,7 +103,6 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
 
-      # 这个步骤现在只为 x86_64 Linux 安装原生依赖
       - name: Install dependencies (ubuntu x86_64 only)
         if: matrix.platform == 'linux'
         run: |
@@ -122,7 +120,6 @@ jobs:
       - name: Pnpm install
         run: pnpm i
 
-      # ... Android 初始化步骤保持不变 ...
       - name: Initialize Tauri Android Project
         if: matrix.platform == 'android'
         env:
@@ -133,7 +130,6 @@ jobs:
         shell: bash
         if: matrix.platform == 'linux' || matrix.platform == 'android'
         run: |
-          # 这部分逻辑现在对于这个 Job 来说总是正确的
           echo ">>> Setting up eCapture for ${{ matrix.platform }}-${{ matrix.arch }}..."
           if [[ "${{ matrix.arch }}" == "x86_64" ]]; then
             ECAPTURE_ARCH="amd64"
@@ -151,12 +147,10 @@ jobs:
           cp "${SOURCE_FILE}" "${DEST_FILE}"
           ls -l src-tauri/binaries/
 
-      # --- 修改点: 为所有桌面构建添加 --target 参数 ---
       - name: Build Desktop Artifacts (Windows/macOS/Linux)
         if: matrix.platform != 'android'
         run: pnpm tauri build --target ${{ matrix.target }}
 
-      # ... Android 构建和发布步骤保持不变 ...
       - name: Build Android Artifact
         if: matrix.platform == 'android'
         env:
@@ -189,7 +183,6 @@ jobs:
           generate_release_notes: true
           files: ./eCaptureQ_v${{ needs.get_version.outputs.version }}_${{ matrix.arch }}.apk
 
-      # --- 修改点: 确保文件路径正确匹配 target ---
       - name: Publish Desktop Artifacts
         if: matrix.platform != 'android'
         uses: softprops/action-gh-release@v1
@@ -205,7 +198,7 @@ jobs:
             src-tauri/target/${{ matrix.target }}/release/bundle/appimage/eCaptureQ_*.AppImage
             src-tauri/target/${{ matrix.target }}/release/bundle/deb/*.deb
 
-  # --- 新增 Job: 专门用于交叉编译 Linux ARM ---
+  # Job 2: 专门用于交叉编译 Linux ARM
   build-linux-arm:
     name: Build and Release for Linux ARM
     needs: [get_version]
@@ -240,24 +233,29 @@ jobs:
       - name: Pnpm install
         run: pnpm i
 
-      # --- 核心步骤: 设置交叉编译环境 ---
+      # --- 修正后的核心步骤: 设置交叉编译环境 ---
       - name: Setup cross-compilation environment for Linux ARM
         run: |
-          # 1. 添加 ARM 架构支持
-          sudo dpkg --add-architecture arm64
-          # 2. 修改 apt 源，使其能找到 ARM 架构的包
-          # 使用 sed 在现有源的每一行末尾添加 [arch=amd64] 
-          sudo sed -i -e 's/$/ \[arch=amd64\]/' /etc/apt/sources.list
-          # 添加 ARM 的源
-          cat <<EOF | sudo tee -a /etc/apt/sources.list
+          # 1. 创建全新的、格式正确的 sources.list 文件
+          cat > /tmp/sources.list << EOF
+          deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy main restricted universe multiverse
+          deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy-updates main restricted universe multiverse
+          deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy-security main restricted universe multiverse
+          deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy-backports main restricted universe multiverse
           deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy main restricted universe multiverse
           deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates main restricted universe multiverse
           deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-security main restricted universe multiverse
           deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-backports main restricted universe multiverse
           EOF
+          
+          # 2. 备份旧文件并替换为新文件
+          sudo mv /etc/apt/sources.list /etc/apt/sources.list.bak
+          sudo mv /tmp/sources.list /etc/apt/sources.list
+          
+          # 3. 添加 ARM 架构支持并更新
+          sudo dpkg --add-architecture arm64
           sudo apt-get update
 
-      # --- 核心步骤: 安装 aarch64 版本的依赖库 ---
       - name: Install ARM dependencies
         run: |
           sudo apt-get install -y \
@@ -271,7 +269,6 @@ jobs:
             libappindicator3-dev:arm64 \
             patchelf:arm64
 
-      # --- 核心步骤: 安装 C 语言的交叉编译器 ---
       - name: Install C cross-compiler for aarch64
         run: sudo apt-get install -y gcc-aarch64-linux-gnu
 
@@ -289,15 +286,12 @@ jobs:
           cp "${SOURCE_FILE}" "${DEST_FILE}"
           ls -l src-tauri/binaries/
 
-      # --- 核心步骤: 执行交叉编译，并设置所需的环境变量 ---
       - name: Build Linux ARM Artifact
         env:
-          # 设置 pkg-config 环境变量，让构建系统能找到 aarch64 的库
           PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
           PKG_CONFIG_ALLOW_CROSS: 1
         run: pnpm tauri build --target ${{ matrix.target }}
 
-      # --- 新增步骤: 为这个 Job 单独发布产物 ---
       - name: Publish Linux ARM Artifacts
         uses: softprops/action-gh-release@v1
         with:
