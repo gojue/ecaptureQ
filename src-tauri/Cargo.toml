@@ -33,6 +33,7 @@ hex = "0.4.3"
 http = "1"
 base64 = "0.22.1"
 wg = { version = "0.9.2", features = ["future"] }
+tauri-plugin-shell = "2.3.0"
 
 # Build profile for release: optimize for size
 [profile.release]

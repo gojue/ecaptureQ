@@ -3,7 +3,7 @@ import { useAppState } from '@/hooks/useAppState';
 import { useResponsive } from '@/hooks/useResponsive';
 import { ResponsivePacketView } from '@/components/ResponsivePacketView';
 import { DetailModal } from '@/components/DetailModal';
-import { Play, Square, Trash2, Loader2 } from 'lucide-react';
+import { Play, Square, Loader2 } from 'lucide-react';
 import type { PacketData } from '@/types';
 
 interface CapturePageProps {
@@ -31,7 +31,6 @@ export function CapturePage({ appState: providedAppState }: CapturePageProps) {
     selectedPacket,
     startCapture,
     stopCapture,
-    clearPackets,
     selectPacket,
   } = appState;
 
@@ -50,10 +49,6 @@ export function CapturePage({ appState: providedAppState }: CapturePageProps) {
       console.error('Failed to stop capture:', error);
     }
   }, [stopCapture]);
-
-  const handleClear = useCallback(() => {
-    clearPackets();
-  }, [clearPackets]);
 
   const handlePacketClick = useCallback((packet: typeof packets[0]) => {
     try {
@@ -97,17 +92,6 @@ export function CapturePage({ appState: providedAppState }: CapturePageProps) {
             
             {/* Control Buttons */}
             <div className="flex items-center space-x-2 flex-shrink-0">
-              {packets.length > 0 && (
-                <button
-                  onClick={handleClear}
-                  disabled={isLoading}
-                  className="flex items-center space-x-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Trash2 size={16} />
-                  <span className="hidden sm:inline">Clear</span>
-                </button>
-              )}
-              
               <button
                 onClick={isCapturing ? handleStop : handleStart}
                 disabled={isLoading}
