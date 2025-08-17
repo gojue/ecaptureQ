@@ -1,4 +1,4 @@
-![](./images/ecaptureq.png)
+<img src="./images/ecaptureq.png" width="300" height="300"></img>
 
 [简体中文](./README_CN.md) | English
 
@@ -78,6 +78,10 @@ In this mode, `eCaptureQ` runs as a standalone client without the bundled `ecapt
 3.  Go to the settings page in `eCaptureQ`.
 4.  Configure the "WebSocket Server URL" to the address `ecapture` is listening on (e.g., `ws://<SERVER_IP>:28257`).
 5.  Return to the main page and click "Start" to begin receiving data.
+
+![](./images/packet_list.png)
+![](./images/packet_detail_overview.png)
+
 
 ## Tech Stack
 

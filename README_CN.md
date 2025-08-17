@@ -1,4 +1,4 @@
-![](./images/ecaptureq.png)
+<img src="./images/ecaptureq.png" width="300" height="300"></img>
 
 简体中文 | [English](./README.md)
 
@@ -78,6 +78,9 @@ eCaptureQ 是 [eCapture](https://github.com/gojue/ecapture) 的跨平台 GUI，�
 3.  进入 `eCaptureQ` 的设置页面。
 4.  将 "WebSocket Server URL" 配置为 `ecapture` 正在监听的地址 (例如 `ws://<服务器IP>:28257`)。
 5.  返回主页面，点击 "Start" 开始接收数据。
+
+![](./images/packet_list.png)
+![](./images/packet_detail_overview.png)
 
 ## 技术栈
 
