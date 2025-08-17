@@ -1,98 +1,85 @@
+[简体中文](./README_CN.md) | English
+
 # ecaptureQ
 
-A modern, cross-platform GUI for **eCapture**, the powerful eBPF-based TLS traffic capture tool.
+Effortlessly capture TLS encrypted traffic in a cross-platform GUI using eBPF, without configuring CA certificates or performing Man-in-the-Middle (MITM) attacks.
 
-> **Note:** This project is currently under active development. Features and the user interface are subject to change.
+## Overview
 
-## Purpose
+ecaptureQ is a cross-platform GUI for [ecapture](https://github.com/gojue/ecapture), visualizing its eBPF-powered packet capturing capabilities: capture TLS plaintext at the kernel level without needing a CA certificate or MITM.
 
-`eCapture` is a fantastic command-line tool that leverages **eBPF** to capture encrypted network traffic (like TLS) without requiring a Certificate Authority (CA).
+This means you can debug and analyze the encrypted communications of any program in a simpler, more efficient, and non-intrusive way.
 
-The goal of `ecaptureQ` is to wrap the power of `eCapture` in a user-friendly graphical interface. It allows developers and analysts to visually manage captures and analyze traffic in real-time on Linux and Android, simplifying the overall workflow.
+## Key Features
+
+**Certificate-Free Capture with eBPF**: Directly capture and decrypt TLS traffic from the kernel without configuring CA certificates or a man-in-the-middle proxy.
+
+**Real-time & Responsive View**: Displays network requests in real-time and automatically switches between a desktop table view and a mobile card view based on the device.
+
+**Cross-Platform & Dual-Mode**: Runs as an all-in-one tool on Linux/Android, and as a remote client on Windows/macOS/Linux to connect to a server.
+
+**Secure, Lightweight, and Native Experience**: Built with Rust on the backend for memory safety and native performance.
+
+## Operating Modes
+
+`ecaptureQ` offers two main operating modes to suit different user needs.
+
+### 1\. Integrated Mode (All-in-One Package)
+
+This is the standard, all-in-one mode. In this mode, the `ecapture` binary is bundled directly within the `ecaptureQ` application.
+
+  * **Supported Platforms**: **Linux**, **Android**
+  * **Features**:
+      * **Out-of-the-Box**: No need to manually install or configure `ecapture`.
+      * **Automated Management**: `ecaptureQ` automatically manages the lifecycle of the capture process.
+      * **Simple and Convenient**: Ideal for quick traffic analysis on a local device.
+  * **Requirements**:
+      * On Linux and Android, this mode requires **root privileges** to run the eBPF program.
+
+### 2\. Remote Mode (Client-Only)
+
+In this mode, `ecaptureQ` runs as a standalone client without the bundled `ecapture` binary. It connects remotely via WebSocket to an `ecapture` instance that is **manually run** by the user.
+
+  * **Client-Supported Platforms**: **Linux**, **Windows**, **macOS**
+  * **Features**:
+      * **High Flexibility**: Run `ecapture` on a Linux server and monitor it remotely from a Windows or macOS machine.
+      * **No Root Required**: The `ecaptureQ` client itself does not require root privileges.
+      * **Secure Isolation**: Suitable for scenarios where the capture process and the analysis interface need to have separate permissions.
+  * **Requirements**:
+      * The user must download and run `ecapture` separately on the target device.
+      * `ecapture` must be started with the `--ecaptureq` flag to activate the WebSocket service.
+
+## How to Use
+
+### Integrated Mode (on Linux or Android)
+
+1.  Download and install the standard version of `ecaptureQ`.
+2.  (Linux only) Run the application with `sudo`:
+    ```bash
+    sudo /path/to/ecaptureq
+    ```
+3.  Click "Start" in the application interface to begin capturing.
+
+### Remote Mode (e.g., connecting from Windows/macOS to a remote Linux server)
+
+1.  On the **target Linux machine**, download and start `ecapture` with the `--ecaptureq` flag. Ensure the WebSocket address is accessible from your `ecaptureQ` client.
+    ```bash
+    # Run on the target server (requires root privileges)
+    sudo ./ecapture tls --ecaptureq ws://0.0.0.0:28257
+    ```
+2.  On **your Windows/macOS/Linux machine**, download and run the `decoupled` version of `ecaptureQ`.
+3.  Go to the settings page in `ecaptureQ`.
+4.  Configure the "WebSocket Server URL" to the address `ecapture` is listening on (e.g., `ws://<SERVER_IP>:28257`).
+5.  Return to the main page and click "Start" to begin receiving data.
 
 ## Tech Stack
 
-This project is built with a combination of modern technologies selected for performance and a quality user experience:
+  * **Core Engine**: **ecapture** (The underlying eBPF capture tool)
+  * **Framework**: **Tauri** (A framework for building cross-platform applications with Rust)
+  * **Backend**: **Rust** (with Tokio for asynchronous processing and Polars for high-performance data handling)
+  * **Frontend**: **React** with **TypeScript**, **Tailwind CSS**
 
-  * **Core Engine**: **eCapture** (The underlying eBPF-based capture tool)
-  * **Framework**: **Tauri**
-  * **Backend**: **Rust**, using Tokio for asynchronous operations and Polars for high-performance data handling.
-  * **Frontend**: **React** with **TypeScript**, styled using **Tailwind CSS**.
+## Acknowledgement
 
-## Status: Work in Progress
-
-`ecaptureQ` is in an early stage of development. We are actively working on:
-
-  * Improving stability and feature integration with `eCapture`.
-  * Refining the user interface and overall experience.
-  * Expanding support for more `eCapture` functionalities.
-
-## Development & Build
-
-This section outlines the process for compiling the project for Android.
-
-### Prerequisites
-
-Before you begin, ensure you have the following installed and configured:
-
-  * **Rust Toolchain**: `rustc`, `cargo`
-  * **pnpm**: A Node.js package manager
-  * **Android SDK & NDK**: Can be installed via Android Studio
-  * Environment variables `ANDROID_HOME` and `NDK_HOME` must be set correctly.
-
-### Android Certificate Signing
-
-To publish the application on Android, a signing certificate is required. You can generate a new keystore file using the `keytool` command.
-
-```shell
-keytool -genkey -v -keystore ~/upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
-```
-
-For more details, refer to the official Tauri documentation on Android signing.
-
-### Build Steps
-
-1.  **Install Frontend Dependencies**:
-
-    ```bash
-    pnpm install
-    ```
-
-2.  **Initialize Android Project** (Required for the first time):
-
-    ```bash
-    pnpm tauri android init
-    ```
-
-3.  **Build the Final Android Application**:
-    This command bundles the Tauri Rust core and the React frontend code into a final APK file for the `aarch64` architecture.
-
-    ```bash
-    pnpm android:build
-    ```
-
-## Directory Structure
-
-```
-.
-├── public/                # Static assets
-├── scripts/
-│   └── log.sh             # Helper script to view Android logcat
-├── src/                   # Frontend React source code
-│   ├── components/        # React components
-│   ├── hooks/             # Custom Hooks (e.g., useAppState)
-│   ├── services/          # Frontend services (e.g., apiService)
-│   ├── types/             # TypeScript type definitions
-│   └── App.tsx            # Main application component
-├── src-tauri/             # Backend Rust source code
-│   ├── binaries/          # Embedded binaries (e.g., capture tool)
-│   ├── capabilities/      # Tauri permission configurations
-│   ├── src/
-│   │   ├── core/          # Core data processing (Actor, Polars)
-│   │   ├── services/      # Background services (Capture, WebSocket)
-│   │   └── tauri_bridge/  # Commands and state for frontend interaction
-│   │   └── lib.rs         # Rust lib main entry point
-│   ├── Cargo.toml         # Rust dependency configuration
-│   └── tauri.conf.json    # Tauri application configuration
-└── package.json           # Frontend project and script configuration
-```
+  * **[ecapture](https://github.com/gojue/ecapture)**: Capturing SSL/TLS plaintext without a CA certificate using eBPF.
+  * **[Tauri](https://tauri.app/)**: Build smaller, faster, and more secure desktop and mobile applications with a web frontend.
