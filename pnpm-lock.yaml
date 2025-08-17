@@ -12,7 +12,7 @@ importers:
         specifier: ^2.7.0
         version: 2.7.0
       '@tauri-apps/plugin-shell':
-        specifier: ^2.3.0
+        specifier: ~2
         version: 2.3.0
       lucide-react:
         specifier: ^0.344.0

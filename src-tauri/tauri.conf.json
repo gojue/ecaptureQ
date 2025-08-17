@@ -45,5 +45,10 @@
     "category": "DeveloperTool",
     "shortDescription": "A cross-platform desktop application for eCapture, the powerful eBPF-based SSL/TLS traffic capture tool.",
     "longDescription": "eCaptureQ - 为强大的基于eBPF技术的SSL/TLS流量捕获工具eCapture打造的跨平台桌面应用程序。基于Tauri构建，在Linux和Android系统上提供直观的图形界面来捕获和分析加密网络流量，无需CA证书。"
+  },
+  "plugins": {
+    "shell": {
+      "open": true
+    }
   }
 }

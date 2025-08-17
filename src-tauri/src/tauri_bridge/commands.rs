@@ -171,40 +171,45 @@ pub async fn modify_configs(
 #[tauri::command]
 #[allow(non_snake_case)]
 pub async fn base64_decode(base64String: String) -> Result<String, String> {
-    // Check if empty or invalid
     if base64String.is_empty() {
         return Err("Base64 string is empty".to_string());
     }
 
-    // Decode Base64
     let decoded_bytes_result = general_purpose::STANDARD
         .decode(&base64String)
         .map_err(|e| format!("Base64 decode error: {}", e))?;
 
-    // Convert to UTF-8 string
-    let utf8_string_result = String::from_utf8(decoded_bytes_result.clone())
-        .or_else(|_| -> Result<String, std::string::FromUtf8Error> {
-            // If not valid UTF-8, display as hex
-            Ok(format!(
-                "Binary data ({} bytes):\n{}",
-                decoded_bytes_result.len(),
-                decoded_bytes_result
-                    .iter()
-                    .take(256) // Show first 256 bytes only
-                    .enumerate()
-                    .map(|(i, b)| {
-                        if i % 16 == 0 {
-                            format!("\n{:04x}: {:02x}", i, b)
-                        } else if i % 8 == 0 {
-                            format!("  {:02x}", b)
-                        } else {
-                            format!(" {:02x}", b)
-                        }
-                    })
-                    .collect::<String>()
-            ))
-        })
-        .map_err(|e| format!("UTF-8 conversion error: {}", e))?;
+    String::from_utf8(decoded_bytes_result.clone()).or_else(|_| {
+        let total_len = decoded_bytes_result.len();
+        let display_limit = 1024;
 
-    Ok(utf8_string_result)
+
+        let prefix = if total_len > display_limit {
+            format!("(Preview of first {} bytes)\n", display_limit)
+        } else {
+            "".to_string()
+        };
+
+        let hex_dump = decoded_bytes_result
+            .iter()
+            .take(display_limit)
+            .enumerate()
+            .map(|(i, b)| {
+                if i % 16 == 0 {
+                    format!("\n{:04x}: {:02x}", i, b)
+                } else if i % 8 == 0 {
+                    format!("  {:02x}", b)
+                } else {
+                    format!(" {:02x}", b)
+                }
+            })
+            .collect::<String>();
+
+        Ok(format!(
+            "{}Binary data ({} bytes):{}",
+            prefix,
+            total_len,
+            hex_dump
+        ))
+    })
 }

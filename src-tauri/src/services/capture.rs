@@ -1,19 +1,19 @@
-use std::collections::HashSet;
 use anyhow::{Error, Result, anyhow};
+use futures_util::future;
 use log::{error, info};
 #[cfg(not(target_os = "windows"))]
 use nix::sys::signal::{Signal, kill as send_signal};
 #[cfg(not(target_os = "windows"))]
 use nix::unistd::Pid;
 use sha2::{Digest, Sha256};
-use std::{fs, process};
+use std::collections::HashSet;
 use std::io::Write;
 #[cfg(not(target_os = "windows"))]
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::Duration;
-use futures_util::future;
+use std::{fs, process};
 use tokio::process::{Child, Command}; // Use Tokio's Command and Child
 use tokio::sync::watch;
 
@@ -185,34 +185,34 @@ impl CaptureManager {
 
         // --- Main event loop ---
         tokio::select! {
-        biased;
+            biased;
 
-        // Branch for graceful shutdown
-        _ = shutdown_rx.changed() => {
-            info!("Shutdown signal received, cleaning up eCapture process(es)...");
+            // Branch for graceful shutdown
+            _ = shutdown_rx.changed() => {
+                info!("Shutdown signal received, cleaning up eCapture process(es)...");
 
-            if let Err(e) = cleaner
-                .cleanup_processes(&cleanup_targets, &exempt_pids, &cleanup_exempt_names)
-                .await
-            {
-                error!("Cleanup on shutdown signal failed: {}", e);
-            } else {
-                info!("Cleanup on shutdown signal completed.");
+                if let Err(e) = cleaner
+                    .cleanup_processes(&cleanup_targets, &exempt_pids, &cleanup_exempt_names)
+                    .await
+                {
+                    error!("Cleanup on shutdown signal failed: {}", e);
+                } else {
+                    info!("Cleanup on shutdown signal completed.");
+                }
+
+                // The process should be terminated by the cleaner, so we can now drop the child handle.
+                self.child.take();
             }
 
-            // The process should be terminated by the cleaner, so we can now drop the child handle.
-            self.child.take();
-        }
-
-        // Branch for unexpected process exit
-        result = self.child.as_mut().unwrap().wait() => {
-            match result {
-                Ok(status) => error!("eCapture process exited unexpectedly with status: {}", status),
-                Err(e) => error!("Error waiting for eCapture process: {}", e),
+            // Branch for unexpected process exit
+            result = self.child.as_mut().unwrap().wait() => {
+                match result {
+                    Ok(status) => error!("eCapture process exited unexpectedly with status: {}", status),
+                    Err(e) => error!("Error waiting for eCapture process: {}", e),
+                }
+                return Err(anyhow!("eCapture process exited unexpectedly"));
             }
-            return Err(anyhow!("eCapture process exited unexpectedly"));
         }
-    }
 
         // This part is reached after a graceful shutdown.
         // It is slightly redundant but acts as a final safety net to ensure a clean state.
@@ -314,7 +314,10 @@ impl AndroidCleaner {
         exempt_pids: &HashSet<u32>,
         exempt_names: &[&str],
     ) -> Result<()> {
-        info!("Starting Android process cleanup for targets: {:?}", targets);
+        info!(
+            "Starting Android process cleanup for targets: {:?}",
+            targets
+        );
 
         let find_futures = targets
             .iter()
@@ -356,11 +359,7 @@ impl AndroidCleaner {
     }
 
     /// Finds PIDs by searching the full command line arguments.
-    async fn find_pids_by_name(
-        &self,
-        keyword: &str,
-        exempt_names: &[&str],
-    ) -> Result<Vec<u32>> {
+    async fn find_pids_by_name(&self, keyword: &str, exempt_names: &[&str]) -> Result<Vec<u32>> {
         let ps_command = "ps -A -o PID,ARGS";
 
         // Execute the `ps` command as root to see all processes.
@@ -372,14 +371,18 @@ impl AndroidCleaner {
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            error!("Root `ps` command failed with status: {}. Stderr: {}", output.status, stderr);
+            error!(
+                "Root `ps` command failed with status: {}. Stderr: {}",
+                output.status, stderr
+            );
             return Err(anyhow!("Failed to execute 'ps' as root"));
         }
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let mut pids = Vec::new();
 
-        for line in stdout.lines().skip(1) { // Skip header
+        for line in stdout.lines().skip(1) {
+            // Skip header
             let trimmed_line = line.trim();
             // Split into PID and the rest of the line (ARGS)
             let parts: Vec<&str> = trimmed_line.splitn(2, char::is_whitespace).collect();
@@ -391,7 +394,8 @@ impl AndroidCleaner {
                 let is_self_ps_command = full_args.contains(ps_command);
 
                 if full_args.contains(keyword) && !is_self_ps_command {
-                    let is_exempted_by_name = exempt_names.iter().any(|&name| full_args.contains(name));
+                    let is_exempted_by_name =
+                        exempt_names.iter().any(|&name| full_args.contains(name));
 
                     if !is_exempted_by_name {
                         if let Ok(pid) = pid_str.parse::<u32>() {
@@ -416,7 +420,10 @@ impl AndroidCleaner {
             info!("Successfully terminated process with PID: {}", pid);
             Ok(())
         } else {
-            error!("Failed to kill process with PID: {}. It might have already exited.", pid);
+            error!(
+                "Failed to kill process with PID: {}. It might have already exited.",
+                pid
+            );
             Err(anyhow!("Failed to kill PID: {}", pid))
         }
     }

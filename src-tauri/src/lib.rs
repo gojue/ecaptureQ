@@ -62,6 +62,7 @@ pub async fn run() {
         .build();
 
     let builder = tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
         .setup(|app| {
             let app_handle = app.handle();
             let app_handle_clone = app_handle.clone();
