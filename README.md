@@ -1,12 +1,19 @@
+![](./images/ecaptureq.png)
+
 [简体中文](./README_CN.md) | English
 
-# ecaptureQ
+[![GitHub stars](https://img.shields.io/github/stars/gojue/ecaptureq.svg?label=Stars&logo=github)](https://github.com/gojue/ecaptureq)
+[![GitHub forks](https://img.shields.io/github/forks/gojue/ecaptureq?label=Forks&logo=github)](https://github.com/gojue/ecaptureq)
+[![Github Version](https://img.shields.io/github/v/release/gojue/ecaptureq?display_name=tag&include_prereleases&sort=semver)](https://github.com/gojue/ecaptureq/releases)
+
+
+# eCaptureQ
 
 Effortlessly capture TLS encrypted traffic in a cross-platform GUI using eBPF, without configuring CA certificates or performing Man-in-the-Middle (MITM) attacks.
 
 ## Overview
 
-ecaptureQ is a cross-platform GUI for [ecapture](https://github.com/gojue/ecapture), visualizing its eBPF-powered packet capturing capabilities: capture TLS plaintext at the kernel level without needing a CA certificate or MITM.
+eCaptureQ is a cross-platform GUI for [ecapture](https://github.com/gojue/ecapture), visualizing its eBPF-powered packet capturing capabilities: capture TLS plaintext at the kernel level without needing a CA certificate or MITM.
 
 This means you can debug and analyze the encrypted communications of any program in a simpler, more efficient, and non-intrusive way.
 
@@ -22,28 +29,28 @@ This means you can debug and analyze the encrypted communications of any program
 
 ## Operating Modes
 
-`ecaptureQ` offers two main operating modes to suit different user needs.
+`eCaptureQ` offers two main operating modes to suit different user needs.
 
 ### 1\. Integrated Mode (All-in-One Package)
 
-This is the standard, all-in-one mode. In this mode, the `ecapture` binary is bundled directly within the `ecaptureQ` application.
+This is the standard, all-in-one mode. In this mode, the `ecapture` binary is bundled directly within the `eCaptureQ` application.
 
   * **Supported Platforms**: **Linux**, **Android**
   * **Features**:
       * **Out-of-the-Box**: No need to manually install or configure `ecapture`.
-      * **Automated Management**: `ecaptureQ` automatically manages the lifecycle of the capture process.
+      * **Automated Management**: `eCaptureQ` automatically manages the lifecycle of the capture process.
       * **Simple and Convenient**: Ideal for quick traffic analysis on a local device.
   * **Requirements**:
       * On Linux and Android, this mode requires **root privileges** to run the eBPF program.
 
 ### 2\. Remote Mode (Client-Only)
 
-In this mode, `ecaptureQ` runs as a standalone client without the bundled `ecapture` binary. It connects remotely via WebSocket to an `ecapture` instance that is **manually run** by the user.
+In this mode, `eCaptureQ` runs as a standalone client without the bundled `ecapture` binary. It connects remotely via WebSocket to an `ecapture` instance that is **manually run** by the user.
 
   * **Client-Supported Platforms**: **Linux**, **Windows**, **macOS**
   * **Features**:
       * **High Flexibility**: Run `ecapture` on a Linux server and monitor it remotely from a Windows or macOS machine.
-      * **No Root Required**: The `ecaptureQ` client itself does not require root privileges.
+      * **No Root Required**: The `eCaptureQ` client itself does not require root privileges.
       * **Secure Isolation**: Suitable for scenarios where the capture process and the analysis interface need to have separate permissions.
   * **Requirements**:
       * The user must download and run `ecapture` separately on the target device.
@@ -53,7 +60,7 @@ In this mode, `ecaptureQ` runs as a standalone client without the bundled `ecapt
 
 ### Integrated Mode (on Linux or Android)
 
-1.  Download and install the standard version of `ecaptureQ`.
+1.  Download and install the standard version of `eCaptureQ`.
 2.  (Linux only) Run the application with `sudo`:
     ```bash
     sudo /path/to/ecaptureq
@@ -62,13 +69,13 @@ In this mode, `ecaptureQ` runs as a standalone client without the bundled `ecapt
 
 ### Remote Mode (e.g., connecting from Windows/macOS to a remote Linux server)
 
-1.  On the **target Linux machine**, download and start `ecapture` with the `--ecaptureq` flag. Ensure the WebSocket address is accessible from your `ecaptureQ` client.
+1.  On the **target Linux machine**, download and start `ecapture` with the `--ecaptureq` flag. Ensure the WebSocket address is accessible from your `eCaptureQ` client.
     ```bash
     # Run on the target server (requires root privileges)
     sudo ./ecapture tls --ecaptureq ws://0.0.0.0:28257
     ```
-2.  On **your Windows/macOS/Linux machine**, download and run the `decoupled` version of `ecaptureQ`.
-3.  Go to the settings page in `ecaptureQ`.
+2.  On **your Windows/macOS/Linux machine**, download and run the `decoupled` version of `eCaptureQ`.
+3.  Go to the settings page in `eCaptureQ`.
 4.  Configure the "WebSocket Server URL" to the address `ecapture` is listening on (e.g., `ws://<SERVER_IP>:28257`).
 5.  Return to the main page and click "Start" to begin receiving data.
 
