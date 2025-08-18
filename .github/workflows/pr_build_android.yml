@@ -155,7 +155,7 @@ jobs:
 
   comment-pr:
     needs: build-android
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Comment PR
         uses: actions/github-script@v7

@@ -18,7 +18,7 @@ env:
 jobs:
   pre_release:
     name: Check Release Tag and Generate Changelog
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     outputs:
       version: ${{ steps.get_version.outputs.version }}
       notes: ${{ steps.release_notes.outputs.notes }}

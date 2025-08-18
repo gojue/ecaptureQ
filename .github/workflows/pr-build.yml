@@ -25,7 +25,7 @@ jobs:
   # 任务 1: 检查 Git Tag 和 package.json 的版本是否一致
   check_tag_version:
     name: Check Release Tag and package.json Version Consistency
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     outputs:
       version: ${{ steps.get_version.outputs.version }}
     steps:
