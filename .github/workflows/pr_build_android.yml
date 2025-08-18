@@ -132,6 +132,19 @@ jobs:
           pnpm tauri android init
           pnpm tauri android build --target ${{ matrix.arch }}
 
+      - name: Sign Android APK
+        if: matrix.platform == 'android'
+        id: sign_apk
+        uses: r0adkll/sign-android-release@v1
+        with:
+          releaseDirectory: src-tauri/gen/android/app/build/outputs/apk/universal/release
+          signingKeyBase64: ${{ secrets.ANDROID_SIGN_DEBUG_KEY }}
+          alias: ${{ secrets.ANDROID_SIGN_DEBUG_KEY_ALIAS }}
+          keyStorePassword: ${{ secrets.ANDROID_SIGN_DEBUG_KEY_STORE_PASSWORD }}
+          keyPassword: ${{ secrets.ANDROID_SIGN_DEBUG_KEY_PASSWORD }}
+        env:
+          BUILD_TOOLS_VERSION: "34.0.0"
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
