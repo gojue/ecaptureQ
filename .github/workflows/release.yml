@@ -20,11 +20,12 @@ env:
   RUST_BACKTRACE: short
 
 jobs:
-  get_version:
+  pre_release:
     name: Check Release Tag and package.json Version Consistency
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.get_version.outputs.version }}
+      notes: ${{ steps.release_notes.outputs.notes }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -44,10 +45,26 @@ jobs:
           fi
           echo "Tag and package.json version are consistent."
 
+      - name: Generate Release Notes
+        id: release_notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            /repos/${{ github.repository }}/releases/generate-notes \
+            -f tag_name=${{ github.ref_name }} \
+            -f previous_tag_name=${{ steps.previoustag.outputs.PREVIOUS_TAG }} \
+            > release_notes.json
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          jq -r .body release_notes.json >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
   # Job 1: 构建 Windows, macOS, Linux x86_64 和 Android
   build-artifacts:
     name: Build Main Artifacts
-    needs: [get_version]
+    needs: [pre_release]
     strategy:
       fail-fast: false
       matrix:
@@ -84,22 +101,6 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-
-      - name: Generate Release Notes
-        id: release_notes
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh api \
-            --method POST \
-            -H "Accept: application/vnd.github+json" \
-            /repos/${{ github.repository }}/releases/generate-notes \
-            -f tag_name=${{ github.ref_name }} \
-            -f previous_tag_name=${{ steps.previoustag.outputs.PREVIOUS_TAG }} \
-            > release_notes.json
-          echo "NOTES<<EOF" >> $GITHUB_OUTPUT
-          jq -r .body release_notes.json >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Install Rust Stable
         uses: dtolnay/rust-toolchain@stable
@@ -184,9 +185,9 @@ jobs:
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
-          tagName: v${{ needs.get_version.outputs.version }}
-          releaseName: eCaptuerQ v${{ needs.get_version.outputs.version }}
-          releaseBody: ${{ steps.release_notes.outputs.NOTES }}
+          tagName: v${{ needs.pre_release.outputs.version }}
+          releaseName: eCaptuerQ v${{ needs.pre_release.outputs.version }}
+          releaseBody: ${{ needs.pre_release.outputs.notes }}
 
       - name: Build Android Artifact
         if: matrix.platform == 'android'
@@ -211,23 +212,23 @@ jobs:
       - name: Rename Signed Artifact
         if: matrix.platform == 'android'
         run: |
-          mv "${{ steps.sign_apk.outputs.signedReleaseFile }}" "./eCaptureQ_v${{ needs.get_version.outputs.version }}_${{ matrix.arch }}.apk"
+          mv "${{ steps.sign_apk.outputs.signedReleaseFile }}" "./eCaptureQ_v${{ needs.pre_release.outputs.version }}_${{ matrix.arch }}.apk"
       - name: Publish Android Artifact
         if: matrix.platform == 'android'
         uses: softprops/action-gh-release@v1
         with:
           draft: true
-          name: eCaptureQ v${{ needs.get_version.outputs.version }}
-          tag_name: v${{ needs.get_version.outputs.version }}
-          files: ./eCaptureQ_v${{ needs.get_version.outputs.version }}_${{ matrix.arch }}.apk
+          name: eCaptureQ v${{ needs.pre_release.outputs.version }}
+          tag_name: v${{ needs.pre_release.outputs.version }}
+          files: ./eCaptureQ_v${{ needs.pre_release.outputs.version }}_${{ matrix.arch }}.apk
 
 #      - name: Publish Desktop Artifacts
 #        if: matrix.platform != 'android'
 #        uses: softprops/action-gh-release@v1
 #        with:
 #          draft: true
-#          name: eCaptureQ v${{ needs.get_version.outputs.version }}
-#          tag_name: v${{ needs.get_version.outputs.version }}
+#          name: eCaptureQ v${{ needs.pre_release.outputs.version }}
+#          tag_name: v${{ needs.pre_release.outputs.version }}
 #          generate_release_notes: true
 #          files: |
 #            src-tauri/target/${{ matrix.target }}/release/bundle/msi/eCaptureQ_*.msi
@@ -237,101 +238,101 @@ jobs:
 #            src-tauri/target/${{ matrix.target }}/release/bundle/deb/*.deb
 
   # Job 2: 专门用于交叉编译 Linux ARM
-#  build-linux-arm:
-#    name: Build and Release for Linux ARM
-#    needs: [get_version,build-artifacts]
-#    runs-on: ubuntu-22.04
-#    strategy:
-#      fail-fast: false
-#      matrix:
-#        include:
-#          - target: aarch64-unknown-linux-gnu
-#            arch: arm64
-#    steps:
-#      - name: Checkout Repository
-#        uses: actions/checkout@v4
-#
-#      - name: Install Rust Stable
-#        uses: dtolnay/rust-toolchain@stable
-#
-#      - name: Add Rust Target
-#        run: rustup target add ${{ matrix.target }}
-#
-#      - name: Rust Cache
-#        uses: Swatinem/rust-cache@v2
-#
-#      - name: Install Node
-#        uses: actions/setup-node@v4
-#        with:
-#          node-version: "22"
-#      - uses: pnpm/action-setup@v4
-#        name: Install pnpm
-#        with:
-#          version: latest
-#      - name: Pnpm install
-#        run: pnpm i
-#
-#      - name: Setup cross-compilation environment for Linux ARM
-#        run: |
-#          cat > /tmp/sources.list << EOF
-#          deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy main restricted universe multiverse
-#          deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy-updates main restricted universe multiverse
-#          deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy-security main restricted universe multiverse
-#          deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy-backports main restricted universe multiverse
-#          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy main restricted universe multiverse
-#          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates main restricted universe multiverse
-#          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-security main restricted universe multiverse
-#          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-backports main restricted universe multiverse
-#          EOF
-#          sudo mv /etc/apt/sources.list /etc/apt/sources.list.bak
-#          sudo mv /tmp/sources.list /etc/apt/sources.list
-#          sudo dpkg --add-architecture arm64
-#          sudo apt-get update
-#
-#      - name: Install ARM dependencies
-#        run: |
-#          sudo apt-get install -y \
-#            libsoup-3.0-dev:arm64 \
-#            libjavascriptcoregtk-4.1-dev:arm64 \
-#            libwebkit2gtk-4.1-dev:arm64 \
-#            libgtk-3-dev:arm64 \
-#            libssl-dev:arm64 \
-#            xdg-utils:arm64 \
-#            librsvg2-dev:arm64 \
-#            libappindicator3-dev:arm64 \
-#            patchelf:arm64
-#
-#      - name: Install C cross-compiler for aarch64
-#        run: sudo apt-get install -y gcc-aarch64-linux-gnu
-#
-#      - name: Download and Setup eCapture for Linux ARM
-#        shell: bash
-#        run: |
-#          echo ">>> Setting up eCapture for linux-arm64..."
-#          ECAPTURE_LATEST=$(curl -s https://api.github.com/repos/gojue/ecapture/releases/latest | grep tag_name | cut -d '"' -f 4)
-#          ECAPTURE_TAR="ecapture-${ECAPTURE_LATEST}-linux-arm64.tar.gz"
-#          wget "https://github.com/gojue/ecapture/releases/download/${ECAPTURE_LATEST}/${ECAPTURE_TAR}"
-#          tar -zxvf "${ECAPTURE_TAR}"
-#          SOURCE_FILE=$(find . -name ecapture -type f | head -n 1)
-#          mkdir -p src-tauri/binaries
-#          DEST_FILE="src-tauri/binaries/linux_ecapture_arm64"
-#          cp "${SOURCE_FILE}" "${DEST_FILE}"
-#          ls -l src-tauri/binaries/
-#
-#      - name: Build Linux ARM Artifact
-#        env:
-#          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: "aarch64-linux-gnu-gcc"
-#          PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
-#          PKG_CONFIG_ALLOW_CROSS: 1
-#        run: pnpm tauri build --target ${{ matrix.target }}
-#
-#      - name: Publish Linux ARM Artifacts
-#        uses: softprops/action-gh-release@v1
-#        with:
-#          draft: true
-#          name: eCaptureQ v${{ needs.get_version.outputs.version }}
-#          tag_name: v${{ needs.get_version.outputs.version }}
-#          generate_release_notes: true
-#          files: |
-#            src-tauri/target/${{ matrix.target }}/release/bundle/appimage/eCaptureQ_*.AppImage
-#            src-tauri/target/${{ matrix.target }}/release/bundle/deb/*.deb
+  build-linux-arm:
+    name: Build and Release for Linux ARM
+    needs: [pre_release,build-artifacts]
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-unknown-linux-gnu
+            arch: arm64
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust Stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Add Rust Target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: pnpm/action-setup@v4
+        name: Install pnpm
+        with:
+          version: latest
+      - name: Pnpm install
+        run: pnpm i
+
+      - name: Setup cross-compilation environment for Linux ARM
+        run: |
+          cat > /tmp/sources.list << EOF
+          deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy main restricted universe multiverse
+          deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy-updates main restricted universe multiverse
+          deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy-security main restricted universe multiverse
+          deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy-backports main restricted universe multiverse
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy main restricted universe multiverse
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates main restricted universe multiverse
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-security main restricted universe multiverse
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-backports main restricted universe multiverse
+          EOF
+          sudo mv /etc/apt/sources.list /etc/apt/sources.list.bak
+          sudo mv /tmp/sources.list /etc/apt/sources.list
+          sudo dpkg --add-architecture arm64
+          sudo apt-get update
+
+      - name: Install ARM dependencies
+        run: |
+          sudo apt-get install -y \
+            libsoup-3.0-dev:arm64 \
+            libjavascriptcoregtk-4.1-dev:arm64 \
+            libwebkit2gtk-4.1-dev:arm64 \
+            libgtk-3-dev:arm64 \
+            libssl-dev:arm64 \
+            xdg-utils:arm64 \
+            librsvg2-dev:arm64 \
+            libappindicator3-dev:arm64 \
+            patchelf:arm64
+
+      - name: Install C cross-compiler for aarch64
+        run: sudo apt-get install -y gcc-aarch64-linux-gnu
+
+      - name: Download and Setup eCapture for Linux ARM
+        shell: bash
+        run: |
+          echo ">>> Setting up eCapture for linux-arm64..."
+          ECAPTURE_LATEST=$(curl -s https://api.github.com/repos/gojue/ecapture/releases/latest | grep tag_name | cut -d '"' -f 4)
+          ECAPTURE_TAR="ecapture-${ECAPTURE_LATEST}-linux-arm64.tar.gz"
+          wget "https://github.com/gojue/ecapture/releases/download/${ECAPTURE_LATEST}/${ECAPTURE_TAR}"
+          tar -zxvf "${ECAPTURE_TAR}"
+          SOURCE_FILE=$(find . -name ecapture -type f | head -n 1)
+          mkdir -p src-tauri/binaries
+          DEST_FILE="src-tauri/binaries/linux_ecapture_arm64"
+          cp "${SOURCE_FILE}" "${DEST_FILE}"
+          ls -l src-tauri/binaries/
+
+      - name: Build Linux ARM Artifact
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: "aarch64-linux-gnu-gcc"
+          PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
+          PKG_CONFIG_ALLOW_CROSS: 1
+        run: pnpm tauri build --target ${{ matrix.target }}
+
+      - name: Publish Linux ARM Artifacts
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          name: eCaptureQ v${{ needs.pre_release.outputs.version }}
+          tag_name: v${{ needs.pre_release.outputs.version }}
+          generate_release_notes: true
+          files: |
+            src-tauri/target/${{ matrix.target }}/release/bundle/appimage/eCaptureQ_*.AppImage
+            src-tauri/target/${{ matrix.target }}/release/bundle/deb/*.deb
