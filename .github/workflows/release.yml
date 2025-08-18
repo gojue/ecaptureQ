@@ -1,4 +1,5 @@
 name: Release
+
 on:
   push:
     tags:
@@ -15,11 +16,12 @@ env:
   RUST_BACKTRACE: short
 
 jobs:
-  get_version:
-    name: Check Release Tag and package.json Version Consistency
+  pre_release:
+    name: Check Release Tag and Generate Changelog
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.get_version.outputs.version }}
+      notes: ${{ steps.release_notes.outputs.notes }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -39,10 +41,26 @@ jobs:
           fi
           echo "Tag and package.json version are consistent."
 
+      - name: Generate Release Notes
+        id: release_notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            /repos/${{ github.repository }}/releases/generate-notes \
+            -f tag_name=${{ github.ref_name }} \
+            -f previous_tag_name=${{ steps.previoustag.outputs.PREVIOUS_TAG }} \
+            > release_notes.json
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          jq -r .body release_notes.json >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
   # Job 1: 构建 Windows, macOS, Linux x86_64 和 Android
   build-artifacts:
-    name: Build Main Artifacts
-    needs: [get_version]
+    name: Build Artifacts
+    needs: [pre_release]
     strategy:
       fail-fast: false
       matrix:
@@ -148,7 +166,24 @@ jobs:
 
       - name: Build Desktop Artifacts (Windows/macOS/Linux)
         if: matrix.platform != 'android'
-        run: pnpm tauri build --target ${{ matrix.target }}
+        uses: tauri-apps/tauri-action@v0.5.22
+        env:
+          DECOUPLED_MODE: true
+          RUST_TARGET: ${{ matrix.target }}
+          NODE_OPTIONS: "--max_old_space_size=4096"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.ANDROID_SIGN_RELEASE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.ANDROID_SIGN_RELEASE_KEY_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        with:
+          tagName: v${{ needs.pre_release.outputs.version }}
+          releaseName: eCaptuerQ v${{ needs.pre_release.outputs.version }}
+          releaseBody: ${{ needs.pre_release.outputs.notes }}
 
       - name: Build Android Artifact
         if: matrix.platform == 'android'
@@ -156,51 +191,37 @@ jobs:
           NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/26.1.10909125
         run: |
           pnpm tauri android build --target ${{ matrix.arch }}
+
       - name: Sign Android APK
         if: matrix.platform == 'android'
         id: sign_apk
         uses: r0adkll/sign-android-release@v1
         with:
           releaseDirectory: src-tauri/gen/android/app/build/outputs/apk/universal/release
-          signingKeyBase64: ${{ secrets.ANDROID_SIGNING_RELEASE_KEY }}
-          alias: ${{ secrets.ANDROID_SIGNING_RELEASE_KEY_ALIAS }}
-          keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
-          keyPassword: ${{ secrets.KEY_PASSWORD }}
+          signingKeyBase64: ${{ secrets.ANDROID_SIGN_RELEASE_KEY }}
+          alias: ${{ secrets.ANDROID_SIGN_RELEASE_KEY_ALIAS }}
+          keyStorePassword: ${{ secrets.ANDROID_SIGN_RELEASE_KEY_STORE_PASSWORD }}
+          keyPassword: ${{ secrets.ANDROID_SIGN_RELEASE_KEY_PASSWORD }}
         env:
           BUILD_TOOLS_VERSION: "34.0.0"
+
       - name: Rename Signed Artifact
         if: matrix.platform == 'android'
         run: |
-          mv "${{ steps.sign_apk.outputs.signedReleaseFile }}" "./eCaptureQ_v${{ needs.get_version.outputs.version }}_${{ matrix.arch }}.apk"
+          mv "${{ steps.sign_apk.outputs.signedReleaseFile }}" "./eCaptureQ_v${{ needs.pre_release.outputs.version }}_${{ matrix.arch }}.apk"
       - name: Publish Android Artifact
         if: matrix.platform == 'android'
         uses: softprops/action-gh-release@v1
         with:
           draft: true
-          name: eCaptureQ v${{ needs.get_version.outputs.version }}
-          tag_name: v${{ needs.get_version.outputs.version }}
-          generate_release_notes: true
-          files: ./eCaptureQ_v${{ needs.get_version.outputs.version }}_${{ matrix.arch }}.apk
-
-      - name: Publish Desktop Artifacts
-        if: matrix.platform != 'android'
-        uses: softprops/action-gh-release@v1
-        with:
-          draft: true
-          name: eCaptureQ v${{ needs.get_version.outputs.version }}
-          tag_name: v${{ needs.get_version.outputs.version }}
-          generate_release_notes: true
-          files: |
-            src-tauri/target/${{ matrix.target }}/release/bundle/msi/eCaptureQ_*.msi
-            src-tauri/target/${{ matrix.target }}/release/bundle/nsis/eCaptureQ_*-setup.exe
-            src-tauri/target/${{ matrix.target }}/release/bundle/dmg/eCaptureQ_*.dmg
-            src-tauri/target/${{ matrix.target }}/release/bundle/appimage/eCaptureQ_*.AppImage
-            src-tauri/target/${{ matrix.target }}/release/bundle/deb/*.deb
+          name: eCaptureQ v${{ needs.pre_release.outputs.version }}
+          tag_name: v${{ needs.pre_release.outputs.version }}
+          files: ./eCaptureQ_v${{ needs.pre_release.outputs.version }}_${{ matrix.arch }}.apk
 
   # Job 2: 专门用于交叉编译 Linux ARM
   build-linux-arm:
     name: Build and Release for Linux ARM
-    needs: [get_version,build-artifacts]
+    needs: [pre_release,build-artifacts]
     runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
@@ -289,10 +310,8 @@ jobs:
       - name: Publish Linux ARM Artifacts
         uses: softprops/action-gh-release@v1
         with:
-          draft: true
-          name: eCaptureQ v${{ needs.get_version.outputs.version }}
-          tag_name: v${{ needs.get_version.outputs.version }}
-          generate_release_notes: true
+          name: eCaptureQ v${{ needs.pre_release.outputs.version }}
+          tag_name: v${{ needs.pre_release.outputs.version }}
           files: |
             src-tauri/target/${{ matrix.target }}/release/bundle/appimage/eCaptureQ_*.AppImage
             src-tauri/target/${{ matrix.target }}/release/bundle/deb/*.deb
