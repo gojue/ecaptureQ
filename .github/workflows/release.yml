@@ -52,34 +52,34 @@ jobs:
       fail-fast: false
       matrix:
         include:
-#          - os: windows-latest
-#            platform: windows
-#            target: x86_64-pc-windows-msvc
-#            arch: x86_64
-#          - os: windows-latest
-#            platform: windows
-#            target: aarch64-pc-windows-msvc
-#            arch: aarch64
+          - os: windows-latest
+            platform: windows
+            target: x86_64-pc-windows-msvc
+            arch: x86_64
+          - os: windows-latest
+            platform: windows
+            target: aarch64-pc-windows-msvc
+            arch: aarch64
           - os: macos-latest
             platform: macos
             target: aarch64-apple-darwin
             arch: aarch64
-#          - os: macos-latest
-#            platform: macos
-#            target: x86_64-apple-darwin
-#            arch: x86_64
-#          - os: ubuntu-22.04
-#            platform: linux
-#            target: x86_64-unknown-linux-gnu
-#            arch: x86_64
-#          - os: ubuntu-22.04
-#            platform: android
-#            target: x86_64-linux-android
-#            arch: x86_64
-#          - os: ubuntu-22.04
-#            platform: android
-#            target: aarch64-linux-android
-#            arch: aarch64
+          - os: macos-latest
+            platform: macos
+            target: x86_64-apple-darwin
+            arch: x86_64
+          - os: ubuntu-22.04
+            platform: linux
+            target: x86_64-unknown-linux-gnu
+            arch: x86_64
+          - os: ubuntu-22.04
+            platform: android
+            target: x86_64-linux-android
+            arch: x86_64
+          - os: ubuntu-22.04
+            platform: android
+            target: aarch64-linux-android
+            arch: aarch64
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
@@ -187,8 +187,6 @@ jobs:
           tagName: v${{ needs.get_version.outputs.version }}
           releaseName: eCaptuerQ v${{ needs.get_version.outputs.version }}
           releaseBody: ${{ steps.release_notes.outputs.NOTES }}
-#          tauriScript: pnpm
-#          args: --target ${{ matrix.target }}
 
       - name: Build Android Artifact
         if: matrix.platform == 'android'
@@ -221,7 +219,6 @@ jobs:
           draft: true
           name: eCaptureQ v${{ needs.get_version.outputs.version }}
           tag_name: v${{ needs.get_version.outputs.version }}
-#          generate_release_notes: true
           files: ./eCaptureQ_v${{ needs.get_version.outputs.version }}_${{ matrix.arch }}.apk
 
 #      - name: Publish Desktop Artifacts
