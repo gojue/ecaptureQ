@@ -31,6 +31,9 @@ This means you can debug and analyze the encrypted communications of any program
 
 `eCaptureQ` offers two main operating modes to suit different user needs.
 
+![](./images/packet_list.png)
+![](./images/packet_detail_overview.png)
+
 ### 1\. Integrated Mode (All-in-One Package)
 
 This is the standard, all-in-one mode. In this mode, the `ecapture` binary is bundled directly within the `eCaptureQ` application.
@@ -78,9 +81,6 @@ In this mode, `eCaptureQ` runs as a standalone client without the bundled `ecapt
 3.  Go to the settings page in `eCaptureQ`.
 4.  Configure the "WebSocket Server URL" to the address `ecapture` is listening on (e.g., `ws://<SERVER_IP>:28257`).
 5.  Return to the main page and click "Start" to begin receiving data.
-
-![](./images/packet_list.png)
-![](./images/packet_detail_overview.png)
 
 ## Tech Stack
 

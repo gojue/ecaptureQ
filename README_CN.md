@@ -31,6 +31,9 @@ eCaptureQ 是 [eCapture](https://github.com/gojue/ecapture) 的跨平台 GUI，�
 
 `eCaptureQ` 提供两种主要的操作模式，以满足不同用户的需求。
 
+![](./images/packet_list.png)
+![](./images/packet_detail_overview.png)
+
 ### 1\. 集成模式 (一体化包)
 
 这是标准的一体化模式。在此模式下，`ecapture` 二进制文件被直接捆绑在 `eCaptureQ` 应用中。

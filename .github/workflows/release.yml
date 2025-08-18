@@ -1,13 +1,9 @@
 name: Release
-#on:
-#  push:
-#    tags:
-#      - "v*"
 
 on:
-  pull_request:
-    branches: [ main, develop ]
-    types: [opened, synchronize, reopened]
+  push:
+    tags:
+      - "v*"
 
 permissions: write-all
 
@@ -21,7 +17,7 @@ env:
 
 jobs:
   pre_release:
-    name: Check Release Tag and package.json Version Consistency
+    name: Check Release Tag and Generate Changelog
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.get_version.outputs.version }}
@@ -41,7 +37,7 @@ jobs:
           echo "version=$PKG_VERSION" >> $GITHUB_OUTPUT
           if [[ "$TAG_REF" != "v$PKG_VERSION" ]]; then
             echo "Tag ($TAG_REF) does not match package.json version (v$PKG_VERSION)."
-            exit 0
+            exit 1
           fi
           echo "Tag and package.json version are consistent."
 
@@ -63,7 +59,7 @@ jobs:
 
   # Job 1: 构建 Windows, macOS, Linux x86_64 和 Android
   build-artifacts:
-    name: Build Main Artifacts
+    name: Build Artifacts
     needs: [pre_release]
     strategy:
       fail-fast: false
@@ -222,21 +218,6 @@ jobs:
           tag_name: v${{ needs.pre_release.outputs.version }}
           files: ./eCaptureQ_v${{ needs.pre_release.outputs.version }}_${{ matrix.arch }}.apk
 
-#      - name: Publish Desktop Artifacts
-#        if: matrix.platform != 'android'
-#        uses: softprops/action-gh-release@v1
-#        with:
-#          draft: true
-#          name: eCaptureQ v${{ needs.pre_release.outputs.version }}
-#          tag_name: v${{ needs.pre_release.outputs.version }}
-#          generate_release_notes: true
-#          files: |
-#            src-tauri/target/${{ matrix.target }}/release/bundle/msi/eCaptureQ_*.msi
-#            src-tauri/target/${{ matrix.target }}/release/bundle/nsis/eCaptureQ_*-setup.exe
-#            src-tauri/target/${{ matrix.target }}/release/bundle/dmg/eCaptureQ_*.dmg
-#            src-tauri/target/${{ matrix.target }}/release/bundle/appimage/eCaptureQ_*.AppImage
-#            src-tauri/target/${{ matrix.target }}/release/bundle/deb/*.deb
-
   # Job 2: 专门用于交叉编译 Linux ARM
   build-linux-arm:
     name: Build and Release for Linux ARM
@@ -329,10 +310,8 @@ jobs:
       - name: Publish Linux ARM Artifacts
         uses: softprops/action-gh-release@v1
         with:
-          draft: true
           name: eCaptureQ v${{ needs.pre_release.outputs.version }}
           tag_name: v${{ needs.pre_release.outputs.version }}
-          generate_release_notes: true
           files: |
             src-tauri/target/${{ matrix.target }}/release/bundle/appimage/eCaptureQ_*.AppImage
             src-tauri/target/${{ matrix.target }}/release/bundle/deb/*.deb
