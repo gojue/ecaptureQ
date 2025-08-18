@@ -47,7 +47,7 @@ jobs:
   # Job 1: 构建 Windows, macOS, Linux x86_64 和 Android
   build-artifacts:
     name: Build Main Artifacts
-#    needs: [get_version]
+    needs: [get_version]
     strategy:
       fail-fast: false
       matrix:
@@ -80,8 +80,7 @@ jobs:
 #            platform: android
 #            target: aarch64-linux-android
 #            arch: aarch64
-#    runs-on: ${{ matrix.os }}
-    runs-on: self-hosted
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -168,7 +167,6 @@ jobs:
 
       - name: Build Desktop Artifacts (Windows/macOS/Linux)
         if: matrix.platform != 'android'
-#        run: pnpm tauri build --target ${{ matrix.target }}
         uses: tauri-apps/tauri-action@v0.5.22
         env:
           DECOUPLED_MODE: true
