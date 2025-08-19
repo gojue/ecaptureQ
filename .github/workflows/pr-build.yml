@@ -1,57 +1,53 @@
-name: PR Build and Test
+name: PR Build
 
 on:
   pull_request:
-    branches: [ main, develop ]
     types: [opened, synchronize, reopened]
 
-# 授予工作流写入权限，用于创建 Release 和上传产物
 permissions:
-  contents: write
-  issues: write
+  contents: read
   pull-requests: write
 
-# 定义环境变量
+concurrency:
+  group: "${{ github.workflow }} - ${{ github.head_ref || github.ref }}"
+  cancel-in-progress: true
+
 env:
   CARGO_INCREMENTAL: 0
   RUST_BACKTRACE: short
 
-# 确保每个提交只运行一次工作流
-concurrency:
-  group: "${{ github.workflow }} - ${{ github.head_ref || github.ref }}"
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
-
 jobs:
-  # 任务 1: 检查 Git Tag 和 package.json 的版本是否一致
-  check_tag_version:
-    name: Check Release Tag and package.json Version Consistency
+  prepare-build:
+    name: Prepare Build Info
     runs-on: ubuntu-22.04
     outputs:
       version: ${{ steps.get_version.outputs.version }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
+        with:
+          fetch-depth: 0 # 修复 previoustag 需要的依赖
       - name: Install jq for JSON parsing
         run: sudo apt-get update && sudo apt-get install -y jq
-
       - name: Get version from package.json
         id: get_version
         run: |
+          # 移除了所有和 Git Tag 相关的检查
           PKG_VERSION=$(jq -r .version package.json)
           echo "package.json version: $PKG_VERSION"
-          echo "version=${PKG_VERSION}" >> $GITHUB_OUTPUT
+          echo "version=$PKG_VERSION" >> $GITHUB_OUTPUT
+      - name: Get previous tag # 修复 previoustag 引用错误
+        id: previoustag
+        run: echo "PREVIOUS_TAG=$(git describe --tags --abbrev=0 `git rev-list --tags --skip=1 --max-count=1` || echo "")" >> $GITHUB_OUTPUT
 
-  # 任务 2: 为 Windows, macOS, Linux, 和 Android 构建和发布
-  build-debug-artifacts:
-    name: Build and Release
-    needs: check_tag_version
+
+  build-artifacts:
+    name: Build Artifacts (Windows, macOS, Android)
+    needs: [prepare-build]
     strategy:
       fail-fast: false
       matrix:
-        # 定义需要构建的平台和架构
         include:
-          # Windows
           - os: windows-latest
             platform: windows
             target: x86_64-pc-windows-msvc
@@ -60,7 +56,6 @@ jobs:
             platform: windows
             target: aarch64-pc-windows-msvc
             arch: aarch64
-          # macOS
           - os: macos-latest
             platform: macos
             target: aarch64-apple-darwin
@@ -69,142 +64,229 @@ jobs:
             platform: macos
             target: x86_64-apple-darwin
             arch: x86_64
-          # Linux
           - os: ubuntu-22.04
-            platform: linux
-            target: x86_64-unknown-linux-gnu
+            platform: android
+            target: x86_64-linux-android
             arch: x86_64
           - os: ubuntu-22.04
-            platform: linux
-            target: aarch64-unknown-linux-gnu
+            platform: android
+            target: aarch64-linux-android
             arch: aarch64
-
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-java@v4
+        if: matrix.platform == 'android'
+        with: { distribution: 'temurin', java-version: '17' }
+      - uses: android-actions/setup-android@v3
+        if: matrix.platform == 'android'
+      - run: sdkmanager "ndk;26.1.10909125"
+        if: matrix.platform == 'android'
+      - run: rustup target add ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - uses: pnpm/action-setup@v4
+        with: { version: latest }
+      - run: pnpm i
+      - run: pnpm tauri android init
+        if: matrix.platform == 'android'
+        env: { NDK_HOME: "${{ env.ANDROID_HOME }}/ndk/26.1.10909125" }
+      - name: Download and Setup eCapture (Android)
+        if: matrix.platform == 'android'
+        shell: bash
+        run: |
+          ECAPTURE_ARCH=$([[ "${{ matrix.arch }}" == "x86_64" ]] && echo "amd64" || echo "arm64")
+          ECAPTURE_LATEST=$(curl -s https://api.github.com/repos/gojue/ecapture/releases/latest | jq -r .tag_name)
+          if [[ -z "$ECAPTURE_LATEST" ]]; then echo "Failed to fetch eCapture version."; exit 1; fi
+          ECAPTURE_TAR="ecapture-${ECAPTURE_LATEST}-linux-${ECAPTURE_ARCH}.tar.gz"
+          wget "https://github.com/gojue/ecapture/releases/download/${ECAPTURE_LATEST}/${ECAPTURE_TAR}" && tar -zxvf "${ECAPTURE_TAR}"
+          mkdir -p src-tauri/binaries
+          cp ecapture*/ecapture src-tauri/binaries/${{ matrix.platform }}_ecapture_${ECAPTURE_ARCH}
 
-      # 安装 Rust Stable
-      - name: Install Rust Stable
-        uses: dtolnay/rust-toolchain@stable
+      - name: Build and Upload Desktop Artifacts (Windows/macOS)
+        if: matrix.platform != 'android'
+        uses: tauri-apps/tauri-action@v0
+        env:
+          DECOUPLED_MODE: true
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          uploadArtifacts: true
 
-      # 添加 Rust 编译目标
-      - name: Add Rust Target
-        run: rustup target add ${{ matrix.target }}
+      - name: Build Android Artifact
+        if: matrix.platform == 'android'
+        env: { NDK_HOME: "${{ env.ANDROID_HOME }}/ndk/26.1.10909125" }
+        run: pnpm tauri android build --target ${{ matrix.arch }}
 
-      # Rust 缓存
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
+      - name: Sign & Rename Android APK
+        if: matrix.platform == 'android'
+        id: sign_apk
+        uses: r0adkll/sign-android-release@v1
+        with: { releaseDirectory: 'src-tauri/gen/android/app/build/outputs/apk/universal/release', signingKeyBase64: '${{ secrets.ANDROID_SIGN_RELEASE_KEY }}', alias: '${{ secrets.ANDROID_SIGN_RELEASE_KEY_ALIAS }}', keyStorePassword: '${{ secrets.ANDROID_SIGN_RELEASE_KEY_STORE_PASSWORD }}', keyPassword: '${{ secrets.ANDROID_SIGN_RELEASE_KEY_PASSWORD }}' }
+      - run: mv "${{ steps.sign_apk.outputs.signedReleaseFile }}" "./eCaptureQ_v${{ needs.prepare-build.outputs.version }}_android_${{ matrix.arch }}.apk"
+        if: matrix.platform == 'android'
 
-      # 仅在 Ubuntu 上安装依赖
-      - name: Install dependencies (ubuntu only)
-        if: matrix.os == 'ubuntu-22.04'
+      - name: Upload Android Artifact
+        if: matrix.platform == 'android'
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-${{ matrix.arch }}-artifact
+          path: ./eCaptureQ_v${{ needs.prepare-build.outputs.version }}_android_${{ matrix.arch }}.apk
+
+  build-linux-x86_64:
+    name: Build Linux x86_64 (${{ matrix.mode }})
+    needs: [prepare-build]
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            arch: amd64
+            mode: DECOUPLED
+          - target: x86_64-unknown-linux-gnu
+            arch: amd64
+            mode: COUPLED
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: rustup target add ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+      - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libsoup-3.0-dev libjavascriptcoregtk-4.1-dev libwebkit2gtk-4.1-dev libgtk-3-dev libssl-dev xdg-utils librsvg2-dev libappindicator3-dev  patchelf
-
-      - name: Download and setup eCapture for ${{ matrix.arch }}
-        shell: bash
-        if: matrix.platform == 'linux'
-        run: |
-          if [[ "${{ matrix.arch }}" == "x86_64" ]]; then
-            ECAPTURE_ARCH="amd64"
-          else
-            ECAPTURE_ARCH="arm64"
-          fi
-          pwd
-          ECAPTURE_LATEST=$(curl -s https://api.github.com/repos/gojue/ecapture/releases/latest | grep tag_name | cut -d '"' -f 4)
-          if [[ $? -ne 0 ]]; then
-            echo "Failed to fetch the latest release."
-            exit 1
-          fi
-
-          ECAPTURE_TAR="ecapture-${ECAPTURE_LATEST}-${{ matrix.platform }}-${ECAPTURE_ARCH}.tar.gz"
-          ECAPTURE_DIR="ecapture-${ECAPTURE_LATEST}-${{ matrix.platform }}-${ECAPTURE_ARCH}"
-
-          wget "https://github.com/gojue/ecapture/releases/download/${ECAPTURE_LATEST}/${ECAPTURE_TAR}" || { echo "Download failed"; exit 1; }
-          tar -zxvf "${ECAPTURE_TAR}" || { echo "Extract failed"; exit 1; }
-
-          mkdir -p src-tauri/binaries
-          cp "${ECAPTURE_DIR}/ecapture" src-tauri/binaries/${{ matrix.platform }}_ecapture_${ECAPTURE_ARCH} || { echo "Copy failed"; exit 1; }
-          ls src-tauri/binaries/
-
-      # 设置 Node.js 环境
-      - name: Install Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-      
-      # 设置 pnpm
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libappindicator3-dev librsvg2-dev patchelf
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
       - uses: pnpm/action-setup@v4
-        name: Install pnpm
-        with:
-          version: latest
-
-      # 安装前端依赖
-      - name: Pnpm install
-        run: pnpm i
-
-      # Tauri 构建
-      - name: Tauri build (Linux)
-        if: matrix.platform == 'linux'
-        env:
-          DECOUPLED_MODE: true
+        with: { version: latest }
+      - run: pnpm i
+      - name: Download and Setup eCapture (x86_64)
+        shell: bash
         run: |
-            pnpm tauri build
-      - name: Tauri build (macOS/Windows)
-        if: matrix.platform != 'linux'
+          ECAPTURE_LATEST=$(curl -s https://api.github.com/repos/gojue/ecapture/releases/latest | jq -r .tag_name)
+          ECAPTURE_TAR="ecapture-${ECAPTURE_LATEST}-linux-amd64.tar.gz"
+          wget "https://github.com/gojue/ecapture/releases/download/${ECAPTURE_LATEST}/${ECAPTURE_TAR}" && tar -zxvf "${ECAPTURE_TAR}"
+          mkdir -p src-tauri/binaries
+          cp ecapture*/ecapture src-tauri/binaries/linux_ecapture_amd64
+      - name: Build Desktop Artifacts
         env:
-          DECOUPLED_MODE: true
+          DECOUPLED_MODE: ${{ matrix.mode == 'DECOUPLED' }}
+        run: pnpm tauri build --target ${{ matrix.target }}
+      - name: Rename Artifacts
         run: |
-          pnpm tauri build
-
-      - name: Upload artifacts (Linux)
+          MODE_LOWERCASE=$(echo "${{ matrix.mode }}" | tr '[:upper:]' '[:lower:]')
+          ARTIFACT_DIR="src-tauri/target/${{ matrix.target }}/release/bundle"
+          for file in "$ARTIFACT_DIR/appimage/"*.AppImage; do [ -e "$file" ] || continue; mv "$file" "${file%.AppImage}_${MODE_LOWERCASE}.AppImage"; done
+          for file in "$ARTIFACT_DIR/deb/"*.deb; do [ -e "$file" ] || continue; mv "$file" "${file%.deb}_${MODE_LOWERCASE}.deb"; done
+      - name: Upload Linux x86_64 Artifact
         uses: actions/upload-artifact@v4
-        if: matrix.platform == 'linux'
         with:
-          name: eCaptureQ-pr${{ github.event.number }}-${{ github.run_id }}-${{ matrix.arch }}.AppImage
-          retention-days: 7
-          path: src-tauri/target/release/bundle/appimage/eCaptureQ*.AppImage
-
-      - name: Upload artifacts (macOS)
-        uses: actions/upload-artifact@v4
-        if: matrix.platform == 'macos'
-        with:
-          name: eCaptureQ-pr${{ github.event.number }}-${{ github.run_id }}-${{ matrix.arch }}.dmg
-          retention-days: 7
+          name: linux-x86_64-${{ matrix.mode }}-artifact
           path: |
-            src-tauri/target/release/bundle/dmg/eCaptureQ*.dmg
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.deb
 
-      - name: Upload artifacts (Windows)
-        uses: actions/upload-artifact@v4
-        if: matrix.platform == 'windows'
-        with:
-          name: eCaptureQ-pr${{ github.event.number }}-${{ github.run_id }}-${{ matrix.arch }}.msi
-          retention-days: 7
-          path: |
-            src-tauri/target/release/bundle/msi/eCaptureQ*.msi
-
-  comment-pr:
+  build-linux-arm:
+    name: Build Linux ARM (${{ matrix.mode }})
+    needs: [prepare-build]
     runs-on: ubuntu-22.04
-    name: Comment PR with Download Links
-    needs: build-debug-artifacts
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-unknown-linux-gnu
+            arch: arm64
+            mode: DECOUPLED
+          - target: aarch64-unknown-linux-gnu
+            arch: arm64
+            mode: COUPLED
     steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: rustup target add ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - uses: pnpm/action-setup@v4
+        with: { version: latest }
+      - run: pnpm i
+      - name: Setup cross-compilation environment for Linux ARM
+        run: |
+          cat > /tmp/sources.list << EOF
+          deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy main restricted universe multiverse
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy main restricted universe multiverse
+          EOF
+          sudo mv /etc/apt/sources.list /etc/apt/sources.list.bak
+          sudo mv /tmp/sources.list /etc/apt/sources.list
+          sudo dpkg --add-architecture arm64
+          sudo apt-get update
+      - name: Install ARM dependencies
+        run: |
+          sudo apt-get install -y gcc-aarch64-linux-gnu libwebkit2gtk-4.1-dev:arm64 libgtk-3-dev:arm64 libappindicator3-dev:arm64 librsvg2-dev:arm64
+      - name: Download and Setup eCapture (ARM)
+        shell: bash
+        run: |
+          ECAPTURE_LATEST=$(curl -s https://api.github.com/repos/gojue/ecapture/releases/latest | jq -r .tag_name)
+          ECAPTURE_TAR="ecapture-${ECAPTURE_LATEST}-linux-arm64.tar.gz"
+          wget "https://github.com/gojue/ecapture/releases/download/${ECAPTURE_LATEST}/${ECAPTURE_TAR}" && tar -zxvf "${ECAPTURE_TAR}"
+          mkdir -p src-tauri/binaries
+          cp ecapture*/ecapture src-tauri/binaries/linux_ecapture_arm64
+      - name: Build Linux ARM Artifact
+        env:
+          DECOUPLED_MODE: ${{ matrix.mode == 'DECOUPLED' }}
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: "aarch64-linux-gnu-gcc"
+          PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
+        run: pnpm tauri build --target ${{ matrix.target }}
+      - name: Rename ARM Artifacts
+        run: |
+          MODE_LOWERCASE=$(echo "${{ matrix.mode }}" | tr '[:upper:]' '[:lower:]')
+          ARTIFACT_DIR="src-tauri/target/${{ matrix.target }}/release/bundle"
+          for file in "$ARTIFACT_DIR/appimage/"*.AppImage; do [ -e "$file" ] || continue; mv "$file" "${file%.AppImage}_${MODE_LOWERCASE}.AppImage"; done
+          for file in "$ARTIFACT_DIR/deb/"*.deb; do [ -e "$file" ] || continue; mv "$file" "${file%.deb}_${MODE_LOWERCASE}.deb"; done
+      - name: Upload Linux ARM Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-arm64-${{ matrix.mode }}-artifact
+          path: |
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.deb
+
+  comment-on-pr:
+    name: Comment on PR with Artifacts
+    runs-on: ubuntu-latest
+    needs: [build-artifacts, build-linux-x86_64, build-linux-arm]
+    steps:
+      - name: Get artifacts list
+        id: get_artifacts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          artifacts_json=$(gh api /repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts)
+          download_links=$(echo "$artifacts_json" | jq -r '.artifacts | map("- [\`\(.name)\`] (\(.archive_download_url))") | .[]')
+          echo "links<<EOF" >> $GITHUB_OUTPUT
+          echo "$download_links" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
       - name: Comment PR with Download Links
         uses: actions/github-script@v7
         with:
           script: |
-            const runId = context.runId;
             const prNumber = context.payload.pull_request.number;
-
+            const downloadLinks = `${{ steps.get_artifacts.outputs.links }}`;
+            if (!downloadLinks) {
+              console.log("No artifacts found to comment.");
+              return;
+            }
             github.rest.issues.createComment({
               issue_number: prNumber,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `🔧 **Debug Build Complete (macOS、Linux、Windows)**
+              body: `🔧 **PR Build Complete!**
 
-              📦 Download Links:
-              - [PR ${prNumber} Debug Binary](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId})
+              📦 **Download Artifacts for Testing:**
+              ${downloadLinks}
 
-              ⏰ Files will be retained for 7 days, please download and test promptly.`
+              ---
+              *Note: You must be logged into GitHub to download these files.*`
             });
