@@ -129,6 +129,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
+          workspaces: './src-tauri -> target'
           key: ${{ matrix.target }}
 
       - name: Install dependencies
@@ -198,7 +199,7 @@ jobs:
           tagName: v${{ needs.pre_release.outputs.version }}
           releaseName: eCaptuerQ v${{ needs.pre_release.outputs.version }}
           releaseBody: ${{ needs.pre_release.outputs.notes }}
-          tauriScript: pnpm
+          tauriScript: pnpm tauri
           args: --target ${{ matrix.target }}
 
       - name: Build Android Artifact
