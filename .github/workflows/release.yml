@@ -231,7 +231,7 @@ jobs:
       - name: Rename Signed Artifact
         if: matrix.platform == 'android'
         run: |
-          mv "${{ steps.sign_apk.outputs.signedReleaseFile }}" "./eCaptureQ_v${{ needs.pre_release.outputs.version }}_${{ matrix.arch }}.apk"
+          mv "${{ steps.sign_apk.outputs.signedReleaseFile }}" "./eCaptureQ_${{ needs.pre_release.outputs.version }}_${{ matrix.arch }}.apk"
 #      - name: Publish Android Artifact
 #        if: matrix.platform == 'android'
 #        uses: softprops/action-gh-release@v1
@@ -239,4 +239,4 @@ jobs:
 #          draft: true
 #          name: eCaptureQ v${{ needs.pre_release.outputs.version }}
 #          tag_name: v${{ needs.pre_release.outputs.version }}
-#          files: ./eCaptureQ_v${{ needs.pre_release.outputs.version }}_${{ matrix.arch }}.apk
+#          files: ./eCaptureQ_${{ needs.pre_release.outputs.version }}_${{ matrix.arch }}.apk

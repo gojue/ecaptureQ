@@ -183,9 +183,6 @@ jobs:
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
-          tagName: v${{ needs.pre_release.outputs.version }}
-          releaseName: eCaptuerQ v${{ needs.pre_release.outputs.version }}
-          releaseBody: ${{ needs.pre_release.outputs.notes }}
           tauriScript: pnpm tauri
           args: --target ${{ matrix.target }}
 
@@ -215,7 +212,7 @@ jobs:
         with:
           name: eCaptureQ-pr${{ github.event.number }}-${{ github.run_id }}-${{ matrix.arch }}.AppImage
           retention-days: 7
-          path: src-tauri/target/release/bundle/appimage/eCaptureQ*.AppImage
+          path: src-tauri/target/${{ matrix.arch }}/release/bundle/appimage/eCaptureQ*.AppImage
 
       - name: Upload artifacts (macOS)
         uses: actions/upload-artifact@v4
@@ -224,7 +221,7 @@ jobs:
           name: eCaptureQ-pr${{ github.event.number }}-${{ github.run_id }}-${{ matrix.arch }}.dmg
           retention-days: 7
           path: |
-            src-tauri/target/release/bundle/dmg/eCaptureQ*.dmg
+            src-tauri/target/${{ matrix.arch }}/release/bundle/dmg/eCaptureQ*.dmg
 
       - name: Upload artifacts (Windows)
         uses: actions/upload-artifact@v4
@@ -233,7 +230,7 @@ jobs:
           name: eCaptureQ-pr${{ github.event.number }}-${{ github.run_id }}-${{ matrix.arch }}.msi
           retention-days: 7
           path: |
-            src-tauri/target/release/bundle/msi/eCaptureQ*.msi
+            src-tauri/target/${{ matrix.arch }}/release/bundle/msi/eCaptureQ*.msi
 
       - name: Upload artifacts (Android)
         if: matrix.platform == 'android'
@@ -261,7 +258,7 @@ jobs:
               issue_number: prNumber,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `🔧 **Debug Build Complete **
+              body: `🔧 **Debug Build Complete (PR ${prNumber}, RunID ${runId})**
 
               📦 Download Links:
               - [PR ${prNumber} Debug Binary](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId})
