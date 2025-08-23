@@ -198,7 +198,7 @@ jobs:
         id: sign_apk
         uses: r0adkll/sign-android-release@v1
         with:
-          releaseDirectory: src-tauri/gen/android/app/build/outputs/apk/universal/debug
+          releaseDirectory: src-tauri/gen/android/app/build/outputs/apk/universal/release
           signingKeyBase64: ${{ secrets.ANDROID_SIGN_DEBUG_KEY }}
           alias: ${{ secrets.ANDROID_SIGN_DEBUG_KEY_ALIAS }}
           keyStorePassword: ${{ secrets.ANDROID_SIGN_DEBUG_KEY_STORE_PASSWORD }}
