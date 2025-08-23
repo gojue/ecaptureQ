@@ -1,3 +1,11 @@
+# v0.1.1 (2025-08-24)
+
+## What's Changed
+
+**Full Changelog**: https://github.com/gojue/ecaptureQ//compare/v0.1.0...v0.1.1
+
+<hr>
+
 # v0.1.0 (2025-08-19)
 
 ## What's Changed
