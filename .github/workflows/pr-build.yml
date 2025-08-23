@@ -74,7 +74,7 @@ jobs:
             platform: linux
             target: x86_64-unknown-linux-gnu
             arch: x86_64
-          - os: ubuntu-22.04-arm
+          - os: ubuntu-22.04
             platform: linux
             target: aarch64-unknown-linux-gnu
             arch: aarch64
@@ -189,6 +189,26 @@ jobs:
           retention-days: 7
           path: |
             src-tauri/target/release/bundle/msi/eCaptureQ*.msi
+      - name: Sign Android APK
+        if: matrix.platform == 'android'
+        id: sign_apk
+        uses: r0adkll/sign-android-release@v1
+        with:
+          releaseDirectory: src-tauri/gen/android/app/build/outputs/apk/universal/release
+          signingKeyBase64: ${{ secrets.ANDROID_SIGN_DEBUG_KEY }}
+          alias: ${{ secrets.ANDROID_SIGN_DEBUG_KEY_ALIAS }}
+          keyStorePassword: ${{ secrets.ANDROID_SIGN_DEBUG_KEY_STORE_PASSWORD }}
+          keyPassword: ${{ secrets.ANDROID_SIGN_DEBUG_KEY_PASSWORD }}
+        env:
+          BUILD_TOOLS_VERSION: "34.0.0"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: eCaptureQ-pr${{ github.event.number }}-${{ github.run_id }}-${{ matrix.arch }}.apk
+          retention-days: 7
+          path: |
+            src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
 
   comment-pr:
     runs-on: ubuntu-22.04
