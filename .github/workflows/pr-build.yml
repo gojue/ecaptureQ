@@ -1,4 +1,4 @@
-name: PR Build and Test
+name: PR Build
 
 on:
   pull_request:
@@ -45,7 +45,7 @@ jobs:
   # 任务 2: 为 Windows, macOS, Linux, 和 Android 构建和发布
     # Job 1: 构建 Windows, macOS, Linux x86_64 和 Android
   build-artifacts:
-    name: Build Artifacts
+    name: Build Artifacts (--debug)
     needs: [ pre_release ]
     strategy:
       fail-fast: false
@@ -184,14 +184,14 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           tauriScript: pnpm tauri
-          args: --target ${{ matrix.target }}
+          args: --target ${{ matrix.target }} --debug
 
       - name: Build Android Artifact (Android)
         if: matrix.platform == 'android'
         env:
           NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/26.1.10909125
         run: |
-          pnpm tauri android build --target ${{ matrix.arch }}
+          pnpm tauri android build --target ${{ matrix.arch }} --debug
 
       - name: Sign Android APK
         if: matrix.platform == 'android'
@@ -212,7 +212,7 @@ jobs:
         with:
           name: eCaptureQ-pr${{ github.event.number }}-${{ github.run_id }}-${{ matrix.arch }}.AppImage
           retention-days: 7
-          path: src-tauri/target/${{ matrix.arch }}/release/bundle/appimage/eCaptureQ*.AppImage
+          path: src-tauri/target/${{ matrix.target }}/release/bundle/appimage/eCaptureQ*.AppImage
 
       - name: Upload artifacts (macOS)
         uses: actions/upload-artifact@v4
@@ -221,7 +221,7 @@ jobs:
           name: eCaptureQ-pr${{ github.event.number }}-${{ github.run_id }}-${{ matrix.arch }}.dmg
           retention-days: 7
           path: |
-            src-tauri/target/${{ matrix.arch }}/release/bundle/dmg/eCaptureQ*.dmg
+            src-tauri/target/${{ matrix.target }}/release/bundle/dmg/eCaptureQ*.dmg
 
       - name: Upload artifacts (Windows)
         uses: actions/upload-artifact@v4
@@ -230,7 +230,7 @@ jobs:
           name: eCaptureQ-pr${{ github.event.number }}-${{ github.run_id }}-${{ matrix.arch }}.msi
           retention-days: 7
           path: |
-            src-tauri/target/${{ matrix.arch }}/release/bundle/msi/eCaptureQ*.msi
+            src-tauri/target/${{ matrix.target }}/release/bundle/msi/eCaptureQ*.msi
 
       - name: Upload artifacts (Android)
         if: matrix.platform == 'android'
