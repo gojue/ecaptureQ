@@ -29,7 +29,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["deb", "rpm", "nsis", "msi", "app", "dmg"],
+    "targets": "all",
     "icon": [
       "icons/32x32.png",
       "icons/64x64.png",
@@ -39,6 +39,9 @@
       "icons/icon.ico",
       "icons/icon.png"
     ],
+    "macOS": {
+      "minimumSystemVersion": "12.0"
+    },
     "publisher": "gojue",
     "copyright": "Copyright © 2025 gojue",
     "homepage": "https://github.com/gojue/ecaptureQ",
