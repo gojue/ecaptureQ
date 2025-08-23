@@ -39,6 +39,9 @@
       "icons/icon.ico",
       "icons/icon.png"
     ],
+    "macOS": {
+      "minimumSystemVersion": "12.0"
+    },
     "publisher": "gojue",
     "copyright": "Copyright © 2025 gojue",
     "homepage": "https://github.com/gojue/ecaptureQ",

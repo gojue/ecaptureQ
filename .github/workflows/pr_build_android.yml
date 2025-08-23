@@ -130,6 +130,7 @@ jobs:
         run: |
           rm -rf src-tauri/gen/android
           pnpm tauri android init
+          pnpm tauri icon
           pnpm tauri android build --target ${{ matrix.arch }}
 
       - name: Sign Android APK
