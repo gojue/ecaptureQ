@@ -174,8 +174,8 @@ jobs:
           RUST_TARGET: ${{ matrix.target }}
           NODE_OPTIONS: "--max_old_space_size=4096"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.ANDROID_SIGN_DEBUG_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.ANDROID_SIGN_DEBUG_KEY_PASSWORD }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.ANDROID_SIGN_RELEASE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.ANDROID_SIGN_RELEASE_KEY_PASSWORD }}
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
@@ -191,14 +191,14 @@ jobs:
         env:
           NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/26.1.10909125
         run: |
-          pnpm tauri android build --target ${{ matrix.arch }}
+          pnpm tauri android build --target ${{ matrix.arch }} --debug
 
       - name: Sign Android APK
         if: matrix.platform == 'android'
         id: sign_apk
         uses: r0adkll/sign-android-release@v1
         with:
-          releaseDirectory: src-tauri/gen/android/app/build/outputs/apk/universal/release
+          releaseDirectory: src-tauri/gen/android/app/build/outputs/apk/universal/debug
           signingKeyBase64: ${{ secrets.ANDROID_SIGN_RELEASE_KEY }}
           alias: ${{ secrets.ANDROID_SIGN_RELEASE_KEY_ALIAS }}
           keyStorePassword: ${{ secrets.ANDROID_SIGN_RELEASE_KEY_STORE_PASSWORD }}
