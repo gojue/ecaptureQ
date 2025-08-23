@@ -1,14 +1,9 @@
 name: Release
 
-#on:
-#  push:
-#    tags:
-#      - "v*"
-
 on:
-  pull_request:
-    branches: [ main, develop ]
-    types: [opened, synchronize, reopened]
+  push:
+    tags:
+      - "v*"
 
 permissions: write-all
 
@@ -42,7 +37,7 @@ jobs:
           echo "version=$PKG_VERSION" >> $GITHUB_OUTPUT
           if [[ "$TAG_REF" != "v$PKG_VERSION" ]]; then
             echo "Tag ($TAG_REF) does not match package.json version (v$PKG_VERSION)."
-            exit 0
+            exit 1
           fi
           echo "Tag and package.json version are consistent."
 
@@ -232,11 +227,11 @@ jobs:
         if: matrix.platform == 'android'
         run: |
           mv "${{ steps.sign_apk.outputs.signedReleaseFile }}" "./eCaptureQ_${{ needs.pre_release.outputs.version }}_${{ matrix.arch }}.apk"
-#      - name: Publish Android Artifact
-#        if: matrix.platform == 'android'
-#        uses: softprops/action-gh-release@v1
-#        with:
-#          draft: true
-#          name: eCaptureQ v${{ needs.pre_release.outputs.version }}
-#          tag_name: v${{ needs.pre_release.outputs.version }}
-#          files: ./eCaptureQ_${{ needs.pre_release.outputs.version }}_${{ matrix.arch }}.apk
+      - name: Publish Android Artifact
+        if: matrix.platform == 'android'
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          name: eCaptureQ v${{ needs.pre_release.outputs.version }}
+          tag_name: v${{ needs.pre_release.outputs.version }}
+          files: ./eCaptureQ_${{ needs.pre_release.outputs.version }}_${{ matrix.arch }}.apk
