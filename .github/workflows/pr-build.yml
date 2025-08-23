@@ -166,12 +166,12 @@ jobs:
           cp "${SOURCE_FILE}" "${DEST_FILE}"
           ls -l src-tauri/binaries/
 
-      - name: Build Desktop Artifacts (Windows/macOS/Linux/Android)
+      - name: Build Desktop Artifacts (Windows/macOS/Linux)
+        if: matrix.platform != 'android'
         uses: tauri-apps/tauri-action@v0.5.22
         env:
           DECOUPLED_MODE: ${{ matrix.platform == 'linux' || matrix.platform == 'android' }}
           RUST_TARGET: ${{ matrix.target }}
-          NDK_HOME: ${{ matrix.platform == 'android' && format('{0}/ndk/26.1.10909125', env.ANDROID_HOME) || '' }}
           NODE_OPTIONS: "--max_old_space_size=4096"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.ANDROID_SIGN_DEBUG_KEY }}
@@ -186,12 +186,12 @@ jobs:
           tauriScript: pnpm tauri
           args: --target ${{ matrix.target }} --debug
 
-#      - name: Build Android Artifact (Android)
-#        if: matrix.platform == 'android'
-#        env:
-#          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/26.1.10909125
-#        run: |
-#          pnpm tauri android build --target ${{ matrix.arch }} --debug
+      - name: Build Android Artifact (Android)
+        if: matrix.platform == 'android'
+        env:
+          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/26.1.10909125
+        run: |
+          pnpm tauri android build --target ${{ matrix.arch }} --debug
 
       - name: Sign Android APK
         if: matrix.platform == 'android'
