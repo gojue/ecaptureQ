@@ -13,9 +13,12 @@ Effortlessly capture TLS encrypted traffic in a cross-platform GUI using eBPF, w
 
 ## Overview
 
-eCaptureQ is a cross-platform GUI for [ecapture](https://github.com/gojue/ecapture), visualizing its eBPF-powered packet capturing capabilities: capture TLS plaintext at the kernel level without needing a CA certificate or MITM.
+eCaptureQ is a cross-platform GUI for [ecapture](https://github.com/gojue/ecaptureQ/releases), visualizing its eBPF-powered packet capturing capabilities: capture TLS plaintext at the kernel level without needing a CA certificate or MITM.
 
 This means you can debug and analyze the encrypted communications of any program in a simpler, more efficient, and non-intrusive way.
+
+https://github.com/user-attachments/assets/c8b7a84d-58eb-4fdb-9843-f775c97bdbfb
+
 
 ## Key Features
 
