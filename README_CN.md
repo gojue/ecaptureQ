@@ -13,9 +13,11 @@
 
 ## 概览
 
-eCaptureQ 是 [eCapture](https://github.com/gojue/ecapture) 的跨平台 GUI，将其 eBPF 抓包能力以可视化方式呈现：无需 CA / MITM，在内核侧捕获 TLS 明文。
+eCaptureQ 是 [eCapture](https://github.com/gojue/ecaptureQ/releases) 的跨平台 GUI，将其 eBPF 抓包能力以可视化方式呈现：无需 CA / MITM，在内核侧捕获 TLS 明文。
 
 这意味着您可以更简单、更高效、更无侵入地调试和分析任何程序的加密通信。
+
+https://github.com/user-attachments/assets/c8b7a84d-58eb-4fdb-9843-f775c97bdbfb
 
 ## 主要特性
 
