@@ -1,9 +1,18 @@
-# v0.1.1 (2025-08-24)
+# v0.1.5 (2025-09-27)
 
 ## What's Changed
 
-**Full Changelog**: https://github.com/gojue/ecaptureQ//compare/v0.1.0...v0.1.1
+**Full Changelog**: https://github.com/gojue/ecaptureQ//compare/v0.1.1...v0.1.5
 
+<hr>
+
+# v0.1.1 (2025-08-24)
+
+## What's Changed
+* feat: Update CI workflows for Ubuntu ARM; add support for ARM architecture by @cfc4n in https://github.com/gojue/ecaptureQ/pull/16
+
+
+**Full Changelog**: https://github.com/gojue/ecaptureQ/compare/v0.1.0...v0.1.1
 <hr>
 
 # v0.1.0 (2025-08-19)
