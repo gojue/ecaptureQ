@@ -1,6 +1,6 @@
 [package]
 name = "eCaptureQ"
-version = "0.1.0"
+version = "0.1.5"
 description = "A cross-platform desktop application for eCapture, the powerful eBPF-based SSL/TLS traffic capture tool."
 authors = ["gojue"]
 edition = "2024"
