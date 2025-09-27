@@ -1,7 +1,7 @@
 {
   "name": "eaptureq",
   "private": true,
-  "version": "0.1.4",
+  "version": "0.1.5",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -16,27 +16,27 @@
     "android:init": "tauri android init"
   },
   "dependencies": {
-    "@tauri-apps/api": "^2.7.0",
-    "@tauri-apps/plugin-shell": "~2",
+    "@tauri-apps/api": "^2.8.0",
+    "@tauri-apps/plugin-shell": "~2.3.1",
     "lucide-react": "^0.344.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^7.7.0",
+    "react-router-dom": "^7.9.1",
     "react-window": "^1.8.11"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.7.0",
+    "@tauri-apps/cli": "^2.8.4",
     "@tauri-apps/plugin-shell": "~2",
-    "@types/node": "^24.0.10",
-    "@types/react": "^18.3.1",
-    "@types/react-dom": "^18.3.1",
+    "@types/node": "^24.5.0",
+    "@types/react": "^18.3.24",
+    "@types/react-dom": "^18.3.7",
     "@types/react-window": "^1.8.8",
-    "@vitejs/plugin-react": "^4.3.4",
-    "autoprefixer": "^10.4.17",
+    "@vitejs/plugin-react": "^4.7.0",
+    "autoprefixer": "^10.4.21",
     "cross-env": "^10.0.0",
-    "postcss": "^8.4.33",
-    "tailwindcss": "^3.4.0",
-    "typescript": "~5.6.2",
-    "vite": "^6.0.3"
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.17",
+    "typescript": "~5.6.3",
+    "vite": "^6.3.6"
   }
 }
