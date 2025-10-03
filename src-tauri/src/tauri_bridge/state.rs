@@ -49,7 +49,8 @@ impl Configs {
         Ok(configs)
     }
 
-    pub fn save_json_to_app_dir(&self, path: impl AsRef<Path>) -> Result<()> {
+    pub fn save_json_to_app_dir(&self, base_path: impl AsRef<Path>) -> Result<()> {
+        let path =base_path.as_ref().join(CONFIG_FILE_NAME);
         let json_data = self.to_json()?;
         fs::write(path, json_data).map_err(Error::from)
     }
@@ -63,15 +64,16 @@ impl Configs {
 }
 
 pub fn config_check(base_path: impl AsRef<Path>) -> Result<()> {
-    if base_path.as_ref().join(CONFIG_FILE_NAME).exists() {
-        if let Ok(_) = Configs::get_json_from_app_dir(&base_path) {
+    let path =base_path.as_ref().join(CONFIG_FILE_NAME);
+    if path.join(CONFIG_FILE_NAME).exists() {
+        if let Ok(_) = Configs::get_json_from_app_dir(&path) {
             Ok(())
         } else {
-            Configs::init().save_json_to_app_dir(&base_path)?;
+            Configs::init().save_json_to_app_dir(&path)?;
             Ok(())
         }
     } else {
-        Configs::init().save_json_to_app_dir(&base_path)?;
+        Configs::init().save_json_to_app_dir(&path)?;
         Ok(())
     }
 }
