@@ -11,11 +11,13 @@ use tauri::{Manager, RunEvent};
 use tauri_plugin_log::{Builder as LogBuilder, Target, TargetKind};
 use tokio::sync::{Mutex, RwLock, mpsc, watch};
 
-use crate::tauri_bridge::state::RunState;
+use crate::tauri_bridge::state::{RunState, config_check};
 use crate::tauri_bridge::{
     commands,
     state::{AppState, Configs},
 };
+
+use wg::WaitGroup;
 // use tokio::signal;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -39,17 +41,12 @@ pub async fn run() {
         done: done_tx.clone(),
     };
 
-    let configs = Configs {
-        ws_url: Some("ws://127.0.0.1:28257".to_string()),
-        ecapture_args: Some(" tls --ecaptureq ws://127.0.0.1:28257".to_string()),
-    };
-
-    let app_state = AppState {
+    let mut app_state = AppState {
         df_actor_handle,
         done: Mutex::new(done_tx),
         shutdown_tx: Mutex::new(None),
         push_service_handle: Mutex::new(None),
-        configs: Mutex::new(configs),
+        configs: Mutex::new(None),
         status: Arc::new(RwLock::new(RunState::NotCapturing)),
     };
 
@@ -63,19 +60,35 @@ pub async fn run() {
 
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .manage(app_state)
         .setup(|app| {
-            let app_handle = app.handle();
-            let app_handle_clone = app_handle.clone();
+            let app_handle = app.handle().clone();
+            let app_handle_state = app_handle.clone();
+
+            let data_dir = app_handle.path().app_data_dir()?;
+            config_check(&data_dir)?;
+            let configs = Configs::get_json_from_app_dir(&data_dir)?;
+
+            let config_init_wg = WaitGroup::new();
+            let config_init_wg_clone = config_init_wg.clone();
+            config_init_wg.add(1);
+
+            tokio::spawn(async move {
+                let state = app_handle_state.state::<AppState>();
+                state.init_configs(configs).await;
+                config_init_wg_clone.done();
+            });
+
+            _ = config_init_wg.wait();
 
             tokio::spawn(async move {
                 if let Ok(_) = tokio::signal::ctrl_c().await {
-                    app_handle_clone.exit(0);
+                    app_handle.exit(0);
                 }
             });
 
             Ok(())
         })
-        .manage(app_state)
         .plugin(log_plugin)
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
