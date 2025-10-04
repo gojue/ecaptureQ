@@ -141,11 +141,10 @@ export function SettingsPage() {
                 type="text"
                 value={configs.ws_url || ''}
                 onChange={(e) => updateConfigs({ ws_url: e.target.value })}
-                placeholder="ws://127.0.0.1:28257"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               />
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Default: ws://127.0.0.1:28257 (leave empty to use default)
+                WebSocket server address for packet data reception
               </p>
             </div>
           </div>
@@ -173,12 +172,11 @@ export function SettingsPage() {
               <textarea
                 value={configs.ecapture_args || ''}
                 onChange={(e) => updateConfigs({ ecapture_args: e.target.value })}
-                placeholder="--interface=eth0 --port=8080"
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 font-mono text-sm"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 font-mono text-sm"
               />
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Optional: Additional arguments to pass to the eCapture binary
+                Additional command line arguments for the eCapture process
               </p>
             </div>
           </div>
