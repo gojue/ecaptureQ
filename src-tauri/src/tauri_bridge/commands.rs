@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use base64::{Engine as _, engine::general_purpose};
 use log::{error, info};
 use std::sync::Arc;
@@ -41,7 +41,7 @@ pub async fn start_capture(
     };
 
     let mut websocket_service = WebsocketService::new(
-        configs.ws_url.unwrap(),
+        configs.as_ref().unwrap().ws_url.clone().unwrap(),
         state.df_actor_handle.clone(),
         shutdown_tx.subscribe(),
         state.status.clone(),
@@ -64,7 +64,15 @@ pub async fn start_capture(
         // spawn ecapture service
         tokio::spawn(async move {
             let result = capture_manager
-                .run(rx, configs.ecapture_args.unwrap_or_default())
+                .run(
+                    rx,
+                    configs
+                        .as_ref()
+                        .unwrap()
+                        .ecapture_args
+                        .clone()
+                        .unwrap_or_default(),
+                )
                 .await;
 
             if let Err(e) = result {
@@ -153,19 +161,41 @@ pub async fn stop_capture(state: tauri::State<'_, AppState>) -> Result<(), Strin
 }
 
 #[tauri::command]
-pub async fn get_configs(state: tauri::State<'_, AppState>) -> Result<Configs, String> {
-    let configs_guard = state.configs.lock().await;
-    Ok(configs_guard.clone())
+pub async fn get_configs(
+    app_handle: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<Configs, String> {
+    let configs = state.configs.lock().await;
+    if !configs.is_none() {
+        return Ok(configs.clone().unwrap());
+    }
+    Err("config is none".to_string())
 }
 
 #[tauri::command]
 pub async fn modify_configs(
     state: tauri::State<'_, AppState>,
-    patch: Configs,
+    app_handle: tauri::AppHandle,
+    mut patch: Configs,
 ) -> Result<(), String> {
-    let mut configs_guard = state.configs.lock().await;
-    configs_guard.apply_patch(patch);
-    Ok(())
+    /*let mut configs_guard = state.configs.lock().await;
+    configs_guard.apply_patch(patch);*/
+    let data_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|_| "failed to get data directory".to_string())?;
+
+    let mut configs = state.configs.lock().await.clone();
+    if !configs.is_none() {
+        configs.as_mut().unwrap().apply_patch(&mut patch);
+        configs
+            .as_mut()
+            .unwrap()
+            .save_json_to_app_dir(&data_dir)
+            .map_err(|_| "failed to save json")?;
+        return Ok(());
+    }
+    Err("config is none".to_string())
 }
 
 #[tauri::command]
@@ -182,7 +212,6 @@ pub async fn base64_decode(base64String: String) -> Result<String, String> {
     String::from_utf8(decoded_bytes_result.clone()).or_else(|_| {
         let total_len = decoded_bytes_result.len();
         let display_limit = 1024;
-
 
         let prefix = if total_len > display_limit {
             format!("(Preview of first {} bytes)\n", display_limit)
@@ -207,9 +236,7 @@ pub async fn base64_decode(base64String: String) -> Result<String, String> {
 
         Ok(format!(
             "{}Binary data ({} bytes):{}",
-            prefix,
-            total_len,
-            hex_dump
+            prefix, total_len, hex_dump
         ))
     })
 }
