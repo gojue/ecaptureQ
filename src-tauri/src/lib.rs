@@ -41,7 +41,7 @@ pub async fn run() {
         done: done_tx.clone(),
     };
 
-    let mut app_state = AppState {
+    let app_state = AppState {
         df_actor_handle,
         done: Mutex::new(done_tx),
         shutdown_tx: Mutex::new(None),
@@ -66,6 +66,10 @@ pub async fn run() {
             let app_handle_state = app_handle.clone();
 
             let data_dir = app_handle.path().app_data_dir()?;
+            if !data_dir.exists() {
+                println!("App data directory not found. Creating it at: {}", data_dir.display());
+                std::fs::create_dir_all(&data_dir)?;
+            }
             config_check(&data_dir)?;
             let configs = Configs::get_json_from_app_dir(&data_dir)?;
 
