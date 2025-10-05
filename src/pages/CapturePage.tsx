@@ -3,7 +3,7 @@ import { useAppState } from '@/hooks/useAppState';
 import { useResponsive } from '@/hooks/useResponsive';
 import { ResponsivePacketView } from '@/components/ResponsivePacketView';
 import { DetailModal } from '@/components/DetailModal';
-import { Play, Square, Loader2 } from 'lucide-react';
+import { Play, Square, Loader2, Trash2 } from 'lucide-react';
 import type { PacketData } from '@/types';
 
 interface CapturePageProps {
@@ -31,6 +31,7 @@ export function CapturePage({ appState: providedAppState }: CapturePageProps) {
     selectedPacket,
     startCapture,
     stopCapture,
+    clearPackets,
     selectPacket,
   } = appState;
 
@@ -67,6 +68,10 @@ export function CapturePage({ appState: providedAppState }: CapturePageProps) {
     selectPacket(null);
   }, [selectPacket]);
 
+  const handleClear = useCallback(() => {
+    clearPackets();
+  }, [clearPackets]);
+
   return (
     <div className="h-full flex flex-col overflow-hidden">
       {/* Control Bar */}
@@ -92,6 +97,16 @@ export function CapturePage({ appState: providedAppState }: CapturePageProps) {
             
             {/* Control Buttons */}
             <div className="flex items-center space-x-2 flex-shrink-0">
+              {packets.length > 0 && (
+                <button
+                  onClick={handleClear}
+                  className="flex items-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition-colors bg-gray-600 hover:bg-gray-700 text-white"
+                  title="Clear all packets"
+                >
+                  <Trash2 size={16} />
+                  <span>Clear</span>
+                </button>
+              )}
               <button
                 onClick={isCapturing ? handleStop : handleStart}
                 disabled={isLoading}
