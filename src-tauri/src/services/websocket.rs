@@ -68,7 +68,7 @@ impl WebsocketService {
                 }
             };
 
-            log::info!("WebSocket connected");
+            info!("WebSocket connected");
 
             let mut buffer: Vec<PacketData> = Vec::with_capacity(BATCH_SIZE);
             let mut flush_timer = tokio::time::interval(FLUSH_TIMEOUT);

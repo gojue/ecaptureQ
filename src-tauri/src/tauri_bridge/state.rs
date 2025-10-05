@@ -6,9 +6,8 @@ use tokio::sync::{Mutex, RwLock, watch};
 
 use crate::{core::actor::DataFrameActorHandle, services::push_service::PushServiceHandle};
 
-use anyhow::{Error, Result, anyhow};
+use anyhow::{Error, Result};
 // use log::Level::Error;
-use tauri::Manager;
 
 #[derive(Clone)]
 pub enum RunState {

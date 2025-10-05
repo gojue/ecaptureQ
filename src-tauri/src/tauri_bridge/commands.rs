@@ -144,7 +144,7 @@ pub async fn start_capture(
 
 #[tauri::command]
 pub async fn stop_capture(state: tauri::State<'_, AppState>) -> Result<(), String> {
-    if let RunState::NotCapturing = state.status.read().await.clone() {
+    if let RunState::NotCapturing = *state.status.read().await {
         return Err("Capture session is already running.".into());
     }
     if let Some(shutdown_tx) = state.shutdown_tx.lock().await.take() {
@@ -162,7 +162,7 @@ pub async fn stop_capture(state: tauri::State<'_, AppState>) -> Result<(), Strin
 
 #[tauri::command]
 pub async fn get_configs(
-    app_handle: tauri::AppHandle,
+    _app_handle: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<Configs, String> {
     let configs = state.configs.lock().await;
