@@ -1,5 +1,23 @@
-use crate::core::models::{self, LogType, ParsedMessage};
+use crate::core::models::{self, ParsedMessage};
 use polars::prelude::*;
+use prost::Message;
+use std::io::Cursor;
+use base64::Engine as _;
+
+pub mod ecaptureq {
+    pub mod events {
+        include!(concat!(env!("OUT_DIR"), "/ecaptureq.events.rs"));
+    }
+}
+
+use ecaptureq::events::{
+    log_entry, // oneof payload 的内部模块
+    Event as PbEvent,
+    Heartbeat as PbHeartbeat,
+    LogEntry as PbLogEntry,
+};
+
+use anyhow::{Result, anyhow};
 
 pub fn write_batch_to_df(buffer: &[models::PacketData], df: &mut DataFrame) -> PolarsResult<()> {
     if buffer.is_empty() {
@@ -56,50 +74,74 @@ pub fn write_batch_to_df(buffer: &[models::PacketData], df: &mut DataFrame) -> P
     Ok(())
 }
 
-pub fn parse_eq_message(json_str: &str) -> Result<ParsedMessage, Box<dyn std::error::Error>> {
-    let eq_message: models::EqMessage = serde_json::from_str(json_str)?;
-    let log_type = LogType::from(eq_message.log_type);
 
-    match log_type {
-        LogType::Heartbeat => {
-            let heartbeat: models::HeartbeatMessage = serde_json::from_value(eq_message.payload)?;
-            Ok(ParsedMessage::Heartbeat(heartbeat))
+pub fn parse_eq_message<B: AsRef<[u8]>>(
+    bytes: B,
+) -> Result<ParsedMessage> {
+    // Decode protobuf LogEntry from bytes
+    let mut cursor = Cursor::new(bytes.as_ref());
+    let entry = PbLogEntry::decode(&mut cursor)?;
+
+    match entry.payload {
+        Some(log_entry::Payload::EventPayload(ev)) => {
+            Ok(ParsedMessage::Event(pb_event_to_packet(ev)))
         }
-        LogType::ProcessLog => {
-            // Parse level, message, time fields from payload
-            let log_message = if let Ok(mut log_data) = serde_json::from_value::<
-                serde_json::Map<String, serde_json::Value>,
-            >(eq_message.payload.clone())
-            {
-                let level = log_data
-                    .remove("level")
-                    .and_then(|v| v.as_str().map(|s| s.to_string()));
-                let message = log_data
-                    .remove("message")
-                    .and_then(|v| v.as_str().map(|s| s.to_string()));
-                let time = log_data
-                    .remove("time")
-                    .and_then(|v| v.as_str().map(|s| s.to_string()));
-                let log_info = serde_json::to_string(&eq_message.payload)?;
-                models::ProcessLogMessage {
-                    level,
-                    message,
-                    time,
-                    log_info,
-                }
-            } else {
-                models::ProcessLogMessage {
-                    level: Some("unknown".to_string()),
-                    message: None,
-                    time: None,
-                    log_info: serde_json::to_string(&eq_message.payload)?,
-                }
+        Some(log_entry::Payload::HeartbeatPayload(hb)) => {
+            Ok(ParsedMessage::Heartbeat(pb_heartbeat_to_model(hb)))
+        }
+        Some(log_entry::Payload::RunLog(runlog)) => {
+            // We only have a raw string from protobuf; map to our ProcessLogMessage
+            let log_message = models::ProcessLogMessage {
+                level: None,
+                message: Some(runlog.clone()),
+                time: None,
+                log_info: runlog,
             };
             Ok(ParsedMessage::ProcessLog(log_message))
         }
-        LogType::Event => {
-            let packet_data: models::PacketData = serde_json::from_value(eq_message.payload)?;
-            Ok(ParsedMessage::Event(packet_data))
-        }
+        None => Err(anyhow!("missing payload in LogEntry")),
+    }
+}
+
+fn pb_event_to_packet(ev: PbEvent) -> models::PacketData {
+    // Saturating cast for pid (i64 -> i32)
+    let pid = if ev.pid > i32::MAX as i64 {
+        i32::MAX
+    } else if ev.pid < i32::MIN as i64 {
+        i32::MIN
+    } else {
+        ev.pid as i32
+    };
+
+    let payload_b64 = base64::engine::general_purpose::STANDARD.encode(&ev.payload);
+
+    models::PacketData {
+        timestamp: ev.timestamp,
+        uuid: ev.uuid,
+        src_ip: ev.src_ip,
+        src_port: ev.src_port,
+        dst_ip: ev.dst_ip,
+        dst_port: ev.dst_port,
+        pid,
+        pname: ev.pname,
+        r#type: ev.r#type,
+        length: ev.length,
+        payload_base64: payload_b64,
+    }
+}
+
+fn pb_heartbeat_to_model(hb: PbHeartbeat) -> models::HeartbeatMessage {
+    let count = if hb.count > i32::MAX as i64 {
+        i32::MAX
+    } else if hb.count < i32::MIN as i64 {
+        i32::MIN
+    } else {
+        hb.count as i32
+    };
+
+    models::HeartbeatMessage {
+        timestamp: hb.timestamp,
+        count,
+        message: hb.message,
     }
 }
