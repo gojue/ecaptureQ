@@ -108,7 +108,7 @@ jobs:
       - name: Install Protoc
         uses: arduino/setup-protoc@v3
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
         
       - name: Set up Java
         if: matrix.platform == 'android'
