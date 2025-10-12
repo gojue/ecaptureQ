@@ -111,8 +111,8 @@ impl WebsocketService {
                             }
                         };
 
-                        if let tokio_tungstenite::tungstenite::Message::Text(text) = msg {
-                            match parse_eq_message(&text) {
+                        if let tokio_tungstenite::tungstenite::Message::Binary(bin) = msg {
+                            match parse_eq_message(bin.as_ref()) {
                                 Ok(parsed_message) => {
                                     match parsed_message {
                                         ParsedMessage::Event(packet_data) => {
@@ -130,7 +130,11 @@ impl WebsocketService {
                                     }
                                 }
                                 Err(e) => {
-                                    log::error!("Parse message failed: {:?}, raw: {}", e, text);
+                                    log::error!(
+                                        "Parse message failed: {:?} ({} bytes)",
+                                        e,
+                                        bin.len()
+                                    );
                                     // Don't terminate connection on single message parse failure
                                     continue;
                                 }
