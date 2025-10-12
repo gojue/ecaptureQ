@@ -79,8 +79,7 @@ pub fn parse_eq_message<B: AsRef<[u8]>>(
     bytes: B,
 ) -> Result<ParsedMessage> {
     // Decode protobuf LogEntry from bytes
-    let mut cursor = Cursor::new(bytes.as_ref());
-    let entry = PbLogEntry::decode(&mut cursor)?;
+    let entry = PbLogEntry::decode(bytes.as_ref())?;
 
     match entry.payload {
         Some(log_entry::Payload::EventPayload(ev)) => {
