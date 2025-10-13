@@ -1,8 +1,19 @@
-# v0.1.5 (2025-09-27)
+# v0.2.0 (2025-10-13)
 
 ## What's Changed
 
-**Full Changelog**: https://github.com/gojue/ecaptureQ//compare/v0.1.1...v0.1.5
+**Full Changelog**: https://github.com/gojue/ecaptureQ//compare/v0.1.5...v0.2.0
+
+<hr>
+
+# v0.1.5 (2025-09-27)
+
+## What's Changed
+* feat: Update version to 0.1.4; add entitlements for macOS and enhance README by @cfc4n in https://github.com/gojue/ecaptureQ/pull/19
+* feat: Bump version to 0.1.5; update dependencies and enhance package configurations by @cfc4n in https://github.com/gojue/ecaptureQ/pull/22
+
+
+**Full Changelog**: https://github.com/gojue/ecaptureQ/compare/v0.1.1...v0.1.5
 
 <hr>
 
