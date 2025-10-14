@@ -100,7 +100,7 @@ pub async fn run() {
             commands::stop_capture,
             commands::get_configs,
             commands::modify_configs,
-            commands::base64_decode,
+            commands::get_packet_with_payload,
         ]);
 
     let app = builder

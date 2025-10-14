@@ -20,11 +20,12 @@ export function DetailModal({ packet, onClose }: DetailModalProps) {
   const validatePacket = (packet: PacketData) => {
     const issues = [];
     if (typeof packet !== 'object') issues.push('packet is not an object');
+    if (packet.index === undefined || packet.index === null) issues.push('index is missing');
     if (packet.timestamp === undefined || packet.timestamp === null) issues.push('timestamp is missing');
     if (packet.uuid === undefined || packet.uuid === null) issues.push('uuid is missing');
     if (packet.type === undefined || packet.type === null) issues.push('type is missing');
     if (packet.length === undefined || packet.length === null) issues.push('length is missing');
-    if (packet.payload_base64 === undefined || packet.payload_base64 === null) issues.push('payload_base64 is missing');
+    if (packet.is_binary === undefined || packet.is_binary === null) issues.push('is_binary is missing');
     
     if (issues.length > 0) {
       console.warn('Packet validation issues:', issues, packet);
@@ -94,24 +95,39 @@ export function DetailModal({ packet, onClose }: DetailModalProps) {
     }
   };
 
-  // Decode Base64 payload using backend API
+  // Load full packet data with payload using backend API
   useEffect(() => {
-    const decodePayload = async () => {
+    const loadPayload = async () => {
       try {
-        if (!packet.payload_base64 || typeof packet.payload_base64 !== 'string') {
-          setDecodedPayload('No payload data');
-          return;
-        }
+        setDecodedPayload('Loading...');
+        const fullPacket = await ApiService.getPacketWithPayload(packet.index);
         
-        const decoded = await ApiService.base64Decode(packet.payload_base64);
-        setDecodedPayload(decoded);
+        if (fullPacket.is_binary) {
+          // Display binary data as hex dump
+          const hexDump = fullPacket.payload_binary
+            .map((byte, i) => {
+              const hex = byte.toString(16).padStart(2, '0');
+              if (i % 16 === 0) {
+                return `\n${i.toString(16).padStart(4, '0')}: ${hex}`;
+              } else if (i % 8 === 0) {
+                return `  ${hex}`;
+              } else {
+                return ` ${hex}`;
+              }
+            })
+            .join('');
+          setDecodedPayload(`Binary data (${fullPacket.payload_binary.length} bytes):${hexDump}`);
+        } else {
+          // Display UTF-8 text
+          setDecodedPayload(fullPacket.payload_utf8 || 'No text payload');
+        }
       } catch (error) {
-        setDecodedPayload(`Unable to decode payload: ${error}`);
+        setDecodedPayload(`Unable to load payload: ${error}`);
       }
     };
 
-    decodePayload();
-  }, [packet.payload_base64]);
+    loadPayload();
+  }, [packet.index]);
 
   // Protocol type mapping
   const getProtocolName = (type: number) => {

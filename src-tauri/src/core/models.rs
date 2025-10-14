@@ -25,8 +25,9 @@ pub enum ParsedMessage {
     Event(PacketData),
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct PacketData {
+    pub index: u64,
     pub timestamp: i64,
     pub uuid: String,
     pub src_ip: String,
@@ -40,7 +41,28 @@ pub struct PacketData {
     #[serde(rename = "type")]
     pub r#type: u32,
     pub length: u32,
-    pub payload_base64: String,
+    pub is_binary: bool,
+    pub payload_utf8: String,
+    pub payload_binary: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct PacketDataFrontend {
+    pub index: u64,
+    pub timestamp: i64,
+    pub uuid: String,
+    pub src_ip: String,
+    pub src_port: u32,
+    pub dst_ip: String,
+    pub dst_port: u32,
+    #[serde(alias = "process_id", alias = "proc_id")]
+    pub pid: i32,
+    #[serde(alias = "process_name", alias = "proc_name", alias = "comm")]
+    pub pname: String,
+    #[serde(rename = "type")]
+    pub r#type: u32,
+    pub length: u32,
+    pub is_binary: bool,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -52,10 +74,7 @@ pub struct HeartbeatMessage {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ProcessLogMessage {
-    pub level: Option<String>,
-    pub message: Option<String>,
-    pub time: Option<String>,
-    pub log_info: String, // 保留原始完整 JSON 字符串
+    pub log_info: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
