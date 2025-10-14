@@ -11,5 +11,10 @@
     <string>2CJR2EP3SQ.com.gojue.ecaptureq</string>
     <key>com.apple.developer.team-identifier</key>
     <string>2CJR2EP3SQ</string>
+
+    <key>com.apple.security.temporary-exception.files.home-relative-path.read-write</key>
+    <array>
+        <string>/Library/Application Support/</string>
+    </array>
 </dict>
 </plist>
