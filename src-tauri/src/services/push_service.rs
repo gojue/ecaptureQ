@@ -84,17 +84,18 @@ impl PushService {
                         .await;
 
                     if let Ok(new_df) = new_df_result {
-                        let new_rows_count = new_df.height();
-                        if new_rows_count > 0 {
+                        if new_df.height() > 0 {
                             if let Ok(vecs) = crate::tauri_bridge::converters::df_to_packet_data_frontend_vec(&new_df).map_err(|e| e.to_string()) {
-                                // Update last_index to the highest index from the fetched data
-                                if let Some(last_packet) = vecs.last() {
-                                    *last_index_guard = last_packet.index;
-                                    info!("Fetched {} new rows. New last_index: {}", new_rows_count, last_packet.index);
-                                }
-                                
-                                if let Err(e) = self.app_handle.emit(self.tauri_interface.as_str(), &vecs) {
-                                    error!("Failed to send log to frontend: {}", e);
+                                if !vecs.is_empty() {
+                                    // Update last_index to the highest index from the fetched data
+                                    if let Some(last_packet) = vecs.last() {
+                                        *last_index_guard = last_packet.index;
+                                        info!("Fetched {} new packets. New last_index: {}", vecs.len(), last_packet.index);
+                                    }
+                                    
+                                    if let Err(e) = self.app_handle.emit(self.tauri_interface.as_str(), &vecs) {
+                                        error!("Failed to send log to frontend: {}", e);
+                                    }
                                 }
                             }
                         }
