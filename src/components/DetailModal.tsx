@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import type { PacketData } from '@/types';
 import { ApiService } from '@/services/apiService';
 import { useResponsive } from '@/hooks/useResponsive';
+import { formatTimestamp } from '@/utils/timeUtils';
 
 interface DetailModalProps {
   packet: PacketData | null;
@@ -55,31 +56,9 @@ export function DetailModal({ packet, onClose }: DetailModalProps) {
   }
 
   try {
-    // Format timestamp - convert seconds to milliseconds
-    const formatTimestamp = (timestamp: number) => {
-      try {
-        // Handle undefined/null timestamp
-        if (!timestamp || isNaN(timestamp)) {
-          return 'Invalid timestamp';
-        }
-        // Convert seconds to milliseconds
-        const date = new Date(timestamp * 1000);
-        if (isNaN(date.getTime())) {
-          return 'Invalid date';
-        }
-        return date.toLocaleString('zh-CN', {
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: false
-        });
-      } catch (error) {
-        console.error('Timestamp formatting error:', error);
-        return 'Error formatting timestamp';
-      }
+    // Format timestamp - now handles nanosecond precision timestamps
+    const formatTimestampWithDate = (timestamp: number) => {
+      return formatTimestamp(timestamp, { includeDate: true });
     };
 
   // Format data size
@@ -209,7 +188,7 @@ export function DetailModal({ packet, onClose }: DetailModalProps) {
                 <div className={`gap-4 text-sm ${isMobile ? 'grid-cols-1' : 'grid-cols-2'} grid`}>
                   <div>
                     <span className="text-gray-500 dark:text-gray-400">Timestamp:</span>
-                    <div className="font-mono">{formatTimestamp(packet.timestamp)}</div>
+                    <div className="font-mono">{formatTimestampWithDate(packet.timestamp)}</div>
                   </div>
                   <div>
                     <span className="text-gray-500 dark:text-gray-400">UUID:</span>

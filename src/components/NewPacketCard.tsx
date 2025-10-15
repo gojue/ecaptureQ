@@ -1,5 +1,6 @@
 import { ArrowRight, Monitor } from 'lucide-react';
 import type { PacketData } from '@/types';
+import { formatTimestamp as formatTimestampUtil } from '@/utils/timeUtils';
 
 interface NewPacketCardProps {
   packet: PacketData;
@@ -9,27 +10,9 @@ interface NewPacketCardProps {
 
 export function NewPacketCard({ packet, onClick, showTimestamp = true }: NewPacketCardProps) {
   try {
-    // Format timestamp (seconds to readable format)
+    // Use utility function for timestamp formatting (handles nanosecond precision)
     const formatTimestamp = (timestamp: number) => {
-      try {
-        if (!timestamp || isNaN(timestamp)) {
-          return 'Invalid time';
-        }
-        // Convert seconds to milliseconds for correct display
-        const date = new Date(timestamp * 1000);
-        if (isNaN(date.getTime())) {
-          return 'Invalid date';
-        }
-        return date.toLocaleTimeString('zh-CN', { 
-          hour12: false,
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit'
-        });
-      } catch (error) {
-        console.error('Timestamp formatting error:', error);
-        return 'Error';
-      }
+      return formatTimestampUtil(timestamp);
     };
 
   // Format data size
