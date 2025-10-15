@@ -41,10 +41,7 @@
     ],
     "macOS": {
       "minimumSystemVersion": "12.0",
-      "entitlements": "entitlements.plist",
-      "files": {
-        "embedded.provisionprofile": "ecaptureq.provisionprofile"
-      }
+      "entitlements": "entitlements.plist"
     },
     "publisher": "gojue",
     "copyright": "Copyright © 2025 gojue",
