@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { Configs } from '@/types';
+import type { Configs, PacketDataWithPayload } from '@/types';
 
 export class ApiService {
   /**
@@ -55,14 +55,14 @@ export class ApiService {
   }
 
   /**
-   * Decode Base64 string
+   * Get packet with payload by index
    */
-  static async base64Decode(base64String: string): Promise<string> {
+  static async getPacketWithPayload(index: number): Promise<PacketDataWithPayload> {
     try {
-      const result: string = await invoke('base64_decode', { base64String: base64String });
-      return result;
+      const result = await invoke('get_packet_with_payload', { index });
+      return result as PacketDataWithPayload;
     } catch (error) {
-      console.error('Base64 decode failed:', error);
+      console.error('Failed to get packet with payload:', error);
       throw error;
     }
   }

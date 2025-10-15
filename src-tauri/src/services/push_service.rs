@@ -8,7 +8,7 @@ use tokio::sync::{Mutex, watch};
 #[derive(Clone)]
 pub struct PushServiceHandle {
     sql_string: Arc<Mutex<String>>,
-    offset: Arc<Mutex<usize>>,
+    last_index: Arc<Mutex<u64>>,
 }
 
 impl PushServiceHandle {
@@ -19,9 +19,9 @@ impl PushServiceHandle {
     }
 
     pub async fn reset_offset(&self) {
-        let mut offset = self.offset.lock().await;
-        *offset = 0;
-        info!("Offset has been reset to 0.");
+        let mut last_index = self.last_index.lock().await;
+        *last_index = 0;
+        info!("Last index has been reset to 0.");
     }
 }
 
@@ -43,7 +43,7 @@ impl PushService {
     ) -> PushServiceHandle {
         let service_handle = PushServiceHandle {
             sql_string: Arc::new(Mutex::new(sql_string)),
-            offset: Arc::new(Mutex::new(0)),
+            last_index: Arc::new(Mutex::new(0)),
         };
 
         // 创建 Worker 实例
@@ -76,22 +76,26 @@ impl PushService {
                 }
 
                 _ = flush_timer.tick() => {
-                    let mut offset = self.handle.offset.lock().await;
-                    let current_offset = *offset;
+                    let mut last_index_guard = self.handle.last_index.lock().await;
+                    let current_last_index = *last_index_guard;
 
                     let new_df_result = self.df_actor_handle
-                        .get_packets_by_offset(current_offset)
+                        .get_packets_since_index_no_payload(current_last_index)
                         .await;
 
                     if let Ok(new_df) = new_df_result {
-                        let new_rows_count = new_df.height();
-                        if new_rows_count > 0 {
-                            // update offset
-                            *offset += new_rows_count;
-                            info!("Fetched {} new rows. New offset: {}", new_rows_count, *offset);
-                            if let Ok(vecs) = crate::tauri_bridge::converters::df_to_packet_data_vec(&new_df).map_err(|e| e.to_string()) {
-                                if let Err(e) = self.app_handle.emit(self.tauri_interface.as_str(), &vecs) {
-                                    error!("Failed to send log to frontend: {}", e);
+                        if new_df.height() > 0 {
+                            if let Ok(vecs) = crate::tauri_bridge::converters::df_to_packet_data_frontend_vec(&new_df).map_err(|e| e.to_string()) {
+                                if !vecs.is_empty() {
+                                    // Update last_index to the highest index from the fetched data
+                                    if let Some(last_packet) = vecs.last() {
+                                        *last_index_guard = last_packet.index;
+                                        info!("Fetched {} new packets. New last_index: {}", vecs.len(), last_packet.index);
+                                    }
+                                    
+                                    if let Err(e) = self.app_handle.emit(self.tauri_interface.as_str(), &vecs) {
+                                        error!("Failed to send log to frontend: {}", e);
+                                    }
                                 }
                             }
                         }

@@ -3,6 +3,7 @@ import { FixedSizeList as List } from 'react-window';
 import { NewPacketCard } from './NewPacketCard';
 import type { PacketData } from '@/types';
 import { useResponsive } from '@/hooks/useResponsive';
+import { formatTimestamp as formatTimestampUtil } from '@/utils/timeUtils';
 
 interface ResponsivePacketViewProps {
   packets: PacketData[];
@@ -25,25 +26,7 @@ const TableRow = memo(({ index, style, data }: {
   const { onPacketClick } = data;
   
   const formatTimestamp = (timestamp: number) => {
-    try {
-      if (!timestamp || isNaN(timestamp)) {
-        return 'Invalid';
-      }
-      // Convert seconds to milliseconds for correct display
-      const date = new Date(timestamp * 1000);
-      if (isNaN(date.getTime())) {
-        return 'Invalid';
-      }
-      return date.toLocaleTimeString('zh-CN', { 
-        hour12: false, 
-        hour: '2-digit', 
-        minute: '2-digit', 
-        second: '2-digit'
-      });
-    } catch (error) {
-      console.error('Timestamp formatting error:', error);
-      return 'Error';
-    }
+    return formatTimestampUtil(timestamp);
   };
 
   const formatSize = (bytes: number) => {

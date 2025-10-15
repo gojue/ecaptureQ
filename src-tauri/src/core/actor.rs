@@ -59,6 +59,21 @@ impl DataFrameActorHandle {
         self.query_sql(sql).await
     }
 
+    pub async fn get_packets_since_index(&self, last_index: u64) -> PolarsResult<DataFrame> {
+        let sql = queries::new_packets_since_index(last_index);
+        self.query_sql(sql).await
+    }
+
+    pub async fn get_packets_since_index_no_payload(&self, last_index: u64) -> PolarsResult<DataFrame> {
+        let sql = queries::new_packets_since_index_no_payload(last_index);
+        self.query_sql(sql).await
+    }
+
+    pub async fn get_packet_by_index(&self, index: u64) -> PolarsResult<DataFrame> {
+        let sql = queries::get_packet_by_index(index);
+        self.query_sql(sql).await
+    }
+
     pub fn close(&self) {
         let _ = self.done.send(());
     }
@@ -75,6 +90,7 @@ pub struct DataFrameActor {
     df: DataFrame,
     // ctx: SQLContext,
     done: watch::Receiver<()>,
+    next_index: u64,
 }
 
 impl DataFrameActor {
@@ -90,6 +106,7 @@ impl DataFrameActor {
             df,
             // ctx,
             done,
+            next_index: 0,
         })
     }
 
@@ -99,6 +116,7 @@ impl DataFrameActor {
             mut df,
             // mut ctx,
             mut done,
+            mut next_index,
         } = self;
 
         loop {
@@ -115,7 +133,7 @@ impl DataFrameActor {
             match event {
                 ActorEvent::Message(msg) => match msg {
                     ActorMessage::UpdateBatch(batch) => {
-                        data_processing::write_batch_to_df(&batch, &mut df)?;
+                        data_processing::write_batch_to_df(&batch, &mut df, &mut next_index)?;
                     }
                     ActorMessage::QuerySql { sql, resp } => {
                         // ctx.unregister("packets");
@@ -137,6 +155,7 @@ impl DataFrameActor {
 }
 fn create_capture_df() -> DataFrame {
     let schema = Schema::from_iter(vec![
+        Field::new("index".into(), DataType::UInt64),
         Field::new("timestamp".into(), DataType::Int64),
         Field::new("uuid".into(), DataType::String),
         Field::new("src_ip".into(), DataType::String),
@@ -147,7 +166,9 @@ fn create_capture_df() -> DataFrame {
         Field::new("pname".into(), DataType::String),
         Field::new("type".into(), DataType::UInt32),
         Field::new("length".into(), DataType::UInt32),
-        Field::new("payload_base64".into(), DataType::String),
+        Field::new("is_binary".into(), DataType::Boolean),
+        Field::new("payload_utf8".into(), DataType::String),
+        Field::new("payload_binary".into(), DataType::Binary),
     ]);
 
     DataFrame::empty_with_schema(&schema)

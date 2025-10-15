@@ -1,23 +1,17 @@
 import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import { CapturePage } from '@/pages/CapturePage';
 import { SettingsPage } from '@/pages/SettingsPage';
-import { Wifi, Settings, Trash2 } from 'lucide-react';
+import { Wifi, Settings } from 'lucide-react';
 import { useAppState } from '@/hooks/useAppState';
 import { useResponsive } from '@/hooks/useResponsive';
-import { useCallback } from 'react';
 
 export function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const appState = useAppState();
   const { isMobile } = useResponsive();
-  const { clearPackets, packets } = appState;
 
   const isActive = (path: string) => location.pathname === path;
-  
-  const handleClear = useCallback(() => {
-    clearPackets();
-  }, [clearPackets]);
 
   if (isMobile) {
     // Mobile Layout
@@ -28,14 +22,6 @@ export function AppLayout() {
           <header className="bg-white dark:bg-gray-800 shadow-md h-16 flex items-center justify-between px-4 z-10 flex-shrink-0">
             <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">ecaptureQ</h1>
             <div className="flex items-center space-x-2">
-              {packets.length > 0 && (
-                <button 
-                  onClick={handleClear} 
-                  className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400"
-                >
-                  <Trash2 size={20} />
-                </button>
-              )}
               <button 
                 onClick={() => navigate('/settings')} 
                 className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400"

@@ -1,5 +1,4 @@
 use anyhow::{Result, anyhow};
-use base64::{Engine as _, engine::general_purpose};
 use log::{error, info};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -198,45 +197,33 @@ pub async fn modify_configs(
     Err("config is none".to_string())
 }
 
+
+
 #[tauri::command]
-#[allow(non_snake_case)]
-pub async fn base64_decode(base64String: String) -> Result<String, String> {
-    if base64String.is_empty() {
-        return Err("Base64 string is empty".to_string());
+pub async fn get_packet_with_payload(
+    state: tauri::State<'_, AppState>,
+    index: u64,
+) -> Result<crate::core::models::PacketData, String> {
+    let df_actor_handle = &state.df_actor_handle;
+    
+    // Use actor method to get packet by index
+    let df_result = df_actor_handle.get_packet_by_index(index).await;
+    
+    match df_result {
+        Ok(df) => {
+            if df.height() == 0 {
+                return Err("Packet not found".to_string());
+            }
+            
+            let packets = crate::tauri_bridge::converters::df_to_packet_data_vec(&df)
+                .map_err(|e| e.to_string())?;
+            
+            if let Some(packet) = packets.into_iter().next() {
+                Ok(packet)
+            } else {
+                Err("Failed to convert packet data".to_string())
+            }
+        }
+        Err(e) => Err(format!("Database query failed: {}", e)),
     }
-
-    let decoded_bytes_result = general_purpose::STANDARD
-        .decode(&base64String)
-        .map_err(|e| format!("Base64 decode error: {}", e))?;
-
-    String::from_utf8(decoded_bytes_result.clone()).or_else(|_| {
-        let total_len = decoded_bytes_result.len();
-        let display_limit = 1024;
-
-        let prefix = if total_len > display_limit {
-            format!("(Preview of first {} bytes)\n", display_limit)
-        } else {
-            "".to_string()
-        };
-
-        let hex_dump = decoded_bytes_result
-            .iter()
-            .take(display_limit)
-            .enumerate()
-            .map(|(i, b)| {
-                if i % 16 == 0 {
-                    format!("\n{:04x}: {:02x}", i, b)
-                } else if i % 8 == 0 {
-                    format!("  {:02x}", b)
-                } else {
-                    format!(" {:02x}", b)
-                }
-            })
-            .collect::<String>();
-
-        Ok(format!(
-            "{}Binary data ({} bytes):{}",
-            prefix, total_len, hex_dump
-        ))
-    })
 }
