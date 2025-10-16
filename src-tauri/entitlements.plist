@@ -5,14 +5,21 @@
 <dict>
     <key>com.apple.security.app-sandbox</key>
     <true/>
+
     <key>com.apple.security.network.client</key>
     <true/>
+
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+
+    <key>com.apple.security.temporary-exception.files.home-relative-path.read-write</key>
+    <array>
+        <string>/Library/Application Support/</string>
+    </array>
+
     <key>com.apple.application-identifier</key>
     <string>2CJR2EP3SQ.com.gojue.ecaptureq</string>
     <key>com.apple.developer.team-identifier</key>
     <string>2CJR2EP3SQ</string>
-    
-    <key>com.apple.security.cs.allow-jit</key>
-    <true/>
-    </dict>
+</dict>
 </plist>
