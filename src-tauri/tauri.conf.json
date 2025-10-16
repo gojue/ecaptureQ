@@ -43,7 +43,6 @@
       "minimumSystemVersion": "12.0",
       "entitlements": "entitlements.plist",
       "files": {
-        "embedded.provisionprofile": "ecaptureq.provisionprofile"
       }
     },
     "publisher": "gojue",
