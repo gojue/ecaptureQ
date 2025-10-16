@@ -1,8 +1,20 @@
-# v0.2.0 (2025-10-13)
+# v0.2.1 (2025-10-16)
 
 ## What's Changed
 
-**Full Changelog**: https://github.com/gojue/ecaptureQ//compare/v0.1.5...v0.2.0
+**Full Changelog**: https://github.com/gojue/ecaptureQ/compare/v0.2.0...v0.2.1
+
+<hr>
+
+# v0.2.0 (2025-10-13)
+
+## What's Changed
+* feat: Implement persistent configuration by @zenyanle in https://github.com/gojue/ecaptureQ/pull/23
+* fix: config initialize by @zenyanle in https://github.com/gojue/ecaptureQ/pull/27
+* docs: update readme by @zenyanle in https://github.com/gojue/ecaptureQ/pull/28
+* feat: Migrate websocket data from JSON to Protobuf by @zenyanle in https://github.com/gojue/ecaptureQ/pull/29
+
+**Full Changelog**: https://github.com/gojue/ecaptureQ/compare/v0.1.5...v0.2.0
 
 <hr>
 
