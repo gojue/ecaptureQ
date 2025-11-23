@@ -236,7 +236,6 @@ jobs:
         if: matrix.platform == 'android'
         uses: softprops/action-gh-release@v1
         with:
-          draft: true
           name: eCaptureQ v${{ needs.pre_release.outputs.version }}
           tag_name: v${{ needs.pre_release.outputs.version }}
           files: ./eCaptureQ_${{ needs.pre_release.outputs.version }}_${{ matrix.arch }}.apk
