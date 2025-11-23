@@ -1,9 +1,18 @@
-# v0.2.1 (2025-10-16)
+# v0.2.2 (2025-11-23)
 
 ## What's Changed
 
-**Full Changelog**: https://github.com/gojue/ecaptureQ/compare/v0.2.0...v0.2.1
+**Full Changelog**: https://github.com/gojue/ecaptureQ/compare/v0.2.1...v0.2.2
 
+<hr>
+
+# v0.2.1 (2025-10-16)
+
+## What's Changed
+* feat: Implement on-demand payload loading by @zenyanle in https://github.com/gojue/ecaptureQ/pull/36
+* fix: add temporary exception for home-relative path read-write access on macOS by @cfc4n in https://github.com/gojue/ecaptureQ/pull/37
+
+**Full Changelog**: https://github.com/gojue/ecaptureQ/compare/v0.2.0...v0.2.1
 <hr>
 
 # v0.2.0 (2025-10-13)
