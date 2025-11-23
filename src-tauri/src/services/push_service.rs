@@ -92,7 +92,7 @@ impl PushService {
                                         *last_index_guard = last_packet.index;
                                         info!("Fetched {} new packets. New last_index: {}", vecs.len(), last_packet.index);
                                     }
-                                    
+
                                     if let Err(e) = self.app_handle.emit(self.tauri_interface.as_str(), &vecs) {
                                         error!("Failed to send log to frontend: {}", e);
                                     }

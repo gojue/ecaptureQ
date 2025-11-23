@@ -64,7 +64,10 @@ impl DataFrameActorHandle {
         self.query_sql(sql).await
     }
 
-    pub async fn get_packets_since_index_no_payload(&self, last_index: u64) -> PolarsResult<DataFrame> {
+    pub async fn get_packets_since_index_no_payload(
+        &self,
+        last_index: u64,
+    ) -> PolarsResult<DataFrame> {
         let sql = queries::new_packets_since_index_no_payload(last_index);
         self.query_sql(sql).await
     }

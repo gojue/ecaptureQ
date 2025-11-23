@@ -52,7 +52,7 @@ pub fn df_to_packet_data_vec(df: &DataFrame) -> PolarsResult<Vec<PacketData>> {
 }
 
 /// Convert DataFrame to Vec<PacketDataFrontend> for frontend display
-/// 
+///
 /// This function creates a lightweight version of PacketData without payload data,
 /// optimized for frontend display and reduced transmission overhead.
 pub fn df_to_packet_data_frontend_vec(df: &DataFrame) -> PolarsResult<Vec<PacketDataFrontend>> {
