@@ -7,7 +7,10 @@ pub fn new_packets_since_offset(offset: usize) -> String {
 }
 
 pub fn new_packets_since_index(last_index: u64) -> String {
-    format!("SELECT * FROM packets WHERE index > {} ORDER BY index", last_index)
+    format!(
+        "SELECT * FROM packets WHERE index > {} ORDER BY index",
+        last_index
+    )
 }
 
 pub fn new_packets_since_index_no_payload(last_index: u64) -> String {
@@ -18,9 +21,5 @@ pub fn new_packets_since_index_no_payload(last_index: u64) -> String {
 }
 
 pub fn get_packet_by_index(index: u64) -> String {
-    format!(
-        "SELECT * FROM packets WHERE index = {} LIMIT 1",
-        index
-    )
+    format!("SELECT * FROM packets WHERE index = {} LIMIT 1", index)
 }
-

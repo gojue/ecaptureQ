@@ -9,15 +9,19 @@ pub mod ecaptureq {
 }
 
 use ecaptureq::events::{
-    log_entry, // oneof payload 的内部模块
     Event as PbEvent,
     Heartbeat as PbHeartbeat,
     LogEntry as PbLogEntry,
+    log_entry, // oneof payload 的内部模块
 };
 
-use anyhow::{anyhow, Ok, Result};
+use anyhow::{Ok, Result, anyhow};
 
-pub fn write_batch_to_df(buffer: &[models::PacketData], df: &mut DataFrame, next_index: &mut u64) -> PolarsResult<()> {
+pub fn write_batch_to_df(
+    buffer: &[models::PacketData],
+    df: &mut DataFrame,
+    next_index: &mut u64,
+) -> PolarsResult<()> {
     if buffer.is_empty() {
         return PolarsResult::Ok(());
     }
@@ -82,10 +86,7 @@ pub fn write_batch_to_df(buffer: &[models::PacketData], df: &mut DataFrame, next
     PolarsResult::Ok(())
 }
 
-
-pub fn parse_eq_message<B: AsRef<[u8]>>(
-    bytes: B,
-) -> Result<ParsedMessage> {
+pub fn parse_eq_message<B: AsRef<[u8]>>(bytes: B) -> Result<ParsedMessage> {
     // Decode protobuf LogEntry from bytes
     let entry = PbLogEntry::decode(bytes.as_ref())?;
 
@@ -98,9 +99,7 @@ pub fn parse_eq_message<B: AsRef<[u8]>>(
         }
         Some(log_entry::Payload::RunLog(runlog)) => {
             // Map to simplified ProcessLogMessage
-            let log_message = models::ProcessLogMessage {
-                log_info: runlog,
-            };
+            let log_message = models::ProcessLogMessage { log_info: runlog };
             Ok(ParsedMessage::ProcessLog(log_message))
         }
         None => Err(anyhow!("missing payload in LogEntry")),
@@ -119,7 +118,7 @@ fn pb_event_to_packet(ev: PbEvent) -> models::PacketData {
 
     // Check if payload is UTF-8 or binary
     let is_binary = !is_utf8_prefix(&ev.payload);
-    
+
     let (payload_utf8, payload_binary) = if is_binary {
         // Binary payload: store as Vec<u8>, empty string for UTF-8
         (String::new(), ev.payload)

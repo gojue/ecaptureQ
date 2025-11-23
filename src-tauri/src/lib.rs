@@ -67,7 +67,10 @@ pub async fn run() {
 
             let data_dir = app_handle.path().app_data_dir()?;
             if !data_dir.exists() {
-                println!("App data directory not found. Creating it at: {}", data_dir.display());
+                println!(
+                    "App data directory not found. Creating it at: {}",
+                    data_dir.display()
+                );
                 std::fs::create_dir_all(&data_dir)?;
             }
             config_check(&data_dir)?;

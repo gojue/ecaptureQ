@@ -17,7 +17,7 @@ pub async fn start_capture(
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
     // Check if already running
-    if let RunState::Capturing = state.status.read().await.clone() {
+    if let RunState::Capturing = &*state.status.read().await {
         return Err("Capture session is already running.".into());
     }
 
@@ -143,8 +143,8 @@ pub async fn start_capture(
 
 #[tauri::command]
 pub async fn stop_capture(state: tauri::State<'_, AppState>) -> Result<(), String> {
-    if let RunState::NotCapturing = *state.status.read().await {
-        return Err("Capture session is already running.".into());
+    if let RunState::NotCapturing = &*state.status.read().await {
+        return Err("Capture session is not running.".into());
     }
     if let Some(shutdown_tx) = state.shutdown_tx.lock().await.take() {
         shutdown_tx
@@ -184,20 +184,19 @@ pub async fn modify_configs(
         .app_data_dir()
         .map_err(|_| "failed to get data directory".to_string())?;
 
-    let mut configs = state.configs.lock().await.clone();
-    if !configs.is_none() {
-        configs.as_mut().unwrap().apply_patch(&mut patch);
-        configs
-            .as_mut()
-            .unwrap()
+    let configs = state.configs.lock().await.clone();
+    if let Some(mut config) = configs {
+        config.apply_patch(&mut patch);
+        config
             .save_json_to_app_dir(&data_dir)
             .map_err(|_| "failed to save json")?;
+        let loaded_configs =
+            Configs::get_json_from_app_dir(&data_dir).map_err(|_| "failed to load json")?;
+        state.init_configs(loaded_configs).await;
         return Ok(());
     }
     Err("config is none".to_string())
 }
-
-
 
 #[tauri::command]
 pub async fn get_packet_with_payload(
@@ -205,19 +204,19 @@ pub async fn get_packet_with_payload(
     index: u64,
 ) -> Result<crate::core::models::PacketData, String> {
     let df_actor_handle = &state.df_actor_handle;
-    
+
     // Use actor method to get packet by index
     let df_result = df_actor_handle.get_packet_by_index(index).await;
-    
+
     match df_result {
         Ok(df) => {
             if df.height() == 0 {
                 return Err("Packet not found".to_string());
             }
-            
+
             let packets = crate::tauri_bridge::converters::df_to_packet_data_vec(&df)
                 .map_err(|e| e.to_string())?;
-            
+
             if let Some(packet) = packets.into_iter().next() {
                 Ok(packet)
             } else {

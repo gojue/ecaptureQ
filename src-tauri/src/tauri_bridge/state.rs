@@ -49,7 +49,7 @@ impl Configs {
     }
 
     pub fn save_json_to_app_dir(&self, base_path: impl AsRef<Path>) -> Result<()> {
-        let path =base_path.as_ref().join(CONFIG_FILE_NAME);
+        let path = base_path.as_ref().join(CONFIG_FILE_NAME);
         let json_data = self.to_json()?;
         fs::write(path, json_data).map_err(Error::from)
     }

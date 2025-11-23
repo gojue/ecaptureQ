@@ -59,11 +59,15 @@ impl WebsocketService {
                     Ok((ws_stream, _)) => ws_stream,
                     Err(e) => {
                         error!("{:?}", e);
-                        if let RunState::Capturing = self.run_status.read().await.clone() {
-                            tokio::time::sleep(std::time::Duration::from_millis(300)).await;
-                            continue;
+                        tokio::select! {
+                            _ = self.done.changed() => {
+                                break;
+                            }
+
+                            _ = tokio::time::sleep(Duration::from_millis(300)) => {
+                                continue;
+                            }
                         }
-                        break;
                     }
                 }
             };
@@ -99,7 +103,7 @@ impl WebsocketService {
                             Ok(msg) => msg,
                             Err(e) => {
                                 error!("WebSocket message error: {:?}", e);
-                                match self.run_status.read().await.clone() {
+                                match &*self.run_status.read().await {
                                     RunState::Capturing => {
                                         info!("into capturing branch");
                                         break;
