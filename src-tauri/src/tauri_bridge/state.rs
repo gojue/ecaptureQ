@@ -4,7 +4,7 @@ use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock, watch};
 
-use crate::{core::actor::DataFrameActorHandle, services::push_service::PushServiceHandle};
+use crate::core::actor::DataFrameActorHandle;
 
 use anyhow::{Error, Result};
 // use log::Level::Error;
@@ -19,6 +19,8 @@ pub enum RunState {
 pub struct Configs {
     pub ws_url: Option<String>,
     pub ecapture_args: Option<String>,
+    #[serde(default)]
+    pub user_sql: Option<String>,
 }
 
 const CONFIG_FILE_NAME: &str = "config.json";
@@ -31,6 +33,10 @@ impl Configs {
 
         if let Some(ecapture_args) = patch.ecapture_args.take() {
             self.ecapture_args = Some(ecapture_args);
+        }
+
+        if patch.user_sql.is_some() {
+            self.user_sql = patch.user_sql.take();
         }
     }
 
@@ -58,6 +64,7 @@ impl Configs {
         Configs {
             ws_url: Some("ws://127.0.0.1:28257".to_string()),
             ecapture_args: Some(" tls --ecaptureq ws://127.0.0.1:28257".to_string()),
+            user_sql: None,
         }
     }
 }
@@ -77,7 +84,6 @@ pub fn config_check(base_path: impl AsRef<Path>) -> Result<()> {
 }
 
 pub struct AppState {
-    pub push_service_handle: Mutex<Option<PushServiceHandle>>,
     pub df_actor_handle: DataFrameActorHandle,
     pub shutdown_tx: Mutex<Option<watch::Sender<()>>>,
 
@@ -87,12 +93,22 @@ pub struct AppState {
     // runtime configs
     pub configs: Mutex<Option<Configs>>,
 
+    // user-provided SQL for push service
+    pub user_sql: Mutex<Option<String>>,
+
+    // shared last index across services
+    pub shared_last_index: Arc<Mutex<u64>>,
+
     pub status: Arc<RwLock<RunState>>,
 }
 
 impl AppState {
     pub async fn init_configs(&self, configs: Configs) {
-        //self.configs = Mutex::new(Some(configs))
-        *self.configs.lock().await = Some(configs)
+        {
+            let mut configs_lock = self.configs.lock().await;
+            *configs_lock = Some(configs.clone());
+        }
+        let mut user_sql_lock = self.user_sql.lock().await;
+        *user_sql_lock = configs.user_sql.clone();
     }
 }

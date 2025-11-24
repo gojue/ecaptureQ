@@ -38,16 +38,15 @@ export function useConfigs() {
     
     setIsLoading(true);
     try {
-      // 只发送改变的字段
-      const patch: Configs = {};
-      if (configs.ws_url !== originalConfigs.ws_url) {
-        patch.ws_url = configs.ws_url;
+      // 检查是否有user_sql变更需要验证
+      const userSqlChanged = configs.user_sql !== originalConfigs.user_sql;
+      if (userSqlChanged) {
+        // 如果user_sql有变更，先进行验证（后端会处理空值情况）
+        await ApiService.verifyUserSql(configs.user_sql ?? null);
       }
-      if (configs.ecapture_args !== originalConfigs.ecapture_args) {
-        patch.ecapture_args = configs.ecapture_args;
-      }
-      
-      await ApiService.modifyConfigs(patch);
+
+      // 验证通过后，传递完整配置进行保存
+      await ApiService.modifyConfigs(configs);
       setOriginalConfigs(configs);
       setHasChanges(false);
     } catch (error) {

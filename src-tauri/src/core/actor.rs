@@ -49,26 +49,16 @@ impl DataFrameActorHandle {
             .map_err(|e| PolarsError::ComputeError(e.to_string().into()))?
     }
 
-    pub async fn get_all_packets(&self) -> PolarsResult<DataFrame> {
-        let sql = queries::all_packets();
-        self.query_sql(sql).await
-    }
-
-    pub async fn get_packets_by_offset(&self, offset: usize) -> PolarsResult<DataFrame> {
-        let sql = queries::new_packets_since_offset(offset);
-        self.query_sql(sql).await
-    }
-
-    pub async fn get_packets_since_index(&self, last_index: u64) -> PolarsResult<DataFrame> {
-        let sql = queries::new_packets_since_index(last_index);
-        self.query_sql(sql).await
-    }
-
     pub async fn get_packets_since_index_no_payload(
         &self,
-        last_index: u64,
+        last_index: &u64,
     ) -> PolarsResult<DataFrame> {
         let sql = queries::new_packets_since_index_no_payload(last_index);
+        self.query_sql(sql).await
+    }
+
+    pub async fn get_packets_customized_no_payload(&self, last_index: &u64, user_sql: &str) -> PolarsResult<DataFrame> {
+        let sql = queries::new_packets_customized_no_payload(last_index, user_sql);
         self.query_sql(sql).await
     }
 
@@ -156,7 +146,7 @@ impl DataFrameActor {
         }
     }
 }
-fn create_capture_df() -> DataFrame {
+pub fn create_capture_df() -> DataFrame {
     let schema = Schema::from_iter(vec![
         Field::new("index".into(), DataType::UInt64),
         Field::new("timestamp".into(), DataType::Int64),

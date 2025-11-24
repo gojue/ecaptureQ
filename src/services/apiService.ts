@@ -42,17 +42,32 @@ export class ApiService {
   }
 
   /**
+   * Verify custom SQL filter
+   */
+  static async verifyUserSql(userSql: string | null): Promise<void> {
+    try {
+      await invoke('verify_user_sql', { user_sql: userSql });
+      console.log('User SQL verified successfully');
+    } catch (error) {
+      console.error('Failed to verify user SQL:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Modify application configs
    */
-  static async modifyConfigs(patch: Configs): Promise<void> {
+  static async modifyConfigs(newConfigs: Configs): Promise<void> {
     try {
-      await invoke('modify_configs', { patch });
+      await invoke('modify_configs', { newConfigs: newConfigs });
       console.log('Configs updated successfully');
     } catch (error) {
       console.error('Failed to update configs:', error);
       throw error;
     }
   }
+
+
 
   /**
    * Get packet with payload by index

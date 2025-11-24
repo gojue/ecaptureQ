@@ -45,8 +45,9 @@ pub async fn run() {
         df_actor_handle,
         done: Mutex::new(done_tx),
         shutdown_tx: Mutex::new(None),
-        push_service_handle: Mutex::new(None),
         configs: Mutex::new(None),
+        user_sql: Mutex::new(None),
+        shared_last_index: Arc::new(Mutex::new(0)),
         status: Arc::new(RwLock::new(RunState::NotCapturing)),
     };
 
@@ -103,6 +104,7 @@ pub async fn run() {
             commands::stop_capture,
             commands::get_configs,
             commands::modify_configs,
+            commands::verify_user_sql,
             commands::get_packet_with_payload,
         ]);
 

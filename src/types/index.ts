@@ -24,4 +24,5 @@ export interface PacketDataWithPayload extends PacketData {
 export interface Configs {
   ws_url?: string;          // WebSocket server address
   ecapture_args?: string;   // eCapture startup arguments
+  user_sql?: string | null; // Custom SQL filter for packet stream (null for no filter)
 }
