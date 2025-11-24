@@ -145,7 +145,7 @@ SELECT * FROM packets WHERE pname = 'wget'
 
       * ❌ 错误：`pname = 'curl' ORDER BY timestamp DESC`
       * ✅ 正确：`pname = 'curl'`
-      * *原因：系统必须强制按 `index ASC` 排序以保证数据流的连续性。*
+      * *原因：系统必须强制按 `index ASC` 排序以保证数据流的连续性。* 
 
 2.  **区分大小写**
 
@@ -154,4 +154,4 @@ SELECT * FROM packets WHERE pname = 'wget'
 
 3.  **类型匹配**
 
-      * `dst_port` 是数字，不要加引号：`dst_port = 80` (✅), `dst_port = '80'` (❌ 可能导致类型转换错误)。
+      * `dst_port` 是数字，不要加引号：`dst_port = 80` (✅), `dst_port = '80'` (❌ 可能导致类型转换错误)。 
