@@ -52,6 +52,7 @@ pub async fn start_capture(
         let rx = shutdown_tx.subscribe();
         info!("Spawning background services...");
 
+        // I love go-style waitgroup
         let capture_wg = AsyncWaitGroup::new();
         capture_wg.add(1);
         let capture_wg_clone = capture_wg.clone();
