@@ -158,39 +158,6 @@ export function SettingsPage() {
             </div>
           </div>
 
-          {/* eCapture Arguments */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="p-2 bg-green-100 dark:bg-green-900/50 rounded-lg">
-                <Terminal className="w-5 h-5 text-green-600 dark:text-green-400" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                  eCapture Arguments
-                </h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Additional command line arguments for the eCapture process
-                </p>
-              </div>
-            </div>
-            
-            <div className="space-y-3">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Command Arguments
-              </label>
-              <textarea
-                value={configs.ecapture_args || ''}
-                onChange={(e) => updateConfigs({ ecapture_args: e.target.value })}
-                placeholder="--interface=eth0 --port=8080"
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 font-mono text-sm"
-              />
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Optional: Additional arguments to pass to the eCapture binary
-              </p>
-            </div>
-          </div>
-
           {/* SQL Filter */}
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
             <div className="flex items-center space-x-3 mb-4">
@@ -222,6 +189,40 @@ export function SettingsPage() {
                 <span className="block">• Leave empty to stream all packets.</span>
                 <span className="block">• SQL will be validated against an empty schema before saving.</span>
                 <span className="block">• Must select the <code className="font-mono">index</code> column for incremental updates.</span>
+              </p>
+            </div>
+          </div>
+
+          {/* eCapture Arguments */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="p-2 bg-green-100 dark:bg-green-900/50 rounded-lg">
+                <Terminal className="w-5 h-5 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  eCapture Arguments
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Command line arguments for the eCapture process (integrated mode only)
+                </p>
+              </div>
+            </div>
+            
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Command Arguments
+              </label>
+              <textarea
+                value={configs.ecapture_args || ''}
+                onChange={(e) => updateConfigs({ ecapture_args: e.target.value })}
+                placeholder="--interface=eth0 --port=8080"
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 font-mono text-sm"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
+                <span className="block">• Only needed when using integrated eCapture mode</span>
+                <span className="block">• Leave empty if connecting to external eCapture instance</span>
               </p>
             </div>
           </div>
