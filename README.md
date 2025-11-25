@@ -26,6 +26,8 @@ https://github.com/user-attachments/assets/c8b7a84d-58eb-4fdb-9843-f775c97bdbfb
 
 **Real-time & Responsive View**: Displays network requests in real-time and automatically switches between a desktop table view and a mobile card view based on the device.
 
+**Advanced Packet Filtering**: Filter captured packets using custom SQL queries with support for simple conditions or complex full SQL statements. Perfect for focusing on specific traffic patterns, processes, or payload content.
+
 **Cross-Platform & Dual-Mode**: Runs as an all-in-one tool on Linux/Android, and as a remote client on Windows/macOS/Linux to connect to a server.
 
 **Secure, Lightweight, and Native Experience**: Built with Rust on the backend for memory safety and native performance.
@@ -64,6 +66,38 @@ In this mode, `eCaptureQ` runs as a standalone client without the bundled `ecapt
   * **Requirements**:
       * The user must download and run `ecapture` separately on the target device.
       * `ecapture` must be started with the `--ecaptureq` flag to activate the WebSocket service.
+
+## Packet Filtering
+
+eCaptureQ provides powerful SQL-based packet filtering capabilities to help you focus on specific network traffic patterns.
+
+### Filter Modes
+
+**Simple Filtering (Recommended for beginners)**  
+Write simple conditions to filter packets quickly:
+```sql
+dst_port = 443 AND pname = 'chrome'
+```
+
+**Advanced SQL Filtering (For power users)**  
+Use full SQL queries for complex filtering logic:
+```sql
+SELECT * FROM packets WHERE dst_port IN (80, 443) 
+UNION 
+SELECT * FROM packets WHERE pname LIKE 'python%'
+```
+
+### Common Use Cases
+
+- **Filter by port**: `dst_port IN (80, 443)` - Show only HTTP/HTTPS traffic
+- **Filter by process**: `pname = 'curl'` - Show traffic from specific applications  
+- **Filter by IP**: `src_ip LIKE '192.168.1.%'` - Focus on specific network segments
+- **Search payload**: `payload_utf8 LIKE '%password%'` - Find packets containing sensitive data
+
+### Documentation
+
+For detailed filtering syntax, examples, and best practices:
+- 📖 [SQL Filtering Guide](./docs/custom_sql_examples_english.md)
 
 ## How to Use
 
