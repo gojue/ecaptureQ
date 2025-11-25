@@ -1,4 +1,4 @@
-import { ArrowLeft, Save, RotateCcw, Loader2, Server, Terminal, Github } from 'lucide-react';
+import { ArrowLeft, Save, RotateCcw, Loader2, Server, Terminal, Github, Filter } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useConfigs } from '@/hooks/useConfigs';
@@ -10,6 +10,7 @@ export function SettingsPage() {
   const { isMobile } = useResponsive();
   const { configs, isLoading, hasChanges, updateConfigs, saveConfigs, resetConfigs } = useConfigs();
   const [saveLoading, setSaveLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const handleSave = async () => {
     if (!hasChanges) return;
@@ -17,8 +18,9 @@ export function SettingsPage() {
     setSaveLoading(true);
     try {
       await saveConfigs();
+      setErrorMessage(null);
     } catch (error) {
-      // Error is already logged in the hook
+      setErrorMessage(error instanceof Error ? error.message : String(error));
     } finally {
       setSaveLoading(false);
     }
@@ -116,6 +118,12 @@ export function SettingsPage() {
           )}
         </div>
 
+        {errorMessage && (
+          <div className="mb-6 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-4 text-sm text-red-700 dark:text-red-300">
+            {errorMessage}
+          </div>
+        )}
+
         <div className="space-y-6">
           {/* WebSocket Configuration */}
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
@@ -150,6 +158,41 @@ export function SettingsPage() {
             </div>
           </div>
 
+          {/* SQL Filter */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="p-2 bg-purple-100 dark:bg-purple-900/40 rounded-lg">
+                <Filter className="w-5 h-5 text-purple-600 dark:text-purple-300" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  Packet SQL Filter
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  (Optional) Provide a custom SQL clause executed on the packet stream
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                SQL Query
+              </label>
+              <textarea
+                value={configs.user_sql || ''}
+                onChange={(e) => updateConfigs({ user_sql: e.target.value })}
+                placeholder={`SELECT index, timestamp, src_ip, dst_ip, dst_port, pname, length, is_binary\nFROM packets\nWHERE dst_port = 443`}
+                rows={6}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 font-mono text-sm"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
+                <span className="block">• Leave empty to stream all packets.</span>
+                <span className="block">• SQL will be validated against an empty schema before saving.</span>
+                <span className="block">• Must select the <code className="font-mono">index</code> column for incremental updates.</span>
+              </p>
+            </div>
+          </div>
+
           {/* eCapture Arguments */}
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
             <div className="flex items-center space-x-3 mb-4">
@@ -161,7 +204,7 @@ export function SettingsPage() {
                   eCapture Arguments
                 </h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Additional command line arguments for the eCapture process
+                  Command line arguments for the eCapture process (integrated mode only)
                 </p>
               </div>
             </div>
@@ -177,8 +220,9 @@ export function SettingsPage() {
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 font-mono text-sm"
               />
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Optional: Additional arguments to pass to the eCapture binary
+              <p className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
+                <span className="block">• Only needed when using integrated eCapture mode</span>
+                <span className="block">• Leave empty if connecting to external eCapture instance</span>
               </p>
             </div>
           </div>

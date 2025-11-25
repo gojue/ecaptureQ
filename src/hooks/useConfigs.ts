@@ -8,7 +8,6 @@ export function useConfigs() {
   const [hasChanges, setHasChanges] = useState(false);
   const [originalConfigs, setOriginalConfigs] = useState<Configs>({});
 
-  // 加载配置
   const loadConfigs = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -23,7 +22,6 @@ export function useConfigs() {
     }
   }, []);
 
-  // 更新配置
   const updateConfigs = useCallback((patch: Partial<Configs>) => {
     setConfigs(prev => {
       const newConfigs = { ...prev, ...patch };
@@ -32,22 +30,18 @@ export function useConfigs() {
     });
   }, [originalConfigs]);
 
-  // 保存配置
   const saveConfigs = useCallback(async () => {
     if (!hasChanges) return;
     
     setIsLoading(true);
     try {
-      // 只发送改变的字段
-      const patch: Configs = {};
-      if (configs.ws_url !== originalConfigs.ws_url) {
-        patch.ws_url = configs.ws_url;
+      const userSqlChanged = configs.user_sql !== originalConfigs.user_sql;
+      if (userSqlChanged) {
+        // Validate SQL before saving
+        await ApiService.verifyUserSql(configs.user_sql ?? null);
       }
-      if (configs.ecapture_args !== originalConfigs.ecapture_args) {
-        patch.ecapture_args = configs.ecapture_args;
-      }
-      
-      await ApiService.modifyConfigs(patch);
+
+      await ApiService.modifyConfigs(configs);
       setOriginalConfigs(configs);
       setHasChanges(false);
     } catch (error) {
@@ -58,13 +52,11 @@ export function useConfigs() {
     }
   }, [configs, originalConfigs, hasChanges]);
 
-  // 重置配置
   const resetConfigs = useCallback(() => {
     setConfigs(originalConfigs);
     setHasChanges(false);
   }, [originalConfigs]);
 
-  // 初始加载
   useEffect(() => {
     loadConfigs();
   }, [loadConfigs]);

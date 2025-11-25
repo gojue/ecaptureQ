@@ -25,6 +25,8 @@ https://github.com/user-attachments/assets/c8b7a84d-58eb-4fdb-9843-f775c97bdbfb
 
 **实时与响应式视图**: 实时展示网络请求，并根据设备自动切换桌面表格或移动卡片视图。
 
+**高级数据包过滤**: 使用自定义 SQL 查询过滤捕获的数据包，支持简单条件或复杂完整 SQL 语句。完美适用于专注特定流量模式、进程或载荷内容。
+
 **跨平台与双模式**：在 Linux/Android 上可一键作为集成工具启动，同时在 Windows/macOS/Linux 上可作为远程客户端连接服务器。
 
 **安全轻量的原生体验**: 使用Rust编写后端，实现内存安全并保持原生性能。
@@ -62,6 +64,38 @@ https://github.com/user-attachments/assets/c8b7a84d-58eb-4fdb-9843-f775c97bdbfb
   * **要求**:
       * 用户需在目标设备上单独下载并运行 `ecapture`。
       * `ecapture` 必须以 `--ecaptureq` 参数启动，以激活 WebSocket 服务。
+
+## 数据包过滤
+
+eCaptureQ 提供强大的基于 SQL 的数据包过滤功能，帮助您专注于特定的网络流量模式。
+
+### 过滤模式
+
+**简易过滤（推荐新手使用）**  
+编写简单条件快速过滤数据包：
+```sql
+dst_port = 443 AND pname = 'chrome'
+```
+
+**高级 SQL 过滤（适合高级用户）**  
+使用完整的 SQL 查询进行复杂过滤逻辑：
+```sql
+SELECT * FROM packets WHERE dst_port IN (80, 443) 
+UNION 
+SELECT * FROM packets WHERE pname LIKE 'python%'
+```
+
+### 常见用例
+
+- **按端口过滤**: `dst_port IN (80, 443)` - 仅显示 HTTP/HTTPS 流量
+- **按进程过滤**: `pname = 'curl'` - 显示特定应用程序的流量
+- **按IP过滤**: `src_ip LIKE '192.168.1.%'` - 专注特定网段
+- **搜索载荷**: `payload_utf8 LIKE '%password%'` - 查找包含敏感数据的数据包
+
+### 文档
+
+详细的过滤语法、示例和最佳实践：
+- 📖 [SQL 过滤指南](./docs/custom_sql_examples.md)
 
 ## 使用方法
 

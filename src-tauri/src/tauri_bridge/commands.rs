@@ -1,5 +1,6 @@
 use anyhow::{Result, anyhow};
 use log::{error, info};
+use polars::{prelude::IntoLazy, sql::SQLContext};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::Manager;
@@ -9,6 +10,7 @@ use wg::AsyncWaitGroup;
 #[cfg(all(not(decoupled), any(target_os = "linux", target_os = "android")))]
 use crate::services::capture::CaptureManager;
 use crate::services::{push_service::PushService, websocket::WebsocketService};
+use crate::core::{actor::create_capture_df, queries};
 use crate::tauri_bridge::state::{AppState, Configs, RunState};
 
 #[tauri::command]
@@ -16,19 +18,14 @@ pub async fn start_capture(
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-    // Check if already running
     if let RunState::Capturing = &*state.status.read().await {
         return Err("Capture session is already running.".into());
     }
 
     *state.status.write().await = RunState::Capturing;
-
     let error_inspector = Arc::new(AtomicBool::new(false));
-
-    // channel for capture session
     let (shutdown_tx, _) = tokio::sync::watch::channel(());
 
-    // Get the app's data directory for storing the binary
     #[cfg(all(not(decoupled), any(target_os = "linux", target_os = "android")))]
     let data_dir = app_handle
         .path()
@@ -36,7 +33,7 @@ pub async fn start_capture(
         .map_err(|e| e.to_string())?;
     let configs = {
         let guard = state.configs.lock().await;
-        guard.clone() // Deep copy
+        guard.clone()
     };
 
     let mut websocket_service = WebsocketService::new(
@@ -58,9 +55,8 @@ pub async fn start_capture(
         // I love go-style waitgroup
         let capture_wg = AsyncWaitGroup::new();
         capture_wg.add(1);
-
         let capture_wg_clone = capture_wg.clone();
-        // spawn ecapture service
+        
         tokio::spawn(async move {
             let result = capture_manager
                 .run(
@@ -95,7 +91,6 @@ pub async fn start_capture(
     let ws_error_inspector = error_inspector.clone();
 
     let ws_wg_clone = ws_wg.clone();
-    // spawn websocket listen service
     tokio::spawn(async move {
         if let Err(e) = websocket_service.receiver_task().await {
             error!("[WebsocketService] Task failed: {}", e);
@@ -120,20 +115,20 @@ pub async fn start_capture(
         return Err("capture session launch error".into());
     }
 
-    // Handle push service - create if not exists, reuse if exists
-    let mut handle_guard = state.push_service_handle.lock().await;
-    let done_guard = state.done.lock().await;
-    if handle_guard.is_none() {
-        // Create new push service
-        let new_handle = PushService::new(
-            state.df_actor_handle.clone(),
-            "packet-data".to_string(),
-            "SELECT * FROM packets".to_string(),
-            done_guard.subscribe(),
-            app_handle.clone(),
-        );
-        *handle_guard = Some(new_handle);
-    }
+    let shared_last_index_val = *state.shared_last_index.lock().await;
+    let shared_last_index = state.shared_last_index.clone();
+
+    let user_sql = { state.user_sql.lock().await.clone() };
+    PushService::new(
+        state.df_actor_handle.clone(),
+        "packet-data".to_string(),
+        user_sql,
+        shared_last_index_val,
+        shared_last_index,
+        shutdown_tx.subscribe(),
+        app_handle.clone(),
+    )
+    .map_err(|e| e.to_string())?;
 
     *state.shutdown_tx.lock().await = Some(shutdown_tx);
 
@@ -175,27 +170,74 @@ pub async fn get_configs(
 pub async fn modify_configs(
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
-    mut patch: Configs,
+    #[allow(non_snake_case)]
+    mut newConfigs: Configs,
 ) -> Result<(), String> {
-    /*let mut configs_guard = state.configs.lock().await;
-    configs_guard.apply_patch(patch);*/
+    // Normalize empty strings to None
+    if let Some(ref user_sql) = newConfigs.user_sql {
+        let trimmed = user_sql.trim();
+        if trimmed.is_empty() {
+            newConfigs.user_sql = None;
+        } else {
+            newConfigs.user_sql = Some(trimmed.to_string());
+        }
+    }
+    
     let data_dir = app_handle
         .path()
         .app_data_dir()
         .map_err(|_| "failed to get data directory".to_string())?;
 
-    let configs = state.configs.lock().await.clone();
-    if let Some(mut config) = configs {
-        config.apply_patch(&mut patch);
-        config
-            .save_json_to_app_dir(&data_dir)
-            .map_err(|_| "failed to save json")?;
-        let loaded_configs =
-            Configs::get_json_from_app_dir(&data_dir).map_err(|_| "failed to load json")?;
-        state.init_configs(loaded_configs).await;
+    newConfigs
+        .save_json_to_app_dir(&data_dir)
+        .map_err(|_| "failed to save json")?;
+    
+    let loaded_configs =
+        Configs::get_json_from_app_dir(&data_dir).map_err(|_| "failed to load json")?;
+    state.init_configs(loaded_configs).await;
+    
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn verify_user_sql(user_sql: Option<String>) -> Result<(), String> {
+    info!("triggered verify_user_sql");
+    
+    let normalized_user_sql = user_sql.and_then(|s| {
+        let trimmed = s.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed.to_string())
+        }
+    });
+    
+    if normalized_user_sql.is_none() {
+        info!("user_sql is None after normalization, validation passed");
         return Ok(());
     }
-    Err("config is none".to_string())
+    
+    if let Some(ref sql_text) = normalized_user_sql {
+        info!("Validating SQL: {}", sql_text);
+        
+        let mut ctx = SQLContext::new();
+        let df = create_capture_df();
+        ctx.register("packets", df.lazy());
+        
+        let zero_index: u64 = 0;
+        let validation_sql = queries::new_packets_customized_no_payload(&zero_index, sql_text);
+        
+        ctx.execute(&validation_sql)
+            .and_then(|lf| lf.collect())
+            .map_err(|e| {
+                error!("SQL validation failed: {}", e);
+                format!("SQL validation failed: {}", e)
+            })?;
+        
+        info!("SQL validation passed");
+    }
+
+    Ok(())
 }
 
 #[tauri::command]
@@ -204,8 +246,6 @@ pub async fn get_packet_with_payload(
     index: u64,
 ) -> Result<crate::core::models::PacketData, String> {
     let df_actor_handle = &state.df_actor_handle;
-
-    // Use actor method to get packet by index
     let df_result = df_actor_handle.get_packet_by_index(index).await;
 
     match df_result {
