@@ -1,2 +1,49 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# GitHub language stats optimization - boost Rust dominance
+# =======================================================
+
+# Exclude build artifacts and generated files
+src-tauri/target/** linguist-generated
+dist/** linguist-generated
+build/** linguist-generated
+node_modules/** linguist-generated
+
+# Exclude config and style files
+*.css linguist-vendored
+*.scss linguist-vendored
+*.less linguist-vendored
+postcss.config.js linguist-vendored
+tailwind.config.js linguist-vendored
+vite.config.ts linguist-vendored
+tsconfig.json linguist-vendored
+tsconfig.node.json linguist-vendored
+
+# Exclude frontend infrastructure
+src/assets/** linguist-vendored
+src/index.css linguist-vendored
+src/App.css linguist-vendored
+src/main.tsx linguist-vendored
+src/vite-env.d.ts linguist-vendored
+
+# Exclude utilities, hooks and UI components
+src/hooks/** linguist-vendored
+src/utils/** linguist-vendored
+src/components/** linguist-vendored
+src/layouts/** linguist-vendored
+
+# Keep core business logic (counted in stats):
+# src/pages/** - main page logic
+# src/services/** - core business services
+# src/types/** - type definitions
+
+# Ensure Rust code is properly detected
+*.rs linguist-detectable
+src-tauri/src/** linguist-detectable
+
+# Exclude docs and static assets
+*.md linguist-documentation
+images/** linguist-documentation
+public/** linguist-vendored
+docs/** linguist-documentation
