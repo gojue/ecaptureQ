@@ -22,13 +22,12 @@ pub fn new_packets_since_index_no_payload(last_index: &u64) -> String {
 
 pub fn new_packets_customized_no_payload(last_index: &u64, user_sql: &str) -> String {
     let trimmed_sql = user_sql.trim();
-    
+
     const TARGET_COLS: &str = "index, timestamp, uuid, src_ip, src_port, dst_ip, dst_port, pid, pname, type, length, is_binary";
 
     let is_full_select = trimmed_sql.to_lowercase().starts_with("select");
 
     if is_full_select {
-
         let clean_sql = trimmed_sql.trim_end_matches(|c| c == ';' || c == ' ');
 
         format!(
@@ -36,8 +35,11 @@ pub fn new_packets_customized_no_payload(last_index: &u64, user_sql: &str) -> St
             TARGET_COLS, clean_sql, last_index
         )
     } else {
-
-        let condition = if trimmed_sql.is_empty() { "1=1" } else { trimmed_sql };
+        let condition = if trimmed_sql.is_empty() {
+            "1=1"
+        } else {
+            trimmed_sql
+        };
 
         format!(
             "SELECT {} FROM packets WHERE ({}) AND index > {} ORDER BY index ASC",
@@ -45,7 +47,6 @@ pub fn new_packets_customized_no_payload(last_index: &u64, user_sql: &str) -> St
         )
     }
 }
-
 
 pub fn get_packet_by_index(index: u64) -> String {
     format!("SELECT * FROM packets WHERE index = {} LIMIT 1", index)

@@ -3,7 +3,7 @@ use anyhow::Result;
 use log::{error, info};
 use std::{sync::Arc, time::Duration};
 use tauri::{AppHandle, Emitter};
-use tokio::sync::{watch, Mutex};
+use tokio::sync::{Mutex, watch};
 
 pub struct PushService {
     df_actor_handle: DataFrameActorHandle,
@@ -44,7 +44,7 @@ impl PushService {
 
     pub async fn run(&mut self) {
         let mut flush_timer = tokio::time::interval(Duration::from_millis(300));
-    info!("Push service started.");
+        info!("Push service started.");
 
         loop {
             tokio::select! {

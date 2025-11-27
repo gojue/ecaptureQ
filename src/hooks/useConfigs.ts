@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
-import { ApiService } from '@/services/apiService';
-import type { Configs } from '@/types';
+import { useState, useEffect, useCallback } from "react";
+import { ApiService } from "@/services/apiService";
+import type { Configs } from "@/types";
 
 export function useConfigs() {
   const [configs, setConfigs] = useState<Configs>({});
@@ -16,23 +16,28 @@ export function useConfigs() {
       setOriginalConfigs(loadedConfigs);
       setHasChanges(false);
     } catch (error) {
-      console.error('Failed to load configs:', error);
+      console.error("Failed to load configs:", error);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  const updateConfigs = useCallback((patch: Partial<Configs>) => {
-    setConfigs(prev => {
-      const newConfigs = { ...prev, ...patch };
-      setHasChanges(JSON.stringify(newConfigs) !== JSON.stringify(originalConfigs));
-      return newConfigs;
-    });
-  }, [originalConfigs]);
+  const updateConfigs = useCallback(
+    (patch: Partial<Configs>) => {
+      setConfigs((prev) => {
+        const newConfigs = { ...prev, ...patch };
+        setHasChanges(
+          JSON.stringify(newConfigs) !== JSON.stringify(originalConfigs),
+        );
+        return newConfigs;
+      });
+    },
+    [originalConfigs],
+  );
 
   const saveConfigs = useCallback(async () => {
     if (!hasChanges) return;
-    
+
     setIsLoading(true);
     try {
       const userSqlChanged = configs.user_sql !== originalConfigs.user_sql;
@@ -45,7 +50,7 @@ export function useConfigs() {
       setOriginalConfigs(configs);
       setHasChanges(false);
     } catch (error) {
-      console.error('Failed to save configs:', error);
+      console.error("Failed to save configs:", error);
       throw error;
     } finally {
       setIsLoading(false);
