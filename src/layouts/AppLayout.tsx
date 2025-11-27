@@ -1,9 +1,15 @@
-import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
-import { CapturePage } from '@/pages/CapturePage';
-import { SettingsPage } from '@/pages/SettingsPage';
-import { Wifi, Settings } from 'lucide-react';
-import { useAppState } from '@/hooks/useAppState';
-import { useResponsive } from '@/hooks/useResponsive';
+import {
+  Routes,
+  Route,
+  Link,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
+import { CapturePage } from "@/pages/CapturePage";
+import { SettingsPage } from "@/pages/SettingsPage";
+import { Wifi, Settings } from "lucide-react";
+import { useAppState } from "@/hooks/useAppState";
+import { useResponsive } from "@/hooks/useResponsive";
 
 export function AppLayout() {
   const location = useLocation();
@@ -18,12 +24,14 @@ export function AppLayout() {
     return (
       <div className="h-[100dvh] flex flex-col bg-gray-100 dark:bg-gray-900 pt-[env(safe-area-inset-top)]">
         {/* Top App Bar - only show on capture page */}
-        {location.pathname === '/' && (
+        {location.pathname === "/" && (
           <header className="bg-white dark:bg-gray-800 shadow-md h-16 flex items-center justify-between px-4 z-10 flex-shrink-0">
-            <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">ecaptureQ</h1>
+            <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              ecaptureQ
+            </h1>
             <div className="flex items-center space-x-2">
-              <button 
-                onClick={() => navigate('/settings')} 
+              <button
+                onClick={() => navigate("/settings")}
                 className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400"
               >
                 <Settings size={20} />
@@ -49,26 +57,28 @@ export function AppLayout() {
       {/* Sidebar Navigation */}
       <aside className="w-56 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col flex-shrink-0">
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">ecaptureQ</h1>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+            ecaptureQ
+          </h1>
         </div>
         <nav className="flex-1 p-4 space-y-2">
-          <Link 
-            to="/" 
+          <Link
+            to="/"
             className={`flex items-center space-x-3 px-3 py-2 rounded-md transition-colors ${
-              isActive('/') 
-                ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300' 
-                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+              isActive("/")
+                ? "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300"
+                : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
             }`}
           >
             <Wifi size={20} />
             <span>Capture</span>
           </Link>
-          <Link 
-            to="/settings" 
+          <Link
+            to="/settings"
             className={`flex items-center space-x-3 px-3 py-2 rounded-md transition-colors ${
-              isActive('/settings') 
-                ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300' 
-                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+              isActive("/settings")
+                ? "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300"
+                : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
             }`}
           >
             <Settings size={20} />

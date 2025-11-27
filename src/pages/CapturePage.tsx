@@ -1,10 +1,10 @@
-import { useCallback } from 'react';
-import { useAppState } from '@/hooks/useAppState';
-import { useResponsive } from '@/hooks/useResponsive';
-import { ResponsivePacketView } from '@/components/ResponsivePacketView';
-import { DetailModal } from '@/components/DetailModal';
-import { Play, Square, Loader2, Trash2 } from 'lucide-react';
-import type { PacketData } from '@/types';
+import { useCallback } from "react";
+import { useAppState } from "@/hooks/useAppState";
+import { useResponsive } from "@/hooks/useResponsive";
+import { ResponsivePacketView } from "@/components/ResponsivePacketView";
+import { DetailModal } from "@/components/DetailModal";
+import { Play, Square, Loader2, Trash2 } from "lucide-react";
+import type { PacketData } from "@/types";
 
 interface CapturePageProps {
   appState?: {
@@ -23,7 +23,7 @@ export function CapturePage({ appState: providedAppState }: CapturePageProps) {
   const localAppState = useAppState();
   const appState = providedAppState || localAppState;
   const { isMobile } = useResponsive();
-  
+
   const {
     isCapturing,
     isLoading,
@@ -39,7 +39,7 @@ export function CapturePage({ appState: providedAppState }: CapturePageProps) {
     try {
       await startCapture();
     } catch (error) {
-      console.error('Failed to start capture:', error);
+      console.error("Failed to start capture:", error);
     }
   }, [startCapture]);
 
@@ -47,22 +47,25 @@ export function CapturePage({ appState: providedAppState }: CapturePageProps) {
     try {
       await stopCapture();
     } catch (error) {
-      console.error('Failed to stop capture:', error);
+      console.error("Failed to stop capture:", error);
     }
   }, [stopCapture]);
 
-  const handlePacketClick = useCallback((packet: typeof packets[0]) => {
-    try {
-      console.log('Packet clicked:', packet); // 调试信息
-      if (!packet) {
-        console.warn('Attempting to select null/undefined packet');
-        return;
+  const handlePacketClick = useCallback(
+    (packet: (typeof packets)[0]) => {
+      try {
+        console.log("Packet clicked:", packet); // 调试信息
+        if (!packet) {
+          console.warn("Attempting to select null/undefined packet");
+          return;
+        }
+        selectPacket(packet);
+      } catch (error) {
+        console.error("Error in handlePacketClick:", error);
       }
-      selectPacket(packet);
-    } catch (error) {
-      console.error('Error in handlePacketClick:', error);
-    }
-  }, [selectPacket]);
+    },
+    [selectPacket],
+  );
 
   const handleModalClose = useCallback(() => {
     selectPacket(null);
@@ -83,20 +86,22 @@ export function CapturePage({ appState: providedAppState }: CapturePageProps) {
             <div className="flex items-center space-x-3 flex-1 min-w-0">
               {/* Status Indicator */}
               <div className="flex items-center space-x-2">
-                <div className={`w-3 h-3 rounded-full ${
-                  isCapturing ? 'bg-green-500 animate-pulse' : 'bg-gray-400'
-                }`} />
+                <div
+                  className={`w-3 h-3 rounded-full ${
+                    isCapturing ? "bg-green-500 animate-pulse" : "bg-gray-400"
+                  }`}
+                />
                 <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                  {isCapturing ? 'Capturing' : 'Stopped'}
+                  {isCapturing ? "Capturing" : "Stopped"}
                 </span>
               </div>
-              
+
               {/* Packet Count */}
               <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
                 {packets.length.toLocaleString()} packets
               </span>
             </div>
-            
+
             {/* Control Buttons */}
             <div className="flex items-center space-x-2 flex-shrink-0">
               {/* Clear Button - always visible */}
@@ -108,26 +113,26 @@ export function CapturePage({ appState: providedAppState }: CapturePageProps) {
                 <Trash2 size={16} />
                 {!isMobile && <span>Clear</span>}
               </button>
-              
+
               {/* Start/Stop Button */}
               <button
                 onClick={isCapturing ? handleStop : handleStart}
                 disabled={isLoading}
                 className={`flex items-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition-colors disabled:opacity-75 disabled:cursor-wait ${
                   isCapturing
-                    ? 'bg-red-600 hover:bg-red-700 text-white'
-                    : 'bg-green-600 hover:bg-green-700 text-white'
+                    ? "bg-red-600 hover:bg-red-700 text-white"
+                    : "bg-green-600 hover:bg-green-700 text-white"
                 }`}
               >
                 {isLoading ? (
                   <>
                     <Loader2 size={16} className="animate-spin" />
-                    <span>{isCapturing ? 'Stopping...' : 'Starting...'}</span>
+                    <span>{isCapturing ? "Stopping..." : "Starting..."}</span>
                   </>
                 ) : (
                   <>
                     {isCapturing ? <Square size={16} /> : <Play size={16} />}
-                    <span>{isCapturing ? 'Stop' : 'Start'}</span>
+                    <span>{isCapturing ? "Stop" : "Start"}</span>
                   </>
                 )}
               </button>
@@ -140,16 +145,13 @@ export function CapturePage({ appState: providedAppState }: CapturePageProps) {
       <ResponsivePacketView
         packets={packets}
         onPacketClick={handlePacketClick}
-        viewMode={isMobile ? 'cards' : 'table'}
+        viewMode={isMobile ? "cards" : "table"}
         autoScroll={true}
       />
 
       {/* Detail Modal */}
       {selectedPacket && (
-        <DetailModal
-          packet={selectedPacket}
-          onClose={handleModalClose}
-        />
+        <DetailModal packet={selectedPacket} onClose={handleModalClose} />
       )}
     </div>
   );

@@ -1,7 +1,7 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { listen } from '@tauri-apps/api/event';
-import { ApiService } from '@/services/apiService';
-import type { PacketData } from '@/types';
+import { useState, useCallback, useRef, useEffect } from "react";
+import { listen } from "@tauri-apps/api/event";
+import { ApiService } from "@/services/apiService";
+import type { PacketData } from "@/types";
 
 export interface AppState {
   isCapturing: boolean;
@@ -15,7 +15,7 @@ export function useAppState() {
   const [isLoading, setIsLoading] = useState(false);
   const [packets, setPackets] = useState<PacketData[]>([]);
   const [selectedPacket, setSelectedPacket] = useState<PacketData | null>(null);
-  
+
   const unlistenRef = useRef<(() => void) | null>(null);
 
   // 设置事件监听
@@ -24,15 +24,15 @@ export function useAppState() {
 
     const setupEventListener = async () => {
       try {
-        unlisten = await listen<PacketData[]>('packet-data', (event) => {
+        unlisten = await listen<PacketData[]>("packet-data", (event) => {
           const newPackets = event.payload;
           if (newPackets.length > 0) {
-            setPackets(prev => [...prev, ...newPackets]);
+            setPackets((prev) => [...prev, ...newPackets]);
           }
         });
         unlistenRef.current = unlisten;
       } catch (error) {
-        console.error('Failed to setup event listener:', error);
+        console.error("Failed to setup event listener:", error);
       }
     };
 
@@ -55,15 +55,14 @@ export function useAppState() {
    */
   const startCapture = useCallback(async () => {
     if (isCapturing) return;
-    
+
     setIsLoading(true);
     try {
       // 启动后端捕获服务
       await ApiService.startCapture();
-      
+
       // 设置捕获状态为 true，这会触发 useEffect 设置事件监听
       setIsCapturing(true);
-
     } catch (error) {
       console.error("启动流程出错:", error);
       setIsCapturing(false);
@@ -80,12 +79,12 @@ export function useAppState() {
    */
   const stopCapture = useCallback(async () => {
     if (!isCapturing) return;
-    
+
     setIsLoading(true);
     try {
       // 停止后端捕获服务
       await ApiService.stopCapture();
-      
+
       // 设置捕获状态为 false，这会触发 useEffect 清除事件监听
       setIsCapturing(false);
 
@@ -122,7 +121,7 @@ export function useAppState() {
     isLoading,
     packets,
     selectedPacket,
-    
+
     // 操作方法
     startCapture,
     stopCapture,

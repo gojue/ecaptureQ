@@ -7,10 +7,10 @@ use tauri::Manager;
 use tokio::time::{Duration, sleep};
 use wg::AsyncWaitGroup;
 
+use crate::core::{actor::create_capture_df, queries};
 #[cfg(all(not(decoupled), any(target_os = "linux", target_os = "android")))]
 use crate::services::capture::CaptureManager;
 use crate::services::{push_service::PushService, websocket::WebsocketService};
-use crate::core::{actor::create_capture_df, queries};
 use crate::tauri_bridge::state::{AppState, Configs, RunState};
 
 #[tauri::command]
@@ -56,7 +56,7 @@ pub async fn start_capture(
         let capture_wg = AsyncWaitGroup::new();
         capture_wg.add(1);
         let capture_wg_clone = capture_wg.clone();
-        
+
         tokio::spawn(async move {
             let result = capture_manager
                 .run(
@@ -170,8 +170,7 @@ pub async fn get_configs(
 pub async fn modify_configs(
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
-    #[allow(non_snake_case)]
-    mut newConfigs: Configs,
+    #[allow(non_snake_case)] mut newConfigs: Configs,
 ) -> Result<(), String> {
     // Normalize empty strings to None
     if let Some(ref user_sql) = newConfigs.user_sql {
@@ -182,7 +181,7 @@ pub async fn modify_configs(
             newConfigs.user_sql = Some(trimmed.to_string());
         }
     }
-    
+
     let data_dir = app_handle
         .path()
         .app_data_dir()
@@ -191,18 +190,18 @@ pub async fn modify_configs(
     newConfigs
         .save_json_to_app_dir(&data_dir)
         .map_err(|_| "failed to save json")?;
-    
+
     let loaded_configs =
         Configs::get_json_from_app_dir(&data_dir).map_err(|_| "failed to load json")?;
     state.init_configs(loaded_configs).await;
-    
+
     Ok(())
 }
 
 #[tauri::command]
 pub async fn verify_user_sql(user_sql: Option<String>) -> Result<(), String> {
     info!("triggered verify_user_sql");
-    
+
     let normalized_user_sql = user_sql.and_then(|s| {
         let trimmed = s.trim();
         if trimmed.is_empty() {
@@ -211,29 +210,29 @@ pub async fn verify_user_sql(user_sql: Option<String>) -> Result<(), String> {
             Some(trimmed.to_string())
         }
     });
-    
+
     if normalized_user_sql.is_none() {
         info!("user_sql is None after normalization, validation passed");
         return Ok(());
     }
-    
+
     if let Some(ref sql_text) = normalized_user_sql {
         info!("Validating SQL: {}", sql_text);
-        
+
         let mut ctx = SQLContext::new();
         let df = create_capture_df();
         ctx.register("packets", df.lazy());
-        
+
         let zero_index: u64 = 0;
         let validation_sql = queries::new_packets_customized_no_payload(&zero_index, sql_text);
-        
+
         ctx.execute(&validation_sql)
             .and_then(|lf| lf.collect())
             .map_err(|e| {
                 error!("SQL validation failed: {}", e);
                 format!("SQL validation failed: {}", e)
             })?;
-        
+
         info!("SQL validation passed");
     }
 
