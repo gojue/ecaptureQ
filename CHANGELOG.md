@@ -1,6 +1,15 @@
-# v0.2.2 (2025-11-23)
+# v0.3.0 (2025-12-07)
 
 ## What's Changed
+
+**Full Changelog**: https://github.com/gojue/ecaptureQ/compare/v0.2.2...v0.3.0
+
+<hr>
+
+# v0.2.2 (2025-11-23)
+## What's Changed
+* refactor: improve WS cancellation, fix config updates, and format code by @zenyanle in https://github.com/gojue/ecaptureQ/pull/43
+* fix: remove draft option from GitHub release action in release.yml by @cfc4n in https://github.com/gojue/ecaptureQ/pull/45
 
 **Full Changelog**: https://github.com/gojue/ecaptureQ/compare/v0.2.1...v0.2.2
 
