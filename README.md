@@ -133,3 +133,7 @@ For detailed filtering syntax, examples, and best practices:
 
   * **[ecapture](https://github.com/gojue/ecapture)**: Capturing SSL/TLS plaintext without a CA certificate using eBPF.
   * **[Tauri](https://tauri.app/)**: Build smaller, faster, and more secure desktop and mobile applications with a web frontend.
+
+## Special Thanks
+
+  * **[Dichgrem](https://github.com/Dichgrem)**: For the invaluable help with testing and product refinement.
