@@ -153,13 +153,13 @@ ssh -N -L 127.0.0.1:28256:127.0.0.1:28256 user@linux-host
 
 *面板演示使用两个本地合成 Protobuf 来源；实际使用时替换为自己的 eCapture 地址。*
 
-也可以启动时指定来源：
+也可以启动时指定来源。下面以 Linux 安装后的命令为例；macOS ZIP 在解压目录使用 `./ecaptureq-web`：
 
 ```sh
-./ecaptureq-web --mode live --ecaptureq ws://127.0.0.1:28256/
+ecaptureq-web --mode live --ecaptureq ws://127.0.0.1:28256/
 ```
 
-需要在重启后保留来源配置时，将包内 `config/sources.example.json` 复制为自己的文件，修改端点后通过 `--sources sources.local.json` 启动。未指定配置文件时，在界面新增的来源只保留在当前实例中。桌面带参数启动、配置格式及错误处理见[使用参考](docs/reference.md)。
+需要在重启后保留来源配置时，将示例配置复制为自己的可写文件（ZIP 内为 `config/sources.example.json`，Linux Web 安装后为 `/usr/share/doc/ecaptureq-web/config/sources.example.json`），修改端点后通过 `--sources sources.local.json` 启动。未指定配置文件时，在界面新增的来源只保留在当前实例中。桌面带参数启动、配置格式及错误处理见[使用参考](docs/reference.md)。
 
 ## 日常使用与常见问题
 

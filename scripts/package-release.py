@@ -174,8 +174,10 @@ def package(kind, target_os, arch, version, binary, output, dmg=False, signing="
                 "If macOS blocks the first launch, verify the download source and checksum, then use "
                 "System Settings > Privacy & Security > Open Anyway for this app.\n"
             )
+        product_title = "eCaptureQ Web" if kind == "server" else "eCaptureQ"
+        system_title = "macOS" if target_os == "darwin" else target_os
         (stage / "INSTALL.txt").write_text(
-            f"eCaptureQ {version} ({kind}, {target_os}/{arch})\n\n" +
+            f"{product_title} {version} ({system_title}/{arch})\n\n" +
             ("Web: run ecaptureq-web --addr 127.0.0.1:28257 and open the address in your browser.\n"
              if kind == "server" else "Open eCaptureQ from your applications menu; no separately started server is needed.\n")
             + runtime + "\nSigning status: " + signing + ".\n" + signing_help +

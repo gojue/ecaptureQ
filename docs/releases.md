@@ -56,7 +56,8 @@ configuration changes. Uninstall leaves user-owned configuration untouched.
 Desktop DEB dependencies require glibc 2.39+, GTK 4.14+, GLib 2.80+ and WebKitGTK
 2.44+ (6.0 API). RPM uses the corresponding Fedora package names and the same
 version floors; testing on Fedora 43 does not establish compatibility with older
-RHEL/CentOS. Clean-container checks install Web first without GTK, check its HTTP
+RHEL/CentOS. Clean-container checks enable documentation retention (minimal container images
+otherwise discard it), then install Web first without GTK, check its HTTP
 health and shutdown, install the app with dependencies, check dynamic linking,
 `--help`, menu metadata and uninstall. They are not graphical-session acceptance.
 Windows needs WebView2. macOS retains a 12.0 build minimum; older OS versions still

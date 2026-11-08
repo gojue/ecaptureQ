@@ -5,5 +5,5 @@ Comment=Inspect eCapture network protocol events
 Exec=ecaptureq
 Icon=ecaptureq
 Terminal=false
-Categories=Development;Network;
+Categories=Network;
 StartupWMClass=eCaptureQ

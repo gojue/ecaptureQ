@@ -1,6 +1,10 @@
 #!/bin/bash
 # Run only inside an ephemeral native-architecture Ubuntu/Fedora CI container.
 set -euo pipefail
+if [ ! -f /.dockerenv ]; then
+  echo 'This installation check must run inside a disposable Docker container.' >&2
+  exit 1
+fi
 format=$1
 arch=$2
 case "$format:$arch" in deb:amd64|deb:arm64|rpm:amd64|rpm:arm64) ;; *) exit 2 ;; esac
@@ -8,6 +12,11 @@ version=$(cat VERSION)
 web="/packages/ecaptureq-web-$version-linux-$arch.$format"
 app="/packages/ecaptureq-$version-linux-$arch.$format"
 if [ "$format" = deb ]; then
+  # Ubuntu's minimal container deliberately discards /usr/share/doc at unpack.
+  # Validate the full package payload, as on a normal desktop installation.
+  for config in /etc/dpkg/dpkg.cfg.d/*; do
+    if [ -f "$config" ]; then sed -i '\|^[[:space:]]*path-exclude[[:space:]=]*/usr/share/doc/|d' "$config"; fi
+  done
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -qq
   apt-get install -y --no-install-recommends "$web" curl python3 desktop-file-utils
@@ -19,7 +28,7 @@ if [ "$format" = deb ]; then
     dpkg --compare-versions "$(dpkg-deb -f "$app" Version)" lt "${version%%-*}"
   fi
 else
-  dnf install -y "$web" curl-minimal python3 desktop-file-utils
+  dnf --setopt=tsflags= install -y "$web" curl-minimal python3 desktop-file-utils
   if rpm -q gtk4 >/dev/null 2>&1; then echo 'Web installation unexpectedly required GTK.' >&2; exit 1; fi
   rpm_arch=x86_64
   if [ "$arch" = arm64 ]; then rpm_arch=aarch64; fi
@@ -50,7 +59,7 @@ PY
 if [ "$format" = deb ]; then
   apt-get install -y --no-install-recommends "$app"
 else
-  dnf install -y "$app"
+  dnf --setopt=tsflags= install -y "$app"
 fi
 ldd /usr/bin/ecaptureq > /tmp/ecaptureq-ldd.txt
 if grep -q 'not found' /tmp/ecaptureq-ldd.txt; then cat /tmp/ecaptureq-ldd.txt; exit 1; fi

@@ -209,20 +209,7 @@ jobs:
         env:
           NATIVE_ARCH: ${{ matrix.arch }}
         shell: bash
-        run: |
-          version=$(cat VERSION)
-          for product in ecaptureq ecaptureq-web; do
-            ditto -x -k "dist/packages/$product-$version-macos-universal.zip" dist/installed
-          done
-          app="dist/installed/ecaptureq-$version-macos-universal/eCaptureQ.app"
-          web="dist/installed/ecaptureq-web-$version-macos-universal/ecaptureq-web"
-          test "$(uname -m)" = "$NATIVE_ARCH"
-          lipo -verify_arch x86_64 arm64 "$app/Contents/MacOS/eCaptureQ"
-          lipo -verify_arch x86_64 arm64 "$web"
-          codesign --verify --all-architectures --deep --strict "$app"
-          codesign --verify --all-architectures --strict "$web"
-          arch -"$NATIVE_ARCH" "$app/Contents/MacOS/eCaptureQ" --help
-          arch -"$NATIVE_ARCH" "$web" --help
+        run: bash scripts/verify-macos-package.sh dist/packages "$NATIVE_ARCH"
   linux-install:
     needs: [web, desktop]
     strategy:

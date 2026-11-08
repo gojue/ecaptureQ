@@ -43,7 +43,7 @@ jobs:
           python3 scripts/check-version.py
           python3 -B -m unittest discover -s test -p '*_test.py'
           sh -n scripts/build-desktop.sh
-          bash -n scripts/sign-macos.sh scripts/verify-linux-install.sh
+          bash -n scripts/sign-macos.sh scripts/verify-linux-install.sh scripts/verify-macos-package.sh
           sh -n scripts/build-macos-universal.sh
   server:
     runs-on: ubuntu-24.04
