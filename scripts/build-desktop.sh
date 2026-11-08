@@ -15,10 +15,14 @@ fi
 mkdir -p dist
 case "$target_os" in
   darwin)
-    bundle=dist/eCaptureQ.app
-    # Never carry stale resources or an old code signature into a fresh build.
-    rm -rf "$bundle"
+    desktop_output=dist/eCaptureQ.app
+    # Finder must never index a visible .app before its icon and plist exist.
+    # Stage on the same volume, keeping the previous app on compilation failure.
+    desktop_stage=$(mktemp -d dist/.ecaptureq-build.XXXXXX)
+    trap 'rm -rf "$desktop_stage"' EXIT HUP INT TERM
+    bundle="$desktop_stage/eCaptureQ.app"
     mkdir -p "$bundle/Contents/MacOS" "$bundle/Contents/Resources"
+    sh scripts/build-macos-icon.sh "$bundle/Contents/Resources/eCaptureQ.icns"
     # Prefer Apple's SDK-matched compiler over an unrelated clang on PATH.
     desktop_cc=${CC:-$(xcrun --find clang)}
     desktop_sdk=${SDKROOT:-$(xcrun --show-sdk-path)}
@@ -29,7 +33,12 @@ case "$target_os" in
     cp build/desktop/Info.plist "$bundle/Contents/Info.plist"
     /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $desktop_bundle_version" "$bundle/Contents/Info.plist"
     /usr/libexec/PlistBuddy -c "Set :ECaptureQVersion $desktop_version" "$bundle/Contents/Info.plist"
-    echo "Built $bundle ($desktop_version, sign the final bundle before distribution)."
+    # Launch Services uses the bundle modification time to detect metadata updates.
+    touch "$bundle"
+    # Never carry stale resources or an old code signature into a fresh build.
+    rm -rf "$desktop_output"
+    mv "$bundle" "$desktop_output"
+    echo "Built $desktop_output ($desktop_version, sign the final bundle before distribution)."
     ;;
   windows)
     go build -trimpath -tags desktop,production -ldflags '-s -w -H windowsgui' -o dist/eCaptureQ.exe ./cmd/desktop

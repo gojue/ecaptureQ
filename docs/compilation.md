@@ -96,7 +96,16 @@ go build -trimpath -tags desktop,production -ldflags "-s -w -H windowsgui" -o di
 
 开发运行使用 `go run -tags desktop ./cmd/desktop --mode mock`。桌面直接嵌入共享 UI 和 Handler，无须另启动 Web 服务，也不默认额外监听 TCP 端口。
 
-macOS 编译脚本会重建 `dist/eCaptureQ.app`，不保留旧包中的资源或签名。分发前单独执行默认的免费 ad-hoc 签名：
+macOS 编译脚本先在隐藏的临时目录完成整个应用包，再替换 `dist/eCaptureQ.app`，
+并更新包的修改时间，让 Finder 读取完整的图标和元数据；编译失败时保留上次的构建。
+新包不保留旧包中的资源或签名。
+
+应用图标直接复用 `frontend/ecapture-logo.svg`：构建时通过系统 AppKit 与 `iconutil`
+生成包含 16–1024 像素和 Retina 尺寸的 `Contents/Resources/eCaptureQ.icns`，由
+`Info.plist` 的 `CFBundleIconFile` 引用，无须额外图像工具或另行维护位图副本。
+`CFBundleLocalizations` 声明前端自行管理的英文与简体中文资源，开发语言为英文。
+
+分发前单独执行默认的免费 ad-hoc 签名：
 
 ```sh
 bash scripts/sign-macos.sh dist/eCaptureQ.app adhoc

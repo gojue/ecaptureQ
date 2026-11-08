@@ -2,6 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createPlatformAdapter,fetchWithTimeout} from '../frontend/platform.js';
+import {setLanguage} from '../frontend/i18n.js';
 
 const json = (value,status=200) => new Response(JSON.stringify(value),{status});
 test('desktop exports, clipboard and links use native same-origin APIs',async () => {
@@ -20,15 +21,41 @@ test('desktop exports, clipboard and links use native same-origin APIs',async ()
     assert.equal(call.options.headers['X-Ecapture-UI'],'1');
     assert.equal(call.options.headers['Content-Type'],'application/json');
   }
+  assert.deepEqual(JSON.parse(calls[1].options.body),{filename:'test.json',content:'{}',locale:'en'});
   assert.equal(JSON.parse(calls[2].options.body).text,'captured <script> text');
+});
+test('desktop save dialogs receive the selected locale without changing export data',async()=>{
+  const exports=[];
+  const platform=createPlatformAdapter({fetch:async(url,options)=>{
+    if(url==='api/platform')return json({desktop:true});
+    exports.push(JSON.parse(options.body));
+    return json({saved:true});
+  }});
+  try {
+    for(const language of ['zh-CN','en']) {
+      setLanguage(language);
+      await platform.exportJSON('capture.json','{"captured":"响应"}');
+    }
+    assert.deepEqual(exports,[
+      {filename:'capture.json',content:'{"captured":"响应"}',locale:'zh-CN'},
+      {filename:'capture.json',content:'{"captured":"响应"}',locale:'en'}
+    ]);
+  } finally { setLanguage('en'); }
 });
 test('desktop failures never silently become browser downloads',async () => {
   for (const location of [{protocol:'wails:',hostname:'localhost'},{protocol:'http:',hostname:'wails.localhost'}]) {
     const platform=createPlatformAdapter({location,fetch:async()=>json({},404)});
-    await assert.rejects(platform.exportJSON('test.json','{}'),/桌面能力接口不可用/);
+    await assert.rejects(platform.exportJSON('test.json','{}'),/Native capabilities are unavailable/);
   }
   const platform=createPlatformAdapter({fetch:async url=>url==='api/platform'?json({desktop:true}):json({error:'export_too_large'},413)});
   await assert.rejects(platform.exportJSON('test.json','{}'),/export_too_large/);
+});
+test('native error descriptions use the selected language at invocation time',async () => {
+  const platform=createPlatformAdapter({fetch:async url=>url==='api/platform'?json({desktop:true}):json({error:'clipboard_failed'},500)});
+  for(const [language,message] of [['en',/Could not write to the system clipboard/],['zh-CN',/无法写入系统剪贴板/],['en',/Could not write to the system clipboard/]]) {
+    setLanguage(language);
+    await assert.rejects(platform.copyText('响应'),message);
+  }
 });
 test('external URL adapters reject executable URL schemes',async () => {
   const platform=createPlatformAdapter({fetch:async()=>json({desktop:true})});

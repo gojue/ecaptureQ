@@ -27,7 +27,7 @@ const (
 // Native is implemented only by the desktop entry point. SaveFile must prompt
 // for a destination; the frontend can suggest a name but cannot choose a path.
 type Native interface {
-	SaveFile(filename, content string) (saved bool, err error)
+	SaveFile(filename, content, locale string) (saved bool, err error)
 	CopyText(text string) error
 	OpenURL(url string) error
 }
@@ -111,8 +111,17 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		var request struct {
 			Filename string `json:"filename"`
 			Content  string `json:"content"`
+			Locale   string `json:"locale"`
 		}
 		if !decode(&request) {
+			return
+		}
+		switch request.Locale {
+		case "":
+			request.Locale = "en"
+		case "en", "zh-CN":
+		default:
+			respond(w, r, http.StatusBadRequest, map[string]any{"error": "invalid_locale"})
 			return
 		}
 		if !validFilename(request.Filename) {
@@ -128,7 +137,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		defer h.exportMu.Unlock()
-		saved, err := h.native.SaveFile(request.Filename, request.Content)
+		saved, err := h.native.SaveFile(request.Filename, request.Content, request.Locale)
 		if err != nil {
 			respond(w, r, http.StatusInternalServerError, map[string]any{"error": "export_failed"})
 			return

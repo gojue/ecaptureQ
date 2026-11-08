@@ -149,9 +149,9 @@ ssh -N -L 127.0.0.1:28256:127.0.0.1:28256 user@linux-host
 
 **Web 模式的连接由 `ecaptureq-web` 发起，不是由浏览器发起。** 地址中的 `127.0.0.1` 指运行服务的机器，SSH 隧道也应建在那台机器上。桌面模式则由桌面应用所在机器连接。
 
-![数据源面板：两个合成事件来源均已连接](docs/images/sources.png)
+![数据源表单：主机和采集模块自动填写](docs/images/sources.png)
 
-*面板演示使用两个本地合成 Protobuf 来源；实际使用时替换为自己的 eCapture 地址。*
+*表单演示使用本地合成来源：主机由 WebSocket 地址填写，模块从启动命令识别，均可手动修改。实际使用时替换为自己的 eCapture 地址。*
 
 也可以启动时指定来源。下面以 Linux 安装后的命令为例；macOS ZIP 在解压目录使用 `./ecaptureq-web`：
 
