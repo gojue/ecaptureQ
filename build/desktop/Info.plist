@@ -13,7 +13,7 @@
   <array><string>en</string><string>zh-Hans</string></array>
   <key>CFBundleShortVersionString</key><string>1.0.0</string>
   <key>CFBundleVersion</key><string>3</string>
-  <key>ECaptureQVersion</key><string>1.0.0-alpha.3</string>
+  <key>ECaptureQVersion</key><string>1.0.0</string>
   <key>LSMinimumSystemVersion</key><string>12.0</string>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSAppTransportSecurity</key>
