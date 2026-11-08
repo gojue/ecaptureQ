@@ -6,5 +6,6 @@ package frontend
 import "embed"
 
 // Files is the same asset tree for the HTTP server and the Wails asset server.
+//
 //go:embed *.html *.css *.js *.json *.svg
 var Files embed.FS
