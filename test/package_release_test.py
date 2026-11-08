@@ -12,6 +12,9 @@ import subprocess
 import tarfile
 import tempfile
 import unittest
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from unittest.mock import patch
 import zipfile
 
@@ -48,11 +51,11 @@ class ReleasePackageTest(unittest.TestCase):
 
     def test_tar_contains_only_selected_executable_and_public_docs(self):
         archive = self.package("linux")
-        prefix = "ecaptureq-1.2.3-rc.1-server-linux-arm64"
+        prefix = "ecaptureq-web-1.2.3-rc.1-linux-arm64"
         with tarfile.open(archive) as contents:
             names = contents.getnames()
             self.assertFalse(any("private" in name or "sources.local" in name for name in names))
-            binary = contents.getmember(prefix + "/ecaptureq-server")
+            binary = contents.getmember(prefix + "/ecaptureq-web")
             self.assertTrue(binary.mode & stat.S_IXUSR)
             self.assertEqual((binary.uid, binary.gid), (0, 0))
             self.assertEqual(contents.extractfile(binary).read(), b"synthetic executable")
@@ -66,8 +69,8 @@ class ReleasePackageTest(unittest.TestCase):
     def test_windows_zip_contains_exe_and_sources_example(self):
         archive = self.package("windows")
         with zipfile.ZipFile(archive) as contents:
-            prefix = "ecaptureq-1.2.3-rc.1-server-windows-arm64/"
-            self.assertEqual(contents.read(prefix + "ecaptureq-server.exe"), b"synthetic executable")
+            prefix = "ecaptureq-web-1.2.3-rc.1-windows-arm64/"
+            self.assertEqual(contents.read(prefix + "ecaptureq-web.exe"), b"synthetic executable")
             self.assertEqual(contents.read(prefix + "config/sources.example.json"), b"[]")
             self.assertFalse(any("private" in name or "sources.local" in name for name in contents.namelist()))
 
@@ -82,7 +85,7 @@ class ReleasePackageTest(unittest.TestCase):
         for target_os in ("linux", "windows"):
             with self.subTest(target_os=target_os):
                 archive = self.package(target_os)
-                prefix = f"ecaptureq-1.2.3-rc.1-server-{target_os}-arm64/"
+                prefix = f"ecaptureq-web-1.2.3-rc.1-{target_os}-arm64/"
                 if target_os == "linux":
                     with tarfile.open(archive) as contents:
                         readme = contents.extractfile(prefix + "README.md").read()
@@ -117,7 +120,7 @@ class ReleasePackageTest(unittest.TestCase):
 
     def test_signing_status_cannot_be_used_for_other_platforms_or_server(self):
         for signing in ("adhoc", "notarized"):
-            for kind, target_os in (("server", "darwin"), ("desktop", "linux"), ("desktop", "windows")):
+            for kind, target_os in (("desktop", "linux"), ("desktop", "windows")) + ((("server", "darwin"),) if signing == "notarized" else ()):
                 with self.subTest(signing=signing, kind=kind, target_os=target_os):
                     with self.assertRaisesRegex(ValueError, "only supported for macOS desktop"):
                         packager.package(kind, target_os, "arm64", "1.2.3", self.binary, self.output, signing=signing)
@@ -175,7 +178,7 @@ class ReleasePackageTest(unittest.TestCase):
     def test_adhoc_package_has_truthful_metadata_and_first_launch_instructions(self):
         archive = self.package_macos("adhoc")
         with zipfile.ZipFile(archive) as contents:
-            prefix = "ecaptureq-1.2.3-desktop-darwin-arm64/"
+            prefix = "ecaptureq-1.2.3-macos-arm64/"
             info = json.loads(contents.read(prefix + "BUILD-INFO.json"))
             self.assertEqual(info["signing"], "adhoc")
             self.assertFalse(info["notarized"])
@@ -212,7 +215,7 @@ class ReleasePackageTest(unittest.TestCase):
     def test_verified_notarized_package_records_true_status(self):
         archive = self.package_macos("notarized", signature="developer-id")
         with zipfile.ZipFile(archive) as contents:
-            info = json.loads(contents.read("ecaptureq-1.2.3-desktop-darwin-arm64/BUILD-INFO.json"))
+            info = json.loads(contents.read("ecaptureq-1.2.3-macos-arm64/BUILD-INFO.json"))
             self.assertEqual(info["signing"], "notarized")
             self.assertTrue(info["notarized"])
 

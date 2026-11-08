@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=eCaptureQ
+Comment=Inspect eCapture network protocol events
+Exec=ecaptureq
+Icon=ecaptureq
+Terminal=false
+Categories=Network;
+StartupWMClass=eCaptureQ

@@ -23,14 +23,14 @@ Web 和 Desktop 共用以下选项，`--addr` 只用于 Web。运行对应程序
 ## 数据源与配置
 
 README 中的快速开始面向下载包。下面的 `bin/`、`dist/` 示例路径来自源码构建；
-使用发布包时，将路径替换为解压后的可执行文件位置。桌面应用需要带配置启动时，
+使用发布包时，将路径替换为解压后的可执行文件位置，或 Linux 安装后的 `ecaptureq-web` 命令。桌面应用需要带配置启动时，
 先退出已有实例，再从包含自己配置文件的目录执行，例如：
 
 ```sh
 # macOS：应用已安装到 Applications
 /Applications/eCaptureQ.app/Contents/MacOS/eCaptureQ --sources ./sources.local.json --mode live
-# Linux：在解压后的桌面包目录中
-./eCaptureQ --sources ./sources.local.json --mode live
+# Linux：安装 DEB/RPM 后
+ecaptureq --sources ./sources.local.json --mode live
 ```
 
 ```powershell
@@ -39,12 +39,12 @@ README 中的快速开始面向下载包。下面的 `bin/`、`dist/` 示例路�
 ```
 
 `sources.local.json` 是用户自选的配置文件；可复制包内 `config/sources.example.json`
-后修改，也可从内容为 `[]` 的文件开始，在界面新增来源。配置文件应保持可写。
+后修改（Linux 示例位于 `/usr/share/doc/ecaptureq/config/` 或 `/usr/share/doc/ecaptureq-web/config/`），也可从内容为 `[]` 的文件开始，在界面新增来源。配置文件应保持可写。
 
 默认模拟模式不需要采集器。点击顶部「实时 / 模拟」切换；`--mode` 只设置初始展示，只要配置了端点，后台接收始终继续。
 
 ```sh
-./bin/ecaptureq-server --mode live --ecaptureq ws://127.0.0.1:28256/
+./bin/ecaptureq-web --mode live --ecaptureq ws://127.0.0.1:28256/
 # --ecaptureq 可重复，最多 16 个独立来源
 # macOS 桌面带参数运行：
 ./dist/eCaptureQ.app/Contents/MacOS/eCaptureQ --mode live --ecaptureq ws://127.0.0.1:28256/
@@ -57,7 +57,7 @@ README 中的快速开始面向下载包。下面的 `bin/`、`dist/` 示例路�
 ```sh
 cp config/sources.example.json sources.local.json
 # 编辑为自己的端点；也可从内容为 [] 的文件开始
-./bin/ecaptureq-server --sources sources.local.json --mode live
+./bin/ecaptureq-web --sources sources.local.json --mode live
 ```
 
 `--sources` 支持最多 128 KiB 的 JSON 数组。新增来源会原子写回配置；外部修改冲突或保存失败会显示错误且不新增连接。命令行来源仍由命令行提供；未指定文件时来源仅在本次实例内保存。配置只保存连接与登记元数据，不保存捕获记录。启动命令仅展示，登记模块/版本不冒充事件提供的事实。
@@ -69,7 +69,7 @@ cp config/sources.example.json sources.local.json
 所有资产、fetch、下载和平台 API 使用相对路径。支持根路径及子路径：
 
 ```sh
-./bin/ecaptureq-server --addr 127.0.0.1:28257 \
+./bin/ecaptureq-web --addr 127.0.0.1:28257 \
   --base-path /ecaptureq-web/ --exclude-http-path-prefix /ecaptureq-web/
 ```
 

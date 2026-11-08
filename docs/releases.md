@@ -17,31 +17,53 @@ All Go jobs set `GOWORK=off` and `GOFLAGS=-mod=readonly`.
 
 ## Artifact matrix
 
-Every matrix entry produces both amd64 and arm64 artifacts:
+The user-facing products are **eCaptureQ** (the default desktop download) and
+**eCaptureQ Web** (browser deployment). Internal Go entries remain `cmd/desktop`
+and `cmd/server`; they do not imply separate collector products.
 
-| OS | Web server | Desktop | Build environment |
+| OS | eCaptureQ | eCaptureQ Web | Build / installation validation |
 | --- | --- | --- | --- |
-| Linux | tar.gz | tar.gz | Ubuntu 24.04, native amd64/arm64 for desktop |
-| macOS (`darwin`) | ZIP | App bundle ZIP and DMG | macOS 15 Intel/Apple Silicon |
-| Windows | ZIP | Portable EXE ZIP | Windows 2025 amd64 / Windows 11 arm64 |
+| Linux amd64 / arm64 | DEB and RPM | DEB and RPM, no GUI dependencies | Native Ubuntu 24.04 build; clean Ubuntu 24.04 and Fedora 43 install/remove checks on each CPU |
+| macOS universal | DMG and optional ZIP | ZIP | One Xcode SDK builds Intel + Apple Silicon slices; merged packages execute on both native runner types |
+| Windows amd64 / arm64 | Portable EXE ZIP | ZIP | Windows 2025 amd64 / Windows 11 arm64 |
 
-Web binaries use `CGO_ENABLED=0` and need no desktop SDK or libraries. Linux
-desktop needs GTK4 and WebKitGTK 6.0 at runtime (for Ubuntu 24.04,
-`libgtk-4-1 libwebkitgtk-6.0-4`); Windows desktop needs WebView2. macOS builds set
-a 12.0 minimum, but older OS versions still require runtime acceptance. These
-are Wails artifacts; old MSI/AppImage/APK formats are not carried forward.
-Android and iOS are not release targets yet; their support is undecided. They do
-not block the desktop and Web matrix.
+Names are `ecaptureq-VERSION-OS-ARCH.EXT` and
+`ecaptureq-web-VERSION-OS-ARCH.EXT`. The public OS spelling is `macos`, and its
+architecture is always `universal`; users need not select a Mac CPU. Other
+platforms retain `amd64` / `arm64`. There are **15 packages plus SHA256SUMS**.
+Per-file `.sha256` sidecars are used internally between CI jobs and omitted from
+public downloads. Collection verifies all expected files and their hashes, then
+copies only public packages and the aggregate manifest to `release-bundle`.
+A later publication check verifies that manifest again, without regenerating a
+corrupted one. No old alpha.2 asset or tag is renamed or replaced.
 
-Names follow `ecaptureq-VERSION-KIND-OS-ARCH.EXT`. Each archive contains the
-selected executable/app, public documentation, LICENSE/NOTICE, placeholder source
-configuration, `INSTALL.txt` and `BUILD-INFO.json`. No capture, local config or
-collector is included. Build metadata records target, commit and signing status.
+Each package contains public documentation, LICENSE/NOTICE, placeholder source
+configuration, `INSTALL.txt` and `BUILD-INFO.json`. Metadata records the source
+commit, internal kind, OS, architecture and signing status. Universal packages
+also record `architectures: ["amd64", "arm64"]`; validation extracts both slices
+and checks their Go metadata. Merge inputs must have matching app resources and
+version metadata. Final signing happens **after** `lipo`, and verification covers
+every architecture. The Web executable is also ad-hoc signed after merging.
 
-Each artifact has a `.sha256` file. Collection requires all 14 archives/images,
-rejects unexpected/missing assets and verifies every hash before generating
-`SHA256SUMS`. Download `release-bundle` from the Actions run page; CI artifacts
-expire after 7 days. Release assets remain on the Release page.
+Linux packages are produced with **nFPM v2.48.0**, installed using Go **1.26.10**
+as a build tool independently of the application module. They install
+`/usr/bin/ecaptureq` or `/usr/bin/ecaptureq-web`; desktop packages also install the
+application-menu entry and official SVG icon. Documentation and metadata live in
+`/usr/share/doc/ecaptureq` or `/usr/share/doc/ecaptureq-web`. They can coexist;
+there are no install scripts, systemd activation, collector binaries or user
+configuration changes. Uninstall leaves user-owned configuration untouched.
+
+Desktop DEB dependencies require glibc 2.39+, GTK 4.14+, GLib 2.80+ and WebKitGTK
+2.44+ (6.0 API). RPM uses the corresponding Fedora package names and the same
+version floors; testing on Fedora 43 does not establish compatibility with older
+RHEL/CentOS. Clean-container checks enable documentation retention (minimal container images
+otherwise discard it), then install Web first without GTK, check its HTTP
+health and shutdown, install the app with dependencies, check dynamic linking,
+`--help`, menu metadata and uninstall. They are not graphical-session acceptance.
+Windows needs WebView2. macOS retains a 12.0 build minimum; older OS versions still
+need runtime validation. Android/iOS are undecided targets.
+
+CI artifacts expire after 7 days; published Release assets remain available.
 
 ## Publishing a version
 
@@ -52,8 +74,8 @@ expire after 7 days. Release assets remain on the Release page.
 2. Run `make check`, `make release-check`, native builds and the relevant runtime
    acceptance. Check the branch's hosted CI and downloadable packages.
 3. After deciding to publish, push a `v`-prefixed tag matching `VERSION` on the
-   intended commit. For example, VERSION `1.0.0-alpha.2` requires tag
-   `v1.0.0-alpha.2`. The workflow checks an existing tag and never creates one.
+   intended commit. For example, VERSION `1.0.0-alpha.3` requires tag
+   `v1.0.0-alpha.3`. The workflow checks an existing tag and never creates one.
 4. `Release` runs validation and builds before creating the release. A version
    with a SemVer prerelease suffix is marked prerelease and not latest; a stable
    version is marked latest. Notes combine `docs/release-notes.md` and GitHub's
@@ -62,23 +84,21 @@ expire after 7 days. Release assets remain on the Release page.
 The repository's default branch is `main`. After the reviewed changes have been
 committed and merged, use a clean checkout of that branch to tag the reviewed
 commit. **Creating a local tag alone does not start GitHub Actions**: the tag must
-be pushed to `origin`. For the current `1.0.0-alpha.2` version:
+be pushed to `origin`. For the current `1.0.0-alpha.3` version:
 
 ```sh
 git fetch origin main
 git switch main
 git pull --ff-only origin main
 git status --short
-python3 scripts/check-version.py --tag v1.0.0-alpha.2
+python3 scripts/check-version.py --tag v1.0.0-alpha.3
 # Run these two commands only when ready to publish the reviewed version:
-git tag -a v1.0.0-alpha.2 -m "eCaptureQ v1.0.0-alpha.2"
-git push origin refs/tags/v1.0.0-alpha.2
+git tag -a v1.0.0-alpha.3 -m "eCaptureQ v1.0.0-alpha.3"
+git push origin refs/tags/v1.0.0-alpha.3
 ```
 
-The existing `v1.0.0-alpha.1` tag records the earlier release attempt whose macOS
-signing failed. This change prepares `1.0.0-alpha.2`; keep the earlier tag in
-place rather than moving it to the signing fix. No new tag is created by editing
-the version files.
+The published `v1.0.0-alpha.2` remains unchanged. This branch prepares
+`1.0.0-alpha.3`; no new tag is created by changing version files or opening a PR.
 
 If choosing another version, update all version files before committing and use
 the matching tag instead. Do not reuse or overwrite an existing release tag. On
@@ -94,7 +114,8 @@ published files blindly. This development update does not create a tag or releas
 
 ## macOS signing modes
 
-The default is **`adhoc`**, for both CI packages and tag releases. This mode uses
+The default is **`adhoc`**, for both CI packages and tag releases. The optional
+Developer ID mode applies to the desktop app; the universal Web CLI stays ad-hoc. This mode uses
 macOS `codesign` with the ad-hoc identity `-`, verifies the executable and app
 bundle, then creates ZIP/DMG artifacts. It needs no Apple certificate, developer
 membership or signing secrets and does not call Apple's notarization service.
@@ -135,7 +156,7 @@ With explicit `developer-id` mode and complete credentials,
 `scripts/sign-macos.sh` uses a temporary private keychain, signs with hardened
 runtime, submits via `notarytool`, waits up to 30 minutes and staples the accepted
 ticket before packaging. The signer and packager verify the signature/ticket.
-Successful packages record `signing: "notarized"` and `notarized: true`.
+Successful desktop packages record `signing: "notarized"` and `notarized: true`.
 Missing or invalid credentials, signature errors or notarization errors fail the
 release; this explicit mode never silently falls back to ad-hoc signing.
 
@@ -150,7 +171,7 @@ even when compilation, signing integrity and packaging pass.
 ## Verify without publishing
 
 ```sh
-python3 scripts/check-version.py --tag v1.0.0-alpha.2
+python3 scripts/check-version.py --tag v1.0.0-alpha.3
 python3 -B -m unittest discover -s test -p '*_test.py'
 go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 -shellcheck=''
 ```
@@ -168,10 +189,17 @@ that mode; the final GitHub Release API call also needs an authorized tag releas
 ## Local packaging
 
 ```sh
-GOWORK=off make server desktop
-python3 scripts/package-release.py --kind server --os darwin --arch arm64
+# macOS: one SDK creates both architecture slices, then merges them.
+GOWORK=off sh scripts/build-macos-universal.sh
 bash scripts/sign-macos.sh dist/eCaptureQ.app adhoc
-python3 scripts/package-release.py --kind desktop --os darwin --arch arm64 --signing adhoc --dmg
+python3 scripts/package-release.py --kind desktop --os darwin --arch universal --signing adhoc --dmg
+python3 scripts/package-release.py --kind server --os darwin --arch universal --binary bin/ecaptureq-web-macos-universal --signing adhoc
+
+# Linux: compile on the target CPU with its GTK/WebKit development libraries.
+GOTOOLCHAIN=go1.26.10 go install github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.48.0
+GOWORK=off sh scripts/build-desktop.sh
+python3 scripts/package-release.py --kind desktop --os linux --arch amd64
+# Default Linux output is DEB + RPM. Use --linux-format deb or rpm to select one.
 ```
 
 Use the actual target and an already-built binary; `--binary` can select a
@@ -182,3 +210,6 @@ intended for a complete matrix, not a single local package.
 References: [GitHub hosted runner labels](https://docs.github.com/en/actions/reference/runners/github-hosted-runners),
 [Wails platform prerequisites](https://v3.wails.io/getting-started/installation/),
 [Apple notarization](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution).
+
+Packaging references: [nFPM configuration](https://nfpm.goreleaser.com/docs/configuration/),
+[Apple universal binaries](https://developer.apple.com/documentation/apple-silicon/building-a-universal-macos-binary).

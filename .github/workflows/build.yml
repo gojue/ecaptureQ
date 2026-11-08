@@ -27,6 +27,7 @@ permissions:
 env:
   GOWORK: 'off'
   GOFLAGS: '-mod=readonly'
+  NFPM_VERSION: v2.48.0
 
 jobs:
   settings:
@@ -55,7 +56,7 @@ jobs:
           esac
           echo "macos-signing-mode=$SIGNING_MODE" >> "$GITHUB_OUTPUT"
           echo "macOS signing mode: $SIGNING_MODE" >> "$GITHUB_STEP_SUMMARY"
-  server:
+  web:
     needs: settings
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -68,12 +69,13 @@ jobs:
           go-version-file: go.mod
       - run: python3 scripts/check-version.py
       - run: go run ./scripts/check-protocol
-      - name: Build and package all Web servers
+      - run: GOTOOLCHAIN=go1.26.10 go install github.com/goreleaser/nfpm/v2/cmd/nfpm@"$NFPM_VERSION"
+      - name: Build Linux and Windows Web interfaces without GUI dependencies
         shell: bash
         run: |
-          for target_os in linux darwin windows; do
+          for target_os in linux windows; do
             for target_arch in amd64 arm64; do
-              binary="bin/ecaptureq-server-$target_os-$target_arch"
+              binary="bin/ecaptureq-web-$target_os-$target_arch"
               CGO_ENABLED=0 GOOS="$target_os" GOARCH="$target_arch" \
                 go build -trimpath -ldflags '-s -w' -o "$binary" ./cmd/server
               python3 scripts/package-release.py --kind server --os "$target_os" --arch "$target_arch" --binary "$binary"
@@ -81,7 +83,7 @@ jobs:
           done
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: packages-server
+          name: packages-web
           path: dist/packages/*
           if-no-files-found: error
           compression-level: 0
@@ -94,8 +96,6 @@ jobs:
         include:
           - {runner: ubuntu-24.04, os: linux, arch: amd64}
           - {runner: ubuntu-24.04-arm, os: linux, arch: arm64}
-          - {runner: macos-15-intel, os: darwin, arch: amd64}
-          - {runner: macos-15, os: darwin, arch: arm64}
           - {runner: windows-2025, os: windows, arch: amd64}
           - {runner: windows-11-arm, os: windows, arch: arm64}
     runs-on: ${{ matrix.runner }}
@@ -119,18 +119,46 @@ jobs:
         run: |
           test "$(go env GOHOSTOS)" = "$TARGET_OS"
           test "$(go env GOHOSTARCH)" = "$TARGET_ARCH"
-      - name: Linux GUI development libraries
+      - name: Linux build and packaging tools
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev
-      - name: Compile native application
-        run: sh scripts/build-desktop.sh
-      - name: Sign macOS application without a certificate
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev
+          GOTOOLCHAIN=go1.26.10 go install github.com/goreleaser/nfpm/v2/cmd/nfpm@"$NFPM_VERSION"
+      - run: sh scripts/build-desktop.sh
+      - name: Package eCaptureQ
+        env:
+          TARGET_OS: ${{ matrix.os }}
+          TARGET_ARCH: ${{ matrix.arch }}
+        run: python3 scripts/package-release.py --kind desktop --os "$TARGET_OS" --arch "$TARGET_ARCH"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: packages-desktop-${{ matrix.os }}-${{ matrix.arch }}
+          path: dist/packages/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+  macos:
+    needs: settings
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+      - run: python3 scripts/check-version.py
+      - name: Build and merge Intel and Apple Silicon applications
+        run: sh scripts/build-macos-universal.sh
+      - name: Sign final universal application without a certificate
         id: sign-adhoc
-        if: ${{ runner.os == 'macOS' && needs.settings.outputs.macos-signing-mode == 'adhoc' }}
+        if: ${{ needs.settings.outputs.macos-signing-mode == 'adhoc' }}
         run: bash scripts/sign-macos.sh dist/eCaptureQ.app adhoc
-      - name: Sign and notarize macOS release with Developer ID
+      - name: Sign and notarize final universal application with Developer ID
         id: sign-developer-id
-        if: ${{ runner.os == 'macOS' && needs.settings.outputs.macos-signing-mode == 'developer-id' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
+        if: ${{ needs.settings.outputs.macos-signing-mode == 'developer-id' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -139,31 +167,79 @@ jobs:
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: bash scripts/sign-macos.sh dist/eCaptureQ.app developer-id
-      - name: Package application
+      - name: Verify signing result and create universal distributions
         env:
-          TARGET_OS: ${{ matrix.os }}
-          TARGET_ARCH: ${{ matrix.arch }}
           SIGNING: ${{ steps.sign-adhoc.outputs.signing || steps.sign-developer-id.outputs.signing || 'unsigned' }}
           EXPECTED_MODE: ${{ needs.settings.outputs.macos-signing-mode }}
+        shell: bash
         run: |
-          extra=()
-          if [ "$TARGET_OS" = darwin ]; then
-            case "$EXPECTED_MODE:$SIGNING" in
-              adhoc:adhoc|developer-id:notarized) ;;
-              *) echo 'macOS signing result does not match the requested mode.' >&2; exit 1 ;;
-            esac
-            extra+=(--dmg)
-          fi
-          python3 scripts/package-release.py --kind desktop --os "$TARGET_OS" --arch "$TARGET_ARCH" --signing "$SIGNING" "${extra[@]}"
+          case "$EXPECTED_MODE:$SIGNING" in
+            adhoc:adhoc|developer-id:notarized) ;;
+            *) echo 'macOS signing result does not match requested mode.' >&2; exit 1 ;;
+          esac
+          python3 scripts/package-release.py --kind desktop --os darwin --arch universal --signing "$SIGNING" --dmg
+          python3 scripts/package-release.py --kind server --os darwin --arch universal --binary bin/ecaptureq-web-macos-universal --signing adhoc
+          hdiutil verify dist/packages/*.dmg
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: packages-desktop-${{ matrix.os }}-${{ matrix.arch }}
+          name: packages-macos-universal
           path: dist/packages/*
           if-no-files-found: error
           compression-level: 0
           retention-days: 7
+  macos-install:
+    needs: macos
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {runner: macos-15-intel, arch: x86_64}
+          - {runner: macos-15, arch: arm64}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: packages-macos-universal
+          path: dist/packages
+      - name: Verify and run the downloaded universal packages on the native CPU
+        env:
+          NATIVE_ARCH: ${{ matrix.arch }}
+        shell: bash
+        run: bash scripts/verify-macos-package.sh dist/packages "$NATIVE_ARCH"
+  linux-install:
+    needs: [web, desktop]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {runner: ubuntu-24.04, arch: amd64}
+          - {runner: ubuntu-24.04-arm, arch: arm64}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          pattern: packages-*
+          path: dist/packages
+          merge-multiple: true
+      - name: Install and remove DEB and RPM in clean native containers
+        env:
+          TARGET_ARCH: ${{ matrix.arch }}
+        shell: bash
+        run: |
+          docker run --rm -v "$PWD:/workspace:ro" -v "$PWD/dist/packages:/packages:ro" -w /workspace \
+            ubuntu:24.04 bash scripts/verify-linux-install.sh deb "$TARGET_ARCH"
+          docker run --rm -v "$PWD:/workspace:ro" -v "$PWD/dist/packages:/packages:ro" -w /workspace \
+            fedora:43 bash scripts/verify-linux-install.sh rpm "$TARGET_ARCH"
   verify-packages:
-    needs: [server, desktop]
+    needs: [web, desktop, macos, macos-install, linux-install]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -175,12 +251,12 @@ jobs:
           pattern: packages-*
           path: dist/packages
           merge-multiple: true
-      - name: Verify all targets and checksums
-        run: python3 scripts/collect-release.py dist/packages
+      - name: Verify every package and prepare the public downloads
+        run: python3 scripts/collect-release.py dist/packages --release-dir dist/release
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: release-bundle
-          path: dist/packages/*
+          path: dist/release/*
           if-no-files-found: error
           compression-level: 0
           retention-days: 7

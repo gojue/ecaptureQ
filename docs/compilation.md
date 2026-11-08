@@ -55,7 +55,7 @@ macOS/Linux：
 
 ```sh
 GOWORK=off CGO_ENABLED=0 make server
-./bin/ecaptureq-server --addr 127.0.0.1:28257 --mode mock
+./bin/ecaptureq-web --addr 127.0.0.1:28257 --mode mock
 ```
 
 打开 `http://127.0.0.1:28257/`。Windows PowerShell：
@@ -64,8 +64,8 @@ GOWORK=off CGO_ENABLED=0 make server
 $env:GOWORK = "off"
 $env:CGO_ENABLED = "0"
 go run ./scripts/check-protocol
-go build -trimpath -o bin/ecaptureq-server.exe ./cmd/server
-.\bin\ecaptureq-server.exe --addr 127.0.0.1:28257 --mode mock
+go build -trimpath -o bin/ecaptureq-web.exe ./cmd/server
+.\bin\ecaptureq-web.exe --addr 127.0.0.1:28257 --mode mock
 ```
 
 也可直接运行 `go run ./cmd/server --mode mock`。修改嵌入的前端资源后，重新运行或构建程序。
@@ -110,12 +110,12 @@ Web 服务可以使用 Go 原生交叉编译，例如：
 
 ```sh
 GOWORK=off CGO_ENABLED=0 GOOS=linux GOARCH=arm64 \
-  go build -trimpath -o bin/ecaptureq-server-linux-arm64 ./cmd/server
+  go build -trimpath -o bin/ecaptureq-web-linux-arm64 ./cmd/server
 GOWORK=off CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
-  go build -trimpath -o bin/ecaptureq-server-windows-amd64.exe ./cmd/server
+  go build -trimpath -o bin/ecaptureq-web-windows-amd64.exe ./cmd/server
 ```
 
-`GOOS` 支持 `linux`、`darwin`、`windows`，发布目标的 `GOARCH` 为 `amd64`、`arm64`。Desktop 使用目标系统和架构的原生 runner 编译；不要把服务器的纯 Go 交叉编译方法直接套用于依赖 SDK 的桌面入口。
+`GOOS` 支持 `linux`、`darwin`、`windows`，发布目标的 `GOARCH` 为 `amd64`、`arm64`。Linux/Windows Desktop 使用目标系统和架构的原生 runner 编译；macOS 使用同一 Xcode SDK 构建双架构再合并；不要把服务器的纯 Go 交叉编译方法直接套用于依赖 SDK 的桌面入口。
 
 GitHub Actions 已配置三平台、两种架构的 Web 与 Desktop 构建。Android/iOS 暂未纳入构建或发布矩阵。
 
@@ -126,12 +126,21 @@ make check
 make release-check
 ```
 
-开发验证范围、合成数据源和浏览器检查见 [开发指南](development.md)。制作单个平台的分发包，例如在 macOS ARM64 上：
+开发验证范围、合成数据源和浏览器检查见 [开发指南](development.md)。制作 macOS 通用分发包，例如在 Apple Silicon 主机上：
 
 ```sh
-python3 scripts/package-release.py --kind server --os darwin --arch arm64
+GOWORK=off sh scripts/build-macos-universal.sh
 bash scripts/sign-macos.sh dist/eCaptureQ.app adhoc
-python3 scripts/package-release.py --kind desktop --os darwin --arch arm64 --signing adhoc --dmg
+python3 scripts/package-release.py --kind desktop --os darwin --arch universal --signing adhoc --dmg
+python3 scripts/package-release.py --kind server --os darwin --arch universal --binary bin/ecaptureq-web-macos-universal --signing adhoc
 ```
 
 打包脚本读取已编译的程序，校验其目标架构，在 `dist/packages/` 生成压缩包与校验和；不会把整个工作目录放入产物。标签触发、版本一致性检查、完整产物清单和发布过程统一维护在 [发布指南](releases.md)。
+
+## 生成面向用户的安装包
+
+默认桌面下载称为 eCaptureQ，浏览器部署包称为 eCaptureQ Web；内部入口目录名不变。
+macOS 发布使用 `sh scripts/build-macos-universal.sh`，一次构建 Intel / Apple Silicon
+并合并后签名；`sh scripts/build-desktop.sh` 仍可用于当前架构的本地开发。
+Linux DEB/RPM 使用固定 nFPM v2.48.0（构建工具 Go 1.26.10），安装配置中声明运行依赖。
+完整命令、目标矩阵和安装验收见[发布指南](releases.md)。

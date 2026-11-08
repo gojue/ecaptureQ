@@ -69,7 +69,8 @@ jobs:
         run: |
           flags=(--latest)
           if [ "$PRERELEASE" = true ]; then flags=(--prerelease --latest=false); fi
+          python3 scripts/render-release-notes.py --repo "$GH_REPO" --output artifacts/release-notes.md
           # Publish only when every platform and archive has passed; never create a tag.
           gh release create "$RELEASE_TAG" dist/packages/* \
             --verify-tag --title "eCaptureQ $RELEASE_TAG" --generate-notes \
-            --notes-file docs/release-notes.md "${flags[@]}"
+            --notes-file artifacts/release-notes.md "${flags[@]}"
