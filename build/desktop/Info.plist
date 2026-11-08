@@ -6,7 +6,11 @@
   <key>CFBundleDisplayName</key><string>eCaptureQ</string>
   <key>CFBundleIdentifier</key><string>com.gojue.ecaptureq</string>
   <key>CFBundleExecutable</key><string>eCaptureQ</string>
+  <key>CFBundleIconFile</key><string>eCaptureQ.icns</string>
   <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleDevelopmentRegion</key><string>en</string>
+  <key>CFBundleLocalizations</key>
+  <array><string>en</string><string>zh-Hans</string></array>
   <key>CFBundleShortVersionString</key><string>1.0.0</string>
   <key>CFBundleVersion</key><string>3</string>
   <key>ECaptureQVersion</key><string>1.0.0-alpha.3</string>

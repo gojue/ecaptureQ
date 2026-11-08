@@ -18,10 +18,13 @@ type nativeAdapter struct {
 	window *application.WebviewWindow
 }
 
-func (n *nativeAdapter) SaveFile(filename, content string) (bool, error) {
+func (n *nativeAdapter) SaveFile(filename, content, locale string) (bool, error) {
+	// The shared platform handler validates this locale; titles are never supplied
+	// by captured content or a free-form frontend request.
+	title := map[string]string{"en": "Export eCaptureQ records", "zh-CN": "导出 eCaptureQ 记录"}[locale]
 	dialog := n.app.Dialog.SaveFile()
 	dialog.SetOptions(&application.SaveFileDialogOptions{
-		Title: "导出 eCaptureQ 记录", Filename: filename, Window: n.window,
+		Title: title, Filename: filename, Window: n.window,
 		CanCreateDirectories: true,
 		Filters:              []application.FileFilter{{DisplayName: "JSON", Pattern: "*.json"}},
 	})

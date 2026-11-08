@@ -2,15 +2,15 @@
 .pv-event-title{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:0 0 14px}
 .pv-event-title>strong{font-size:13px;font-weight:600}
 .pv-badge{display:inline-block;padding:2px 6px;border-radius:4px;font-size:10px;line-height:1.5;font-weight:500;color:var(--muted);background:var(--surface);border:1px solid var(--line);overflow-wrap:anywhere;vertical-align:middle}
-.pv-badge-blue{color:var(--blue-text);background:var(--blue-soft);border-color:color-mix(in srgb,var(--blue) 13%,transparent)}
+.pv-badge-blue{color:var(--info);background:var(--info-soft);border-color:color-mix(in srgb,var(--info) 13%,transparent)}
 .pv-badge-purple{color:var(--purple);background:color-mix(in srgb,var(--purple) 8%,var(--panel));border-color:color-mix(in srgb,var(--purple) 14%,transparent)}
 .pv-badge-amber{color:var(--amber);background:var(--amber-soft);border-color:color-mix(in srgb,var(--amber) 15%,transparent)}
 .pv-badge-red{color:var(--red);background:var(--red-soft);border-color:color-mix(in srgb,var(--red) 15%,transparent)}
-.pv-flow{display:flex;gap:9px;align-items:center;font-size:11px;color:var(--muted);padding:9px 0 12px;border-bottom:1px solid var(--line)}
-.pv-flow .icon{width:15px;height:15px;color:var(--blue)}
+.pv-flow{display:flex;flex-wrap:wrap;overflow-wrap:anywhere;gap:9px;align-items:center;font-size:11px;color:var(--muted);padding:9px 0 12px;border-bottom:1px solid var(--line)}
+.pv-flow .icon{width:15px;height:15px;color:var(--info)}
 .pv-flow small{margin-left:auto;font-size:10px;color:var(--subtle)}
 .pv-section{margin-top:21px;min-width:0}
-.pv-heading{font-size:11px;font-weight:600;margin:0 0 12px;display:flex;gap:8px;align-items:center;justify-content:space-between}
+.pv-heading{flex-wrap:wrap;overflow-wrap:anywhere;font-size:11px;font-weight:600;margin:0 0 12px;display:flex;gap:8px;align-items:center;justify-content:space-between}
 .pv-heading>span{font-size:10px;font-weight:400;color:var(--subtle)}
 .pv-fields{display:grid;grid-template-columns:minmax(98px,38%) minmax(0,1fr);gap:0 14px;font-size:11px;margin:0}
 .pv-fields dt,.pv-fields dd{margin:0;padding:8px 0;border-bottom:1px solid color-mix(in srgb,var(--line) 70%,transparent);min-width:0;overflow-wrap:anywhere}
@@ -58,7 +58,7 @@
 .pv-waiting{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:9px;text-align:center;min-height:190px;border:1px dashed var(--line-strong);border-radius:7px;margin-top:20px;color:var(--subtle);padding:18px;font-size:11px}
 .pv-waiting .icon{width:25px;height:25px}
 .pv-waiting strong{font-size:12px;font-weight:500;color:var(--muted)}
-.pv-topic{padding:11px 12px;background:var(--sidebar);border:1px solid var(--line);border-radius:6px;color:var(--blue-text);font:12px/1.7 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overflow-wrap:anywhere}
+.pv-topic{padding:11px 12px;background:var(--sidebar);border:1px solid var(--line);border-radius:6px;color:var(--info);font:12px/1.7 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overflow-wrap:anywhere}
 .pv-topics{width:100%;border-collapse:collapse;table-layout:fixed;text-align:left;font-size:11px}
 .pv-topics th{font-weight:500;color:var(--muted);font-size:10px;padding:7px 8px;background:var(--surface)}
 .pv-topics td{padding:9px 8px;border-bottom:1px solid var(--line);overflow-wrap:anywhere;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}

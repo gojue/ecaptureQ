@@ -1,5 +1,7 @@
 // Copyright 2026 CFC4N. SPDX-License-Identifier: Apache-2.0
 // Native facilities are deliberately separate from capture and presentation.
+import {t,getLanguage} from './i18n.js';
+
 const nativeErrors = {
   export_failed:'无法保存文件，请检查目标目录权限',
   clipboard_failed:'无法写入系统剪贴板',
@@ -9,6 +11,7 @@ const nativeErrors = {
   clipboard_exceeds_4_mib:'复制内容超过 4 MiB，请使用文件导出',
   payload_too_large:'内容超过当前操作的大小限制',
   invalid_filename:'导出文件名无效',
+  invalid_locale:'不支持的语言选择',
   invalid_external_url:'只允许打开有效的 HTTP(S) 外链',
   origin_rejected:'请求来源校验失败，请在当前 eCaptureQ 窗口重试'
 };
@@ -27,7 +30,7 @@ export function createPlatformAdapter({fetch: request = globalThis.fetch, docume
         capabilities = await response.json();
         return capabilities;
       } catch (error) {
-        if (nativeOrigin()) throw new Error('桌面能力接口不可用，请重启应用');
+        if (nativeOrigin()) throw new Error(t('桌面能力接口不可用，请重启应用'));
         return capabilities = {desktop:false};
       } finally { clearTimeout(timeout); }
     })();
@@ -36,7 +39,7 @@ export function createPlatformAdapter({fetch: request = globalThis.fetch, docume
   async function invoke(action,payload) {
     const response = await request('api/platform/'+action,{method:'POST',headers:{'Content-Type':'application/json','X-Ecapture-UI':'1'},body:JSON.stringify(payload)});
     const result = await response.json();
-    if (!response.ok) throw new Error(nativeErrors[result.error] || result.error || '桌面操作失败');
+    if (!response.ok) throw new Error((nativeErrors[result.error] ? t(nativeErrors[result.error]) : result.error) || t('桌面操作失败'));
     return result;
   }
   async function copyText(text) {
@@ -52,14 +55,14 @@ export function createPlatformAdapter({fetch: request = globalThis.fetch, docume
       input.value = text; input.setAttribute('readonly','');
       Object.assign(input.style,{position:'fixed',left:'-9999px',top:'0'});
       doc.body.appendChild(input); input.select();
-      try { if (!doc.execCommand('copy')) throw new Error('复制未获允许，请选择正文复制'); }
+      try { if (!doc.execCommand('copy')) throw new Error(t('复制未获允许，请选择正文复制')); }
       finally { input.remove(); selection?.focus(); }
     }
   }
   async function exportJSON(filename,content) {
     const mode = await init();
-    if (mode.desktop) return invoke('export',{filename,content});
-    if (!BlobType || !urls?.createObjectURL) throw new Error('当前浏览器不支持文件下载');
+    if (mode.desktop) return invoke('export',{filename,content,locale:getLanguage()});
+    if (!BlobType || !urls?.createObjectURL) throw new Error(t('当前浏览器不支持文件下载'));
     const url = urls.createObjectURL(new BlobType([content],{type:'application/json'})), link = doc.createElement('a');
     link.href = url; link.download = filename; link.hidden = true;
     doc.body.appendChild(link); link.click(); link.remove();
@@ -68,7 +71,7 @@ export function createPlatformAdapter({fetch: request = globalThis.fetch, docume
   }
   async function openExternal(url) {
     const parsed = new urls(url);
-    if (!['http:','https:'].includes(parsed.protocol)) throw new Error('只允许打开 HTTP(S) 外链');
+    if (!['http:','https:'].includes(parsed.protocol)) throw new Error(t('只允许打开 HTTP(S) 外链'));
     const mode = await init();
     if (mode.desktop) return invoke('open-url',{url:parsed.href});
     open(parsed.href,'_blank','noopener,noreferrer');

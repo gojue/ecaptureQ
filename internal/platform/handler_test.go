@@ -14,15 +14,17 @@ import (
 )
 
 type fakeNative struct {
-	calls int
-	saved bool
-	err   error
-	value string
+	calls  int
+	saved  bool
+	err    error
+	value  string
+	locale string
 }
 
-func (n *fakeNative) SaveFile(filename, content string) (bool, error) {
+func (n *fakeNative) SaveFile(filename, content, locale string) (bool, error) {
 	n.calls++
 	n.value = filename + ":" + content
+	n.locale = locale
 	return n.saved, n.err
 }
 func (n *fakeNative) CopyText(text string) error { n.calls++; n.value = text; return n.err }
@@ -92,6 +94,36 @@ func TestNativeRejectsUntrustedWrites(t *testing.T) {
 			h.ServeHTTP(w, r)
 			if w.Code != test.status || native.calls != 0 {
 				t.Fatalf("status=%d want=%d body=%s calls=%d", w.Code, test.status, w.Body, native.calls)
+			}
+		})
+	}
+}
+
+func TestExportLocaleValidation(t *testing.T) {
+	for _, test := range []struct {
+		name, field, locale string
+	}{
+		{"omitted", "", "en"},
+		{"empty", `,"locale":""`, "en"},
+		{"English", `,"locale":"en"`, "en"},
+		{"Chinese", `,"locale":"zh-CN"`, "zh-CN"},
+		{"unsupported", `,"locale":"fr"`, ""},
+		{"case mismatch", `,"locale":"zh-cn"`, ""},
+		{"arbitrary title", `,"locale":"A forged dialog title"`, ""},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			native := &fakeNative{saved: true}
+			h := Wrap(http.NotFoundHandler(), native, httpapi.Policy{AdditionalOrigins: []string{"wails://localhost"}})
+			w := httptest.NewRecorder()
+			h.ServeHTTP(w, request("/api/platform/export", `{"filename":"capture.json","content":"[]"`+test.field+`}`))
+			if test.locale == "" {
+				if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), `"error":"invalid_locale"`) || native.calls != 0 {
+					t.Fatalf("rejected locale: status=%d body=%s calls=%d", w.Code, w.Body, native.calls)
+				}
+				return
+			}
+			if w.Code != http.StatusOK || native.calls != 1 || native.locale != test.locale || native.value != "capture.json:[]" {
+				t.Fatalf("accepted locale: status=%d body=%s calls=%d locale=%q value=%q", w.Code, w.Body, native.calls, native.locale, native.value)
 			}
 		})
 	}
