@@ -203,8 +203,9 @@ result. No tag or release was created during documentation validation.
 The tag-triggered release call chain and version gates were inspected without
 publishing. The repository has all six expected Apple signing-secret names, but
 their values, certificate validity and an actual notarization were not checked.
-Publishing still requires working signing credentials when they are configured;
-the unsigned CI matrix is not evidence of successful Apple notarization.
+At that point, publishing required working signing credentials when configured,
+and branch CI produced unsigned macOS packages. The certificate-free follow-up
+below supersedes that policy; those earlier checks did not verify notarization.
 
 ## Certificate-free macOS packaging — 2026-11-08
 
