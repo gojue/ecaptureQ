@@ -7,5 +7,5 @@ import "embed"
 
 // Files is the same asset tree for the HTTP server and the Wails asset server.
 //
-//go:embed *.html *.css *.js *.json *.svg
+//go:embed *.html *.css *.js *.json *.svg *.png
 var Files embed.FS

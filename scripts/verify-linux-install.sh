@@ -73,8 +73,12 @@ for product, kind in [('ecaptureq', 'desktop'), ('ecaptureq-web', 'server')]:
     docs = Path('/usr/share/doc') / product
     info = json.loads((docs / 'BUILD-INFO.json').read_text())
     assert info['kind'] == kind and info['os'] == 'linux'
-    assert (docs / 'frontend/ecapture-logo.svg').is_file()
+    assert (docs / 'frontend/ecaptureq-logo.svg').is_file()
     assert len(list((docs / 'docs/images').glob('*.png'))) == 3
+    assert (docs / 'docs/images/terminal-to-interface-fine.webp').is_file()
+    assert (docs / 'docs/images/terminal-to-interface-LICENSE.txt').is_file()
+assert Path('/usr/share/icons/hicolor/scalable/apps/ecaptureq.svg').read_bytes() == (
+    Path('/usr/share/doc/ecaptureq/frontend/ecaptureq-logo.svg').read_bytes())
 PY
 mkdir -p "$HOME/.config/ecaptureq"
 printf 'preserve user data\n' > "$HOME/.config/ecaptureq/install-test-marker"

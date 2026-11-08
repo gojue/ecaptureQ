@@ -12,3 +12,4 @@ __pycache__/
 /*.pcap
 /*.pcapng
 /*.keylog
+/cmd/desktop/*.syso

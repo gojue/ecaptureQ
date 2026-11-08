@@ -32,7 +32,7 @@ class ReleasePackageTest(unittest.TestCase):
         for name in ("LICENSE", "NOTICE", "README.md"):
             (self.root / name).write_text(name)
         (self.root / "frontend").mkdir()
-        (self.root / "frontend/ecapture-logo.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg"/>')
+        (self.root / "frontend/ecaptureq-logo.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg"/>')
         (self.root / "frontend/app.js").write_text("// frontend source is not part of the release archive")
         (self.root / "config").mkdir()
         (self.root / "config/sources.example.json").write_text("[]")
@@ -74,13 +74,19 @@ class ReleasePackageTest(unittest.TestCase):
             self.assertEqual(contents.read(prefix + "config/sources.example.json"), b"[]")
             self.assertFalse(any("private" in name or "sources.local" in name for name in contents.namelist()))
 
-    def test_readme_screenshots_remain_available_in_tar_and_zip(self):
+    def test_readme_images_remain_available_in_tar_and_zip(self):
         image_path = "docs/images/overview.png"
-        logo_path = "frontend/ecapture-logo.svg"
+        logo_path = "frontend/ecaptureq-logo.svg"
         screenshot = b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a4p8AAAAASUVORK5CYII=")
         (self.root / "README.md").write_text(f'<img src="{logo_path}" alt="eCaptureQ"/>\n![Overview]({image_path})\n')
         (self.root / "docs/images").mkdir()
         (self.root / image_path).write_bytes(screenshot)
+        concept_path = "docs/images/terminal-to-interface-fine.webp"
+        license_path = "docs/images/terminal-to-interface-LICENSE.txt"
+        (self.root / concept_path).write_bytes(b"synthetic concept image")
+        (self.root / license_path).write_text("Concept image license")
+        with (self.root / "README.md").open("a") as readme:
+            readme.write(f'![Concept]({concept_path})\n')
         (self.root / "docs/build.log").write_text("local build output; must not ship")
         for target_os in ("linux", "windows"):
             with self.subTest(target_os=target_os):
@@ -91,15 +97,22 @@ class ReleasePackageTest(unittest.TestCase):
                         readme = contents.extractfile(prefix + "README.md").read()
                         image = contents.extractfile(prefix + image_path).read()
                         logo = contents.extractfile(prefix + logo_path).read()
+                        concept = contents.extractfile(prefix + concept_path).read()
+                        license_text = contents.extractfile(prefix + license_path).read()
                         names = contents.getnames()
                 else:
                     with zipfile.ZipFile(archive) as contents:
                         readme = contents.read(prefix + "README.md")
                         image = contents.read(prefix + image_path)
                         logo = contents.read(prefix + logo_path)
+                        concept = contents.read(prefix + concept_path)
+                        license_text = contents.read(prefix + license_path)
                         names = contents.namelist()
                 self.assertIn(image_path.encode(), readme)
                 self.assertIn(logo_path.encode(), readme)
+                self.assertIn(concept_path.encode(), readme)
+                self.assertEqual(concept, (self.root / concept_path).read_bytes())
+                self.assertEqual(license_text, (self.root / license_path).read_bytes())
                 self.assertEqual(image, screenshot)
                 self.assertEqual(logo, (self.root / logo_path).read_bytes())
                 self.assertNotIn(prefix + "docs/build.log", names)

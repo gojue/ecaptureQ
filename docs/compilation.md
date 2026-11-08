@@ -10,7 +10,7 @@
 | Wails | 由 Go modules 固定为 **v3.1.0**，不使用 v2 API，无须另外安装 Wails CLI |
 | 前端 | 原生 HTML/CSS/JavaScript，直接嵌入 Go 程序，无 npm 打包步骤 |
 | 测试工具 | Node.js 24.14+、Python 3.9+；浏览器回归需要 Chrome/Chromium |
-| 构建脚本 | POSIX shell；macOS 签名脚本使用 Bash。Windows 可用 Git Bash，或使用下文 PowerShell 命令 |
+| 构建脚本 | POSIX shell；macOS 签名脚本使用 Bash。Windows Desktop 使用 Git Bash；Web 也可使用下文 PowerShell 命令 |
 | Makefile 入口 | 使用 `make` 命令时需要 GNU make；也可直接执行本页中的 Go 与构建脚本命令 |
 
 Web 服务使用纯 Go 构建，不需要 GTK、WebKit、Xcode 或其他桌面 SDK。Desktop 在目标系统上构建，使用该系统的原生 WebView：
@@ -86,13 +86,11 @@ GOWORK=off sh scripts/build-desktop.sh
 | Windows | `dist/eCaptureQ.exe` | 双击，或在 PowerShell 执行 `.\dist\eCaptureQ.exe` |
 | Linux | `dist/eCaptureQ` | `./dist/eCaptureQ` |
 
-Windows 没有 Bash 时，可用 PowerShell 编译同样的可执行文件：
-
-```powershell
-$env:GOWORK = "off"
-go run ./scripts/check-protocol
-go build -trimpath -tags desktop,production -ldflags "-s -w -H windowsgui" -o dist/eCaptureQ.exe ./cmd/desktop
-```
+Windows 在 Git Bash 中运行上述脚本。脚本使用固定的 Wails **v3.1.0** 构建工具，
+从 `frontend/ecaptureq-logo.png` 生成多尺寸 ICO，再把图标和应用 manifest 嵌入 EXE。
+工具通过带版本的 `go run` 调用，无须全局安装，也不会改动应用的 `go.mod`；
+首次构建需要下载工具依赖。生成的 ICO 和 `.syso` 都是临时产物，成功或失败后均会清理。
+直接使用 `go build` 或 `go run` 适用于开发，但不会嵌入 Windows 文件图标。
 
 开发运行使用 `go run -tags desktop ./cmd/desktop --mode mock`。桌面直接嵌入共享 UI 和 Handler，无须另启动 Web 服务，也不默认额外监听 TCP 端口。
 
@@ -100,10 +98,11 @@ macOS 编译脚本先在隐藏的临时目录完成整个应用包，再替换 `
 并更新包的修改时间，让 Finder 读取完整的图标和元数据；编译失败时保留上次的构建。
 新包不保留旧包中的资源或签名。
 
-应用图标直接复用 `frontend/ecapture-logo.svg`：构建时通过系统 AppKit 与 `iconutil`
+macOS 应用图标直接复用 `frontend/ecaptureq-logo.svg`：构建时通过系统 AppKit 与 `iconutil`
 生成包含 16–1024 像素和 Retina 尺寸的 `Contents/Resources/eCaptureQ.icns`，由
 `Info.plist` 的 `CFBundleIconFile` 引用，无须额外图像工具或另行维护位图副本。
 `CFBundleLocalizations` 声明前端自行管理的英文与简体中文资源，开发语言为英文。
+Linux 安装包把同一 SVG 安装到系统图标目录；原生应用信息使用对应的透明 PNG。
 
 分发前单独执行默认的免费 ad-hoc 签名：
 

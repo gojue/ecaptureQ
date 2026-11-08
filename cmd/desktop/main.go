@@ -53,9 +53,14 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	icon, err := frontend.Files.ReadFile("ecaptureq-logo.png")
+	if err != nil {
+		return fmt.Errorf("load application icon: %w", err)
+	}
 	desktop := application.New(application.Options{
 		Name:        "eCaptureQ",
 		Description: "eCapture network protocol inspector",
+		Icon:        icon,
 		Assets:      application.AssetOptions{Handler: handler},
 		Mac:         application.MacOptions{ApplicationShouldTerminateAfterLastWindowClosed: true},
 	})
