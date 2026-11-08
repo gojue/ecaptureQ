@@ -1,0 +1,112 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      skip-packages:
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+env:
+  GOWORK: 'off'
+  GOFLAGS: '-mod=readonly'
+
+jobs:
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - run: node --test test/*.test.mjs
+      - name: Check all JavaScript syntax
+        run: |
+          for source in frontend/*.js test/*.mjs; do node --check "$source"; done
+      - name: Check version and packaging scripts
+        run: |
+          python3 scripts/check-version.py
+          python3 -B -m unittest discover -s test -p '*_test.py'
+          sh -n scripts/build-desktop.sh
+          bash -n scripts/sign-macos.sh
+  server:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+      - run: go mod download && go mod verify
+      - run: go run ./scripts/check-protocol
+      - name: Check Go formatting and module consistency
+        run: |
+          test -z "$(gofmt -l cmd internal frontend scripts)"
+          go mod tidy -diff
+      - run: go test -race ./...
+      - run: go vet ./...
+      - run: CGO_ENABLED=0 go build -trimpath -o bin/ecaptureq-server ./cmd/server
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Browser regression at root and proxy prefix
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          bin/ecaptureq-server --addr 127.0.0.1:28257 > artifacts/server-root.log 2>&1 &
+          root_pid=$!
+          bin/ecaptureq-server --addr 127.0.0.1:28258 --base-path /ecaptureq-web/ > artifacts/server-prefix.log 2>&1 &
+          prefix_pid=$!
+          trap 'kill "$root_pid" "$prefix_pid" 2>/dev/null || true; wait || true' EXIT
+          for base in http://127.0.0.1:28257/ http://127.0.0.1:28258/ecaptureq-web/; do
+            curl --fail --silent --show-error --retry 20 --retry-connrefused --retry-delay 1 "${base}api/health" > /dev/null
+            node test/browser-smoke.mjs "$base"
+          done
+      - name: Preserve browser server logs
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: browser-failure-logs
+          path: artifacts/*.log
+          retention-days: 7
+          if-no-files-found: ignore
+      - name: Validate workflow expressions
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 -shellcheck=''
+  platform-tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-15, windows-2025]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+      - run: go run ./scripts/check-protocol
+      - run: go test -race ./...
+  packages:
+    needs: [frontend, server, platform-tests]
+    if: ${{ !inputs.skip-packages }}
+    uses: ./.github/workflows/build.yml

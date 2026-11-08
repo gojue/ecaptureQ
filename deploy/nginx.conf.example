@@ -1,0 +1,27 @@
+# Example only. Do not replace a running site's configuration with this file.
+# Start: ecaptureq-server --addr 127.0.0.1:28257 --base-path /ecaptureq-web/ \
+#          --exclude-http-path-prefix /ecaptureq-web/ --mode live
+server {
+    listen 8080;
+    server_name localhost;
+
+    # Configure your own TLS and authentication before exposing capture contents.
+    # Apply authentication to the entire location, including APIs.
+    # auth_basic "eCaptureQ";
+    # auth_basic_user_file /etc/nginx/ecaptureq.htpasswd;
+
+    location = /ecaptureq-web {
+        return 308 /ecaptureq-web/$is_args$args;
+    }
+    location /ecaptureq-web/ {
+        # No trailing slash: preserve the prefix consumed by --base-path.
+        proxy_pass http://127.0.0.1:28257;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_read_timeout 35s;
+        client_max_body_size 3m;
+    }
+    gzip on;
+    gzip_types application/json application/javascript text/css image/svg+xml;
+}

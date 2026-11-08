@@ -1,0 +1,11 @@
+eCaptureQ
+Copyright 2026 CFC4N
+
+This project includes UI source, tests, mock fixtures and the official eCapture
+SVG from gojue/ecapture, branch feat/ecaptureq-web, commit
+08458d6d077e92269bda0fda1918e5c49da67068 (Apache-2.0).
+The migrated files were reorganized and modified in a development workspace
+initially named eCaptureW, then imported as the complete next-generation eCaptureQ
+Web and Wails desktop implementation in the existing gojue/ecaptureQ repository.
+Original copyright notices are retained. No collector implementation or generated
+Protobuf source is copied.

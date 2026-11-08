@@ -1,0 +1,4024 @@
+{
+  "session": {
+    "id": "demo-session-01",
+    "name": "eCaptureQ · 多协议排障",
+    "host": "dev-linux",
+    "platform": "Linux · x86_64",
+    "source": "eCaptureQ EVENT（模拟）",
+    "startedAt": "2026-11-07T02:24:00.000Z",
+    "mode": "mock",
+    "brand": "eCaptureQ",
+    "captureInterface": "--ecaptureq"
+  },
+  "processes": [
+    {
+      "id": "checkout-api",
+      "name": "checkout-api",
+      "pid": 4321,
+      "kind": "GoTLS",
+      "command": "/srv/checkout/checkout-api --config /etc/checkout/demo.yaml",
+      "color": "#5B8DEF"
+    },
+    {
+      "id": "nginx",
+      "name": "nginx",
+      "pid": 1088,
+      "kind": "OpenSSL",
+      "command": "nginx: worker process",
+      "color": "#38A879"
+    },
+    {
+      "id": "curl",
+      "name": "curl",
+      "pid": 5820,
+      "kind": "OpenSSL",
+      "command": "curl https://api.example.test/v1/profile",
+      "color": "#9B77D8"
+    },
+    {
+      "id": "python",
+      "name": "python",
+      "pid": 6842,
+      "kind": "GnuTLS",
+      "command": "/usr/bin/python3 /srv/worker/worker.py",
+      "color": "#D6A247"
+    },
+    {
+      "id": "h3-client",
+      "name": "h3-client",
+      "pid": 7132,
+      "kind": "GoTLS",
+      "command": "/srv/demo/h3-client --endpoint https://edge.example.test",
+      "color": "#4F8DBB"
+    },
+    {
+      "id": "edge-tunnel",
+      "name": "edge-tunnel",
+      "pid": 7250,
+      "kind": "GoTLS",
+      "command": "/srv/demo/edge-tunnel --mode quic",
+      "color": "#9365BB"
+    },
+    {
+      "id": "mysqld",
+      "name": "mysqld",
+      "pid": 8041,
+      "kind": "MySQL Probe",
+      "command": "/usr/sbin/mysqld --defaults-file=/etc/mysql/demo.cnf",
+      "color": "#C28A38"
+    },
+    {
+      "id": "redis-worker",
+      "name": "redis-worker",
+      "pid": 8186,
+      "kind": "OpenSSL",
+      "command": "/srv/demo/redis-worker --tls --host cache.example.test",
+      "color": "#C96369"
+    },
+    {
+      "id": "mqtt-agent",
+      "name": "mqtt-agent",
+      "pid": 8294,
+      "kind": "OpenSSL",
+      "command": "/srv/demo/mqtt-agent --tls --broker broker.example.test",
+      "color": "#588B72"
+    }
+  ],
+  "requests": [
+    {
+      "id": "h3-001",
+      "processId": "h3-client",
+      "family": "http",
+      "transport": "udp",
+      "method": "GET",
+      "scheme": "https",
+      "host": "edge.example.test",
+      "path": "/v3/catalog?region=cn",
+      "status": 200,
+      "protocol": "HTTP/3",
+      "startedAt": "2026-11-07T02:30:00.000Z",
+      "durationMs": 28,
+      "sizeBytes": 265,
+      "remoteAddress": "198.51.100.40:443",
+      "localAddress": "192.0.2.10:55200",
+      "connectionId": "h3-conn-01",
+      "streamId": "0",
+      "request": {
+        "headers": [
+          {
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "name": ":authority",
+            "value": "edge.example.test"
+          },
+          {
+            "name": ":path",
+            "value": "/v3/catalog?region=cn"
+          },
+          {
+            "name": "accept",
+            "value": "application/json"
+          },
+          {
+            "name": "user-agent",
+            "value": "ecaptureq-demo-h3/1.0"
+          }
+        ],
+        "body": ""
+      },
+      "response": {
+        "headers": [
+          {
+            "name": ":status",
+            "value": "200"
+          },
+          {
+            "name": "content-type",
+            "value": "application/json; charset=utf-8"
+          },
+          {
+            "name": "content-length",
+            "value": "265"
+          },
+          {
+            "name": "server",
+            "value": "demo-edge"
+          },
+          {
+            "name": "alt-svc",
+            "value": "h3=\":443\"; ma=86400"
+          }
+        ],
+        "body": "{\n  \"region\": \"cn\",\n  \"items\": [\n    {\n      \"sku\": \"demo-1001\",\n      \"name\": \"Wireless sensor\",\n      \"stock\": 82\n    },\n    {\n      \"sku\": \"demo-1002\",\n      \"name\": \"Edge gateway\",\n      \"stock\": 14\n    }\n  ],\n  \"served_by\": \"edge-demo-01\",\n  \"protocol\": \"h3\"\n}"
+      },
+      "state": "complete",
+      "metadata": {
+        "quicVersion": "v1",
+        "cid": "a1b2c3d4e5f60718",
+        "alpn": "h3",
+        "streamId": "0",
+        "qpack": "dynamic table · decoded",
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "edge.example.test",
+          "alpn": "h3",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "q13d0911h3_f91f431d341e_c34edd1a8701"
+        }
+      },
+      "note": "HTTP/3 模拟交互，已完成 QUIC 解密与应用消息重组。"
+    },
+    {
+      "id": "quic-001",
+      "processId": "edge-tunnel",
+      "family": "quic",
+      "protocol": "QUIC",
+      "transport": "udp",
+      "host": "tunnel.example.test",
+      "operation": "STREAM",
+      "summary": "Stream 4 · 连续字节",
+      "direction": "client_to_server",
+      "state": "complete",
+      "outcome": "observed",
+      "startedAt": "2026-11-07T02:29:59.563Z",
+      "durationMs": null,
+      "sizeBytes": 19,
+      "remoteAddress": "198.51.100.50:443",
+      "localAddress": "192.0.2.10:55300",
+      "connectionId": "quic-conn-01",
+      "payload": "demo-tunnel: hello\n",
+      "payloadEncoding": "utf8",
+      "metadata": {
+        "version": "v1",
+        "cid": "8fa09b37c2d5e610",
+        "encryptionLevel": "1rtt",
+        "kind": "stream_chunk",
+        "offset": 0,
+        "end": false,
+        "streamId": "4",
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "tunnel.example.test",
+          "alpn": "h3",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "q13d0911h3_f91f431d341e_c34edd1a8701"
+        }
+      },
+      "streamId": "4",
+      "relatedIds": [
+        "quic-002",
+        "quic-003"
+      ],
+      "note": "已认证的 QUIC STREAM 字节；chunk 不代表应用消息边界。"
+    },
+    {
+      "id": "mysql-001",
+      "processId": "mysqld",
+      "family": "mysql",
+      "protocol": "MySQL",
+      "transport": "tcp",
+      "host": "db.example.test",
+      "operation": "SELECT",
+      "summary": "SELECT order_id, status, total_cents FROM orders",
+      "direction": "client_to_server",
+      "state": "complete",
+      "outcome": "observed",
+      "startedAt": "2026-11-07T02:29:59.126Z",
+      "durationMs": null,
+      "sizeBytes": 78,
+      "remoteAddress": "198.51.100.31:55900",
+      "localAddress": "192.0.2.10:3306",
+      "connectionId": "mysql-conn-01",
+      "payload": "SELECT order_id, status, total_cents FROM orders WHERE order_id = 'demo-1086';",
+      "payloadEncoding": "utf8",
+      "metadata": {
+        "sql": "SELECT order_id, status, total_cents FROM orders WHERE order_id = 'demo-1086';",
+        "capturedLength": 78,
+        "originalLength": 78,
+        "truncated": false,
+        "dispatchReturn": "SUCCESS",
+        "dispatchCode": 0,
+        "captureSource": "mysqld hook"
+      },
+      "note": "捕获到 mysqld 查询事件；dispatch_command 返回值不是 SQL 执行结果。"
+    },
+    {
+      "id": "redis-003",
+      "processId": "redis-worker",
+      "family": "redis",
+      "protocol": "Redis",
+      "transport": "tcp",
+      "host": "cache.example.test",
+      "operation": "HGETALL",
+      "summary": "HGETALL session:demo-42",
+      "direction": "client_to_server",
+      "state": "complete",
+      "outcome": "observed",
+      "startedAt": "2026-11-07T02:29:58.689Z",
+      "durationMs": 3,
+      "sizeBytes": 178,
+      "remoteAddress": "203.0.113.41:6380",
+      "localAddress": "192.0.2.10:56100",
+      "connectionId": "redis-conn-01",
+      "payload": "*2\r\n$7\r\nHGETALL\r\n$15\r\nsession:demo-42\r\n",
+      "payloadEncoding": "utf8",
+      "metadata": {
+        "kind": "transaction",
+        "command": "HGETALL",
+        "args": [
+          "session:demo-42"
+        ],
+        "requestId": 3,
+        "respVersion": 3,
+        "result": {
+          "type": "map",
+          "value": [
+            {
+              "key": {
+                "type": "bulk_string",
+                "value": "user_id"
+              },
+              "value": {
+                "type": "bulk_string",
+                "value": "demo-customer-42"
+              }
+            },
+            {
+              "key": {
+                "type": "bulk_string",
+                "value": "roles"
+              },
+              "value": {
+                "type": "bulk_string",
+                "value": "[\"reader\",\"operator\"]"
+              }
+            },
+            {
+              "key": {
+                "type": "bulk_string",
+                "value": "ttl"
+              },
+              "value": {
+                "type": "bulk_string",
+                "value": "120"
+              }
+            },
+            {
+              "key": {
+                "type": "bulk_string",
+                "value": "last_seen"
+              },
+              "value": {
+                "type": "bulk_string",
+                "value": "2026-11-07T02:29:55Z"
+              }
+            }
+          ]
+        },
+        "matched": true,
+        "requestPayload": "*2\r\n$7\r\nHGETALL\r\n$15\r\nsession:demo-42\r\n",
+        "responsePayload": "%4\r\n$7\r\nuser_id\r\n$16\r\ndemo-customer-42\r\n$5\r\nroles\r\n$21\r\n[\"reader\",\"operator\"]\r\n$3\r\nttl\r\n$3\r\n120\r\n$9\r\nlast_seen\r\n$20\r\n2026-11-07T02:29:55Z\r\n"
+      },
+      "note": "RESP3 HGETALL 返回字段和值组成的 map，所有 hash 字段值保留原始字符串。"
+    },
+    {
+      "id": "mqtt-005",
+      "processId": "mqtt-agent",
+      "family": "mqtt",
+      "protocol": "MQTT",
+      "transport": "tcp",
+      "host": "broker.example.test",
+      "operation": "PUBLISH",
+      "summary": "factory/line-01/temperature",
+      "direction": "client_to_server",
+      "state": "complete",
+      "outcome": "observed",
+      "startedAt": "2026-11-07T02:29:58.252Z",
+      "durationMs": null,
+      "sizeBytes": 106,
+      "remoteAddress": "203.0.113.51:8883",
+      "localAddress": "192.0.2.10:56300",
+      "connectionId": "mqtt-conn-01",
+      "payload": "{\n  \"sensor_id\": \"sensor-demo-17\",\n  \"temperature_c\": 23.7,\n  \"humidity_pct\": 46.2,\n  \"sample_seq\": 1086\n}",
+      "payloadEncoding": "utf8",
+      "metadata": {
+        "packetName": "PUBLISH",
+        "packetType": 3,
+        "clientId": "sensor-demo-17",
+        "kind": "publish",
+        "topic": "factory/line-01/temperature",
+        "qos": 0,
+        "dup": false,
+        "retain": false
+      },
+      "note": "Payload 为该 PUBLISH 的业务字节；QoS 0 不应展示不存在的 Packet ID 或 PUBACK。"
+    },
+    {
+      "id": "req-001",
+      "processId": "checkout-api",
+      "method": "POST",
+      "scheme": "https",
+      "host": "payments.example.test",
+      "path": "/v1/payments",
+      "status": 502,
+      "protocol": "HTTP/2",
+      "startedAt": "2026-11-07T02:29:57.815Z",
+      "durationMs": 1536,
+      "sizeBytes": 216,
+      "remoteAddress": "198.51.100.23:443",
+      "localAddress": "192.0.2.10:51803",
+      "connectionId": "conn-01-03",
+      "streamId": "1",
+      "request": {
+        "headers": [
+          {
+            "name": "Host",
+            "value": "payments.example.test"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json"
+          },
+          {
+            "name": "User-Agent",
+            "value": "Go-http-client/2.0"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0001"
+          },
+          {
+            "name": "Authorization",
+            "value": "[REDACTED]"
+          },
+          {
+            "name": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "name": "Content-Length",
+            "value": "147"
+          }
+        ],
+        "body": "{\n  \"order_id\": \"demo-1086\",\n  \"amount\": 12800,\n  \"currency\": \"CNY\",\n  \"payment_method\": \"sandbox_card\",\n  \"idempotency_key\": \"demo-payment-1086\"\n}"
+      },
+      "response": {
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8"
+          },
+          {
+            "name": "Content-Length",
+            "value": "216"
+          },
+          {
+            "name": "Server",
+            "value": "envoy"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0001"
+          },
+          {
+            "name": "X-Upstream-Service-Time",
+            "value": "1500"
+          },
+          {
+            "name": "Retry-After",
+            "value": "2"
+          }
+        ],
+        "body": "{\n  \"error\": {\n    \"code\": \"upstream_unavailable\",\n    \"message\": \"Payment provider timed out\",\n    \"retryable\": true\n  },\n  \"request_id\": \"demo-request-0001\",\n  \"upstream\": \"sandbox-payments\",\n  \"timeout_ms\": 1500\n}"
+      },
+      "state": "complete",
+      "note": "模拟支付服务超时：检查响应错误码与上游请求标识。",
+      "family": "http",
+      "transport": "tcp",
+      "metadata": {
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "payments.example.test",
+          "alpn": "h2",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "t13d0911h2_f91f431d341e_c34edd1a8701"
+        }
+      }
+    },
+    {
+      "id": "req-002",
+      "processId": "checkout-api",
+      "method": "GET",
+      "scheme": "https",
+      "host": "api.example.test",
+      "path": "/v1/orders/demo-1086",
+      "status": 200,
+      "protocol": "HTTP/2",
+      "startedAt": "2026-11-07T02:29:57.378Z",
+      "durationMs": 37,
+      "sizeBytes": 2196,
+      "remoteAddress": "198.51.100.21:443",
+      "localAddress": "192.0.2.10:51801",
+      "connectionId": "conn-01-01",
+      "streamId": "3",
+      "request": {
+        "headers": [
+          {
+            "name": "Host",
+            "value": "api.example.test"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json"
+          },
+          {
+            "name": "User-Agent",
+            "value": "Go-http-client/2.0"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0002"
+          },
+          {
+            "name": "Authorization",
+            "value": "[REDACTED]"
+          }
+        ],
+        "body": ""
+      },
+      "response": {
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8"
+          },
+          {
+            "name": "Content-Length",
+            "value": "2196"
+          },
+          {
+            "name": "Server",
+            "value": "envoy"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0002"
+          },
+          {
+            "name": "Cache-Control",
+            "value": "private, no-cache"
+          }
+        ],
+        "body": "{\n  \"id\": \"demo-1086\",\n  \"status\": \"payment_pending\",\n  \"currency\": \"CNY\",\n  \"subtotal\": 12800,\n  \"shipping\": 0,\n  \"total\": 12800,\n  \"customer\": {\n    \"id\": \"demo-customer-42\",\n    \"display_name\": \"Demo Customer\",\n    \"email\": \"buyer@example.test\"\n  },\n  \"items\": [\n    {\n      \"id\": \"line-01\",\n      \"sku\": \"DEMO-1001\",\n      \"name\": \"Demo item 1\",\n      \"quantity\": 1,\n      \"unit_price\": 1600,\n      \"currency\": \"CNY\",\n      \"warehouse\": \"demo-east\",\n      \"availability\": \"in_stock\"\n    },\n    {\n      \"id\": \"line-02\",\n      \"sku\": \"DEMO-1002\",\n      \"name\": \"Demo item 2\",\n      \"quantity\": 1,\n      \"unit_price\": 1600,\n      \"currency\": \"CNY\",\n      \"warehouse\": \"demo-east\",\n      \"availability\": \"in_stock\"\n    },\n    {\n      \"id\": \"line-03\",\n      \"sku\": \"DEMO-1003\",\n      \"name\": \"Demo item 3\",\n      \"quantity\": 1,\n      \"unit_price\": 1600,\n      \"currency\": \"CNY\",\n      \"warehouse\": \"demo-east\",\n      \"availability\": \"in_stock\"\n    },\n    {\n      \"id\": \"line-04\",\n      \"sku\": \"DEMO-1004\",\n      \"name\": \"Demo item 4\",\n      \"quantity\": 1,\n      \"unit_price\": 1600,\n      \"currency\": \"CNY\",\n      \"warehouse\": \"demo-east\",\n      \"availability\": \"in_stock\"\n    },\n    {\n      \"id\": \"line-05\",\n      \"sku\": \"DEMO-1005\",\n      \"name\": \"Demo item 5\",\n      \"quantity\": 1,\n      \"unit_price\": 1600,\n      \"currency\": \"CNY\",\n      \"warehouse\": \"demo-east\",\n      \"availability\": \"in_stock\"\n    },\n    {\n      \"id\": \"line-06\",\n      \"sku\": \"DEMO-1006\",\n      \"name\": \"Demo item 6\",\n      \"quantity\": 1,\n      \"unit_price\": 1600,\n      \"currency\": \"CNY\",\n      \"warehouse\": \"demo-east\",\n      \"availability\": \"in_stock\"\n    },\n    {\n      \"id\": \"line-07\",\n      \"sku\": \"DEMO-1007\",\n      \"name\": \"Demo item 7\",\n      \"quantity\": 1,\n      \"unit_price\": 1600,\n      \"currency\": \"CNY\",\n      \"warehouse\": \"demo-east\",\n      \"availability\": \"in_stock\"\n    },\n    {\n      \"id\": \"line-08\",\n      \"sku\": \"DEMO-1008\",\n      \"name\": \"Demo item 8\",\n      \"quantity\": 1,\n      \"unit_price\": 1600,\n      \"currency\": \"CNY\",\n      \"warehouse\": \"demo-east\",\n      \"availability\": \"in_stock\"\n    }\n  ],\n  \"metadata\": {\n    \"environment\": \"sandbox\",\n    \"source\": \"web\",\n    \"campaign\": \"autumn-demo\"\n  }\n}"
+      },
+      "state": "complete",
+      "family": "http",
+      "transport": "tcp",
+      "metadata": {
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "api.example.test",
+          "alpn": "h2",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "t13d0911h2_f91f431d341e_c34edd1a8701"
+        }
+      }
+    },
+    {
+      "id": "req-003",
+      "processId": "checkout-api",
+      "method": "POST",
+      "scheme": "https",
+      "host": "auth.example.test",
+      "path": "/oauth/token",
+      "status": 200,
+      "protocol": "HTTP/1.1",
+      "startedAt": "2026-11-07T02:29:56.941Z",
+      "durationMs": 68,
+      "sizeBytes": 123,
+      "remoteAddress": "198.51.100.22:443",
+      "localAddress": "192.0.2.10:51802",
+      "connectionId": "conn-01-02",
+      "streamId": "3",
+      "request": {
+        "headers": [
+          {
+            "name": "Host",
+            "value": "auth.example.test"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json"
+          },
+          {
+            "name": "User-Agent",
+            "value": "Go-http-client/2.0"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0003"
+          },
+          {
+            "name": "Authorization",
+            "value": "[REDACTED]"
+          },
+          {
+            "name": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "name": "Content-Length",
+            "value": "105"
+          }
+        ],
+        "body": "{\n  \"grant_type\": \"client_credentials\",\n  \"client_id\": \"demo-checkout\",\n  \"client_secret\": \"[REDACTED]\"\n}"
+      },
+      "response": {
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8"
+          },
+          {
+            "name": "Content-Length",
+            "value": "123"
+          },
+          {
+            "name": "Server",
+            "value": "envoy"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0003"
+          }
+        ],
+        "body": "{\n  \"access_token\": \"[REDACTED]\",\n  \"token_type\": \"Bearer\",\n  \"expires_in\": 3600,\n  \"scope\": \"orders:read payments:write\"\n}"
+      },
+      "state": "complete",
+      "family": "http",
+      "transport": "tcp",
+      "metadata": {
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "auth.example.test",
+          "alpn": "http/1.1",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "t13d0911h1_f91f431d341e_c34edd1a8701"
+        }
+      }
+    },
+    {
+      "id": "req-004",
+      "processId": "checkout-api",
+      "method": "GET",
+      "scheme": "https",
+      "host": "stock.example.test",
+      "path": "/v1/inventory?sku=DEMO-1001",
+      "status": 200,
+      "protocol": "HTTP/2",
+      "startedAt": "2026-11-07T02:29:56.504Z",
+      "durationMs": 24,
+      "sizeBytes": 88,
+      "remoteAddress": "198.51.100.24:443",
+      "localAddress": "192.0.2.10:51804",
+      "connectionId": "conn-01-04",
+      "streamId": "7",
+      "request": {
+        "headers": [
+          {
+            "name": "Host",
+            "value": "stock.example.test"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json"
+          },
+          {
+            "name": "User-Agent",
+            "value": "Go-http-client/2.0"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0004"
+          },
+          {
+            "name": "Authorization",
+            "value": "[REDACTED]"
+          }
+        ],
+        "body": ""
+      },
+      "response": {
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8"
+          },
+          {
+            "name": "Content-Length",
+            "value": "88"
+          },
+          {
+            "name": "Server",
+            "value": "envoy"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0004"
+          }
+        ],
+        "body": "{\n  \"sku\": \"DEMO-1001\",\n  \"available\": 48,\n  \"reserved\": 3,\n  \"warehouse\": \"demo-east\"\n}"
+      },
+      "state": "complete",
+      "family": "http",
+      "transport": "tcp",
+      "metadata": {
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "stock.example.test",
+          "alpn": "h2",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "t13d0911h2_f91f431d341e_c34edd1a8701"
+        }
+      }
+    },
+    {
+      "id": "req-005",
+      "processId": "checkout-api",
+      "method": "GET",
+      "scheme": "https",
+      "host": "api.example.test",
+      "path": "/v1/customers/demo-customer-42",
+      "status": 200,
+      "protocol": "HTTP/2",
+      "startedAt": "2026-11-07T02:29:56.067Z",
+      "durationMs": 42,
+      "sizeBytes": 100,
+      "remoteAddress": "198.51.100.21:443",
+      "localAddress": "192.0.2.10:51801",
+      "connectionId": "conn-01-01",
+      "streamId": "9",
+      "request": {
+        "headers": [
+          {
+            "name": "Host",
+            "value": "api.example.test"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json"
+          },
+          {
+            "name": "User-Agent",
+            "value": "Go-http-client/2.0"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0005"
+          },
+          {
+            "name": "Authorization",
+            "value": "[REDACTED]"
+          }
+        ],
+        "body": ""
+      },
+      "response": {
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8"
+          },
+          {
+            "name": "Content-Length",
+            "value": "100"
+          },
+          {
+            "name": "Server",
+            "value": "envoy"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0005"
+          }
+        ],
+        "body": "{\n  \"id\": \"demo-customer-42\",\n  \"name\": \"Demo Customer\",\n  \"tier\": \"standard\",\n  \"locale\": \"zh-CN\"\n}"
+      },
+      "state": "complete",
+      "family": "http",
+      "transport": "tcp",
+      "metadata": {
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "api.example.test",
+          "alpn": "h2",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "t13d0911h2_f91f431d341e_c34edd1a8701"
+        }
+      }
+    },
+    {
+      "id": "req-006",
+      "processId": "checkout-api",
+      "method": "POST",
+      "scheme": "https",
+      "host": "api.example.test",
+      "path": "/v1/carts",
+      "status": 201,
+      "protocol": "HTTP/2",
+      "startedAt": "2026-11-07T02:29:55.630Z",
+      "durationMs": 53,
+      "sizeBytes": 62,
+      "remoteAddress": "198.51.100.21:443",
+      "localAddress": "192.0.2.10:51801",
+      "connectionId": "conn-01-01",
+      "streamId": "11",
+      "request": {
+        "headers": [
+          {
+            "name": "Host",
+            "value": "api.example.test"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json"
+          },
+          {
+            "name": "User-Agent",
+            "value": "Go-http-client/2.0"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0006"
+          },
+          {
+            "name": "Authorization",
+            "value": "[REDACTED]"
+          },
+          {
+            "name": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "name": "Content-Length",
+            "value": "60"
+          }
+        ],
+        "body": "{\n  \"customer_id\": \"demo-customer-42\",\n  \"currency\": \"CNY\"\n}"
+      },
+      "response": {
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8"
+          },
+          {
+            "name": "Content-Length",
+            "value": "62"
+          },
+          {
+            "name": "Server",
+            "value": "envoy"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0006"
+          },
+          {
+            "name": "Location",
+            "value": "/v1/carts/demo-cart-82"
+          }
+        ],
+        "body": "{\n  \"id\": \"demo-cart-82\",\n  \"items\": [],\n  \"currency\": \"CNY\"\n}"
+      },
+      "state": "complete",
+      "family": "http",
+      "transport": "tcp",
+      "metadata": {
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "api.example.test",
+          "alpn": "h2",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "t13d0911h2_f91f431d341e_c34edd1a8701"
+        }
+      }
+    },
+    {
+      "id": "req-007",
+      "processId": "checkout-api",
+      "method": "PATCH",
+      "scheme": "https",
+      "host": "api.example.test",
+      "path": "/v1/carts/demo-cart-82",
+      "status": 200,
+      "protocol": "HTTP/2",
+      "startedAt": "2026-11-07T02:29:55.193Z",
+      "durationMs": 71,
+      "sizeBytes": 63,
+      "remoteAddress": "198.51.100.21:443",
+      "localAddress": "192.0.2.10:51801",
+      "connectionId": "conn-01-01",
+      "streamId": "13",
+      "request": {
+        "headers": [
+          {
+            "name": "Host",
+            "value": "api.example.test"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json"
+          },
+          {
+            "name": "User-Agent",
+            "value": "Go-http-client/2.0"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0007"
+          },
+          {
+            "name": "Authorization",
+            "value": "[REDACTED]"
+          },
+          {
+            "name": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "name": "Content-Length",
+            "value": "78"
+          }
+        ],
+        "body": "{\n  \"items\": [\n    {\n      \"sku\": \"DEMO-1001\",\n      \"quantity\": 1\n    }\n  ]\n}"
+      },
+      "response": {
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8"
+          },
+          {
+            "name": "Content-Length",
+            "value": "63"
+          },
+          {
+            "name": "Server",
+            "value": "envoy"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0007"
+          }
+        ],
+        "body": "{\n  \"id\": \"demo-cart-82\",\n  \"item_count\": 8,\n  \"total\": 12800\n}"
+      },
+      "state": "complete",
+      "family": "http",
+      "transport": "tcp",
+      "metadata": {
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "api.example.test",
+          "alpn": "h2",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "t13d0911h2_f91f431d341e_c34edd1a8701"
+        }
+      }
+    },
+    {
+      "id": "req-008",
+      "processId": "checkout-api",
+      "method": "GET",
+      "scheme": "https",
+      "host": "api.example.test",
+      "path": "/v1/shipping/options",
+      "status": 200,
+      "protocol": "HTTP/2",
+      "startedAt": "2026-11-07T02:29:54.756Z",
+      "durationMs": 31,
+      "sizeBytes": 203,
+      "remoteAddress": "198.51.100.21:443",
+      "localAddress": "192.0.2.10:51801",
+      "connectionId": "conn-01-01",
+      "streamId": "15",
+      "request": {
+        "headers": [
+          {
+            "name": "Host",
+            "value": "api.example.test"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json"
+          },
+          {
+            "name": "User-Agent",
+            "value": "Go-http-client/2.0"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0008"
+          },
+          {
+            "name": "Authorization",
+            "value": "[REDACTED]"
+          }
+        ],
+        "body": ""
+      },
+      "response": {
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8"
+          },
+          {
+            "name": "Content-Length",
+            "value": "203"
+          },
+          {
+            "name": "Server",
+            "value": "envoy"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0008"
+          }
+        ],
+        "body": "[\n  {\n    \"id\": \"standard\",\n    \"label\": \"Standard delivery\",\n    \"amount\": 0,\n    \"eta_days\": 3\n  },\n  {\n    \"id\": \"express\",\n    \"label\": \"Express delivery\",\n    \"amount\": 1200,\n    \"eta_days\": 1\n  }\n]"
+      },
+      "state": "complete",
+      "family": "http",
+      "transport": "tcp",
+      "metadata": {
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "api.example.test",
+          "alpn": "h2",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "t13d0911h2_f91f431d341e_c34edd1a8701"
+        }
+      }
+    },
+    {
+      "id": "req-009",
+      "processId": "checkout-api",
+      "method": "POST",
+      "scheme": "https",
+      "host": "api.example.test",
+      "path": "/v1/coupons/validate",
+      "status": 200,
+      "protocol": "HTTP/2",
+      "startedAt": "2026-11-07T02:29:54.319Z",
+      "durationMs": 44,
+      "sizeBytes": 90,
+      "remoteAddress": "198.51.100.21:443",
+      "localAddress": "192.0.2.10:51801",
+      "connectionId": "conn-01-01",
+      "streamId": "17",
+      "request": {
+        "headers": [
+          {
+            "name": "Host",
+            "value": "api.example.test"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json"
+          },
+          {
+            "name": "User-Agent",
+            "value": "Go-http-client/2.0"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0009"
+          },
+          {
+            "name": "Authorization",
+            "value": "[REDACTED]"
+          },
+          {
+            "name": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "name": "Content-Length",
+            "value": "53"
+          }
+        ],
+        "body": "{\n  \"code\": \"DEMO2026\",\n  \"cart_id\": \"demo-cart-82\"\n}"
+      },
+      "response": {
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8"
+          },
+          {
+            "name": "Content-Length",
+            "value": "90"
+          },
+          {
+            "name": "Server",
+            "value": "envoy"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0009"
+          }
+        ],
+        "body": "{\n  \"valid\": true,\n  \"code\": \"DEMO2026\",\n  \"discount\": 0,\n  \"reason\": \"Demo-only coupon\"\n}"
+      },
+      "state": "complete",
+      "family": "http",
+      "transport": "tcp",
+      "metadata": {
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "api.example.test",
+          "alpn": "h2",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "t13d0911h2_f91f431d341e_c34edd1a8701"
+        }
+      }
+    },
+    {
+      "id": "req-010",
+      "processId": "checkout-api",
+      "method": "GET",
+      "scheme": "https",
+      "host": "api.example.test",
+      "path": "/v1/feature-flags",
+      "status": 200,
+      "protocol": "HTTP/2",
+      "startedAt": "2026-11-07T02:29:53.882Z",
+      "durationMs": 18,
+      "sizeBytes": 77,
+      "remoteAddress": "198.51.100.21:443",
+      "localAddress": "192.0.2.10:51801",
+      "connectionId": "conn-01-01",
+      "streamId": "19",
+      "request": {
+        "headers": [
+          {
+            "name": "Host",
+            "value": "api.example.test"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json"
+          },
+          {
+            "name": "User-Agent",
+            "value": "Go-http-client/2.0"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0010"
+          },
+          {
+            "name": "Authorization",
+            "value": "[REDACTED]"
+          }
+        ],
+        "body": ""
+      },
+      "response": {
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8"
+          },
+          {
+            "name": "Content-Length",
+            "value": "77"
+          },
+          {
+            "name": "Server",
+            "value": "envoy"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0010"
+          },
+          {
+            "name": "Cache-Control",
+            "value": "max-age=60"
+          }
+        ],
+        "body": "{\n  \"checkout_v2\": true,\n  \"saved_cards\": false,\n  \"express_delivery\": true\n}"
+      },
+      "state": "complete",
+      "family": "http",
+      "transport": "tcp",
+      "metadata": {
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "api.example.test",
+          "alpn": "h2",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "t13d0911h2_f91f431d341e_c34edd1a8701"
+        }
+      }
+    },
+    {
+      "id": "req-011",
+      "processId": "checkout-api",
+      "method": "POST",
+      "scheme": "https",
+      "host": "telemetry.example.test",
+      "path": "/v1/events",
+      "status": 204,
+      "protocol": "HTTP/2",
+      "startedAt": "2026-11-07T02:29:53.445Z",
+      "durationMs": 22,
+      "sizeBytes": 0,
+      "remoteAddress": "198.51.100.27:443",
+      "localAddress": "192.0.2.10:51807",
+      "connectionId": "conn-01-07",
+      "streamId": "21",
+      "request": {
+        "headers": [
+          {
+            "name": "Host",
+            "value": "telemetry.example.test"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json"
+          },
+          {
+            "name": "User-Agent",
+            "value": "Go-http-client/2.0"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0011"
+          },
+          {
+            "name": "Authorization",
+            "value": "[REDACTED]"
+          },
+          {
+            "name": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "name": "Content-Length",
+            "value": "68"
+          }
+        ],
+        "body": "{\n  \"event\": \"checkout_started\",\n  \"session_id\": \"demo-session-01\"\n}"
+      },
+      "response": {
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8"
+          },
+          {
+            "name": "Content-Length",
+            "value": "0"
+          },
+          {
+            "name": "Server",
+            "value": "envoy"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0011"
+          }
+        ],
+        "body": ""
+      },
+      "state": "complete",
+      "family": "http",
+      "transport": "tcp",
+      "metadata": {
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "telemetry.example.test",
+          "alpn": "h2",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "t13d0911h2_f91f431d341e_c34edd1a8701"
+        }
+      }
+    },
+    {
+      "id": "req-012",
+      "processId": "checkout-api",
+      "method": "POST",
+      "scheme": "https",
+      "host": "payments.example.test",
+      "path": "/v1/payments/status",
+      "status": 429,
+      "protocol": "HTTP/2",
+      "startedAt": "2026-11-07T02:29:53.008Z",
+      "durationMs": 16,
+      "sizeBytes": 123,
+      "remoteAddress": "198.51.100.23:443",
+      "localAddress": "192.0.2.10:51803",
+      "connectionId": "conn-01-03",
+      "streamId": "23",
+      "request": {
+        "headers": [
+          {
+            "name": "Host",
+            "value": "payments.example.test"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json"
+          },
+          {
+            "name": "User-Agent",
+            "value": "Go-http-client/2.0"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0012"
+          },
+          {
+            "name": "Authorization",
+            "value": "[REDACTED]"
+          },
+          {
+            "name": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "name": "Content-Length",
+            "value": "39"
+          }
+        ],
+        "body": "{\n  \"payment_id\": \"demo-payment-1086\"\n}"
+      },
+      "response": {
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8"
+          },
+          {
+            "name": "Content-Length",
+            "value": "123"
+          },
+          {
+            "name": "Server",
+            "value": "envoy"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0012"
+          },
+          {
+            "name": "Retry-After",
+            "value": "5"
+          },
+          {
+            "name": "X-RateLimit-Remaining",
+            "value": "0"
+          }
+        ],
+        "body": "{\n  \"error\": {\n    \"code\": \"rate_limited\",\n    \"message\": \"Sandbox request limit reached\"\n  },\n  \"retry_after_seconds\": 5\n}"
+      },
+      "state": "complete",
+      "family": "http",
+      "transport": "tcp",
+      "metadata": {
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "payments.example.test",
+          "alpn": "h2",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "t13d0911h2_f91f431d341e_c34edd1a8701"
+        }
+      }
+    },
+    {
+      "id": "req-013",
+      "processId": "checkout-api",
+      "method": "GET",
+      "scheme": "https",
+      "host": "stock.example.test",
+      "path": "/v1/inventory/reservations/demo-1086",
+      "status": null,
+      "protocol": "HTTP/2",
+      "startedAt": "2026-11-07T02:29:52.571Z",
+      "durationMs": null,
+      "sizeBytes": 0,
+      "remoteAddress": "198.51.100.24:443",
+      "localAddress": "192.0.2.10:51804",
+      "connectionId": "conn-01-04",
+      "streamId": "25",
+      "request": {
+        "headers": [
+          {
+            "name": "Host",
+            "value": "stock.example.test"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json"
+          },
+          {
+            "name": "User-Agent",
+            "value": "Go-http-client/2.0"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0013"
+          },
+          {
+            "name": "Authorization",
+            "value": "[REDACTED]"
+          }
+        ],
+        "body": ""
+      },
+      "response": {
+        "headers": [],
+        "body": ""
+      },
+      "state": "pending",
+      "note": "模拟请求已发送，正在等待响应。",
+      "family": "http",
+      "transport": "tcp",
+      "metadata": {
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "stock.example.test",
+          "alpn": "h2",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "t13d0911h2_f91f431d341e_c34edd1a8701"
+        }
+      }
+    },
+    {
+      "id": "req-014",
+      "processId": "checkout-api",
+      "method": "GET",
+      "scheme": "https",
+      "host": "payments.example.test",
+      "path": "/v1/providers/health",
+      "status": null,
+      "protocol": "HTTP/2",
+      "startedAt": "2026-11-07T02:29:52.134Z",
+      "durationMs": null,
+      "sizeBytes": 0,
+      "remoteAddress": "198.51.100.23:443",
+      "localAddress": "192.0.2.10:51803",
+      "connectionId": "conn-01-03",
+      "streamId": "27",
+      "request": {
+        "headers": [
+          {
+            "name": "Host",
+            "value": "payments.example.test"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json"
+          },
+          {
+            "name": "User-Agent",
+            "value": "Go-http-client/2.0"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0014"
+          },
+          {
+            "name": "Authorization",
+            "value": "[REDACTED]"
+          }
+        ],
+        "body": ""
+      },
+      "response": {
+        "headers": [],
+        "body": ""
+      },
+      "state": "failed",
+      "note": "模拟连接在响应头到达前关闭；没有可展示的 HTTP 状态码。",
+      "family": "http",
+      "transport": "tcp",
+      "metadata": {
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "payments.example.test",
+          "alpn": "h2",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "t13d0911h2_f91f431d341e_c34edd1a8701"
+        }
+      }
+    },
+    {
+      "id": "req-015",
+      "processId": "nginx",
+      "method": "GET",
+      "scheme": "https",
+      "host": "shop.example.test",
+      "path": "/",
+      "status": 200,
+      "protocol": "HTTP/2",
+      "startedAt": "2026-11-07T02:29:51.697Z",
+      "durationMs": 26,
+      "sizeBytes": 267,
+      "remoteAddress": "198.51.100.26:443",
+      "localAddress": "192.0.2.10:51906",
+      "connectionId": "conn-02-06",
+      "streamId": "29",
+      "request": {
+        "headers": [
+          {
+            "name": "Host",
+            "value": "shop.example.test"
+          },
+          {
+            "name": "Accept",
+            "value": "text/html"
+          },
+          {
+            "name": "User-Agent",
+            "value": "nginx/1.26.2"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0015"
+          }
+        ],
+        "body": ""
+      },
+      "response": {
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "text/html; charset=utf-8"
+          },
+          {
+            "name": "Content-Length",
+            "value": "267"
+          },
+          {
+            "name": "Server",
+            "value": "nginx"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0015"
+          }
+        ],
+        "body": "<!doctype html>\n<html lang=\"zh-CN\">\n  <head>\n    <meta charset=\"utf-8\">\n    <title>Demo storefront</title>\n  </head>\n  <body>\n    <main>\n      <h1>Demo storefront</h1>\n      <p>This is fictional traffic for the eCapture UI prototype.</p>\n    </main>\n  </body>\n</html>"
+      },
+      "state": "complete",
+      "family": "http",
+      "transport": "tcp",
+      "metadata": {
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "shop.example.test",
+          "alpn": "h2",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "t13d0911h2_f91f431d341e_c34edd1a8701"
+        }
+      }
+    },
+    {
+      "id": "req-016",
+      "processId": "nginx",
+      "method": "GET",
+      "scheme": "https",
+      "host": "cdn.example.test",
+      "path": "/assets/app.css",
+      "status": 200,
+      "protocol": "HTTP/2",
+      "startedAt": "2026-11-07T02:29:51.260Z",
+      "durationMs": 12,
+      "sizeBytes": 137,
+      "remoteAddress": "198.51.100.25:443",
+      "localAddress": "192.0.2.10:51905",
+      "connectionId": "conn-02-05",
+      "streamId": "31",
+      "request": {
+        "headers": [
+          {
+            "name": "Host",
+            "value": "cdn.example.test"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json"
+          },
+          {
+            "name": "User-Agent",
+            "value": "nginx/1.26.2"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0016"
+          }
+        ],
+        "body": ""
+      },
+      "response": {
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "text/css; charset=utf-8"
+          },
+          {
+            "name": "Content-Length",
+            "value": "137"
+          },
+          {
+            "name": "Server",
+            "value": "nginx"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0016"
+          },
+          {
+            "name": "Cache-Control",
+            "value": "public, max-age=86400"
+          }
+        ],
+        "body": ":root { color-scheme: light dark; }\nbody { margin: 0; font-family: system-ui, sans-serif; }\n.checkout { max-width: 960px; margin: auto; }"
+      },
+      "state": "complete",
+      "family": "http",
+      "transport": "tcp",
+      "metadata": {
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "cdn.example.test",
+          "alpn": "h2",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "t13d0911h2_f91f431d341e_c34edd1a8701"
+        }
+      }
+    },
+    {
+      "id": "req-017",
+      "processId": "nginx",
+      "method": "GET",
+      "scheme": "https",
+      "host": "cdn.example.test",
+      "path": "/assets/app.js",
+      "status": 304,
+      "protocol": "HTTP/2",
+      "startedAt": "2026-11-07T02:29:50.823Z",
+      "durationMs": 9,
+      "sizeBytes": 0,
+      "remoteAddress": "198.51.100.25:443",
+      "localAddress": "192.0.2.10:51905",
+      "connectionId": "conn-02-05",
+      "streamId": "33",
+      "request": {
+        "headers": [
+          {
+            "name": "Host",
+            "value": "cdn.example.test"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json"
+          },
+          {
+            "name": "User-Agent",
+            "value": "nginx/1.26.2"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0017"
+          },
+          {
+            "name": "If-None-Match",
+            "value": "\"demo-bundle-7\""
+          }
+        ],
+        "body": ""
+      },
+      "response": {
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/javascript"
+          },
+          {
+            "name": "Content-Length",
+            "value": "0"
+          },
+          {
+            "name": "Server",
+            "value": "nginx"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0017"
+          },
+          {
+            "name": "ETag",
+            "value": "\"demo-bundle-7\""
+          }
+        ],
+        "body": ""
+      },
+      "state": "complete",
+      "family": "http",
+      "transport": "tcp",
+      "metadata": {
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "cdn.example.test",
+          "alpn": "h2",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "t13d0911h2_f91f431d341e_c34edd1a8701"
+        }
+      }
+    },
+    {
+      "id": "req-018",
+      "processId": "nginx",
+      "method": "GET",
+      "scheme": "https",
+      "host": "api.example.test",
+      "path": "/v1/catalog?limit=3",
+      "status": 200,
+      "protocol": "HTTP/2",
+      "startedAt": "2026-11-07T02:29:50.386Z",
+      "durationMs": 56,
+      "sizeBytes": 311,
+      "remoteAddress": "198.51.100.21:443",
+      "localAddress": "192.0.2.10:51901",
+      "connectionId": "conn-02-01",
+      "streamId": "35",
+      "request": {
+        "headers": [
+          {
+            "name": "Host",
+            "value": "api.example.test"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json"
+          },
+          {
+            "name": "User-Agent",
+            "value": "nginx/1.26.2"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0018"
+          }
+        ],
+        "body": ""
+      },
+      "response": {
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8"
+          },
+          {
+            "name": "Content-Length",
+            "value": "311"
+          },
+          {
+            "name": "Server",
+            "value": "nginx"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0018"
+          }
+        ],
+        "body": "{\n  \"items\": [\n    {\n      \"sku\": \"DEMO-1001\",\n      \"name\": \"Canvas tote\",\n      \"price\": 1600\n    },\n    {\n      \"sku\": \"DEMO-1002\",\n      \"name\": \"Travel cup\",\n      \"price\": 2400\n    },\n    {\n      \"sku\": \"DEMO-1003\",\n      \"name\": \"Notebook\",\n      \"price\": 1200\n    }\n  ],\n  \"next_cursor\": \"demo-page-2\"\n}"
+      },
+      "state": "complete",
+      "family": "http",
+      "transport": "tcp",
+      "metadata": {
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "api.example.test",
+          "alpn": "h2",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "t13d0911h2_f91f431d341e_c34edd1a8701"
+        }
+      }
+    },
+    {
+      "id": "req-019",
+      "processId": "nginx",
+      "method": "GET",
+      "scheme": "https",
+      "host": "shop.example.test",
+      "path": "/robots.txt",
+      "status": 200,
+      "protocol": "HTTP/1.1",
+      "startedAt": "2026-11-07T02:29:49.949Z",
+      "durationMs": 8,
+      "sizeBytes": 79,
+      "remoteAddress": "198.51.100.26:443",
+      "localAddress": "192.0.2.10:51906",
+      "connectionId": "conn-02-06",
+      "streamId": "19",
+      "request": {
+        "headers": [
+          {
+            "name": "Host",
+            "value": "shop.example.test"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json"
+          },
+          {
+            "name": "User-Agent",
+            "value": "nginx/1.26.2"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0019"
+          }
+        ],
+        "body": ""
+      },
+      "response": {
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "text/plain; charset=utf-8"
+          },
+          {
+            "name": "Content-Length",
+            "value": "79"
+          },
+          {
+            "name": "Server",
+            "value": "nginx"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0019"
+          }
+        ],
+        "body": "User-agent: *\nDisallow: /admin/\nSitemap: https://shop.example.test/sitemap.xml\n"
+      },
+      "state": "complete",
+      "family": "http",
+      "transport": "tcp",
+      "metadata": {
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "shop.example.test",
+          "alpn": "http/1.1",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "t13d0911h1_f91f431d341e_c34edd1a8701"
+        }
+      }
+    },
+    {
+      "id": "req-020",
+      "processId": "nginx",
+      "method": "GET",
+      "scheme": "https",
+      "host": "cdn.example.test",
+      "path": "/assets/missing-icon.svg",
+      "status": 404,
+      "protocol": "HTTP/2",
+      "startedAt": "2026-11-07T02:29:49.512Z",
+      "durationMs": 14,
+      "sizeBytes": 64,
+      "remoteAddress": "198.51.100.25:443",
+      "localAddress": "192.0.2.10:51905",
+      "connectionId": "conn-02-05",
+      "streamId": "39",
+      "request": {
+        "headers": [
+          {
+            "name": "Host",
+            "value": "cdn.example.test"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json"
+          },
+          {
+            "name": "User-Agent",
+            "value": "nginx/1.26.2"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0020"
+          }
+        ],
+        "body": ""
+      },
+      "response": {
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8"
+          },
+          {
+            "name": "Content-Length",
+            "value": "64"
+          },
+          {
+            "name": "Server",
+            "value": "nginx"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0020"
+          }
+        ],
+        "body": "{\n  \"error\": \"not_found\",\n  \"path\": \"/assets/missing-icon.svg\"\n}"
+      },
+      "state": "complete",
+      "family": "http",
+      "transport": "tcp",
+      "metadata": {
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "cdn.example.test",
+          "alpn": "h2",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "t13d0911h2_f91f431d341e_c34edd1a8701"
+        }
+      }
+    },
+    {
+      "id": "req-021",
+      "processId": "nginx",
+      "method": "OPTIONS",
+      "scheme": "https",
+      "host": "api.example.test",
+      "path": "/v1/orders",
+      "status": 204,
+      "protocol": "HTTP/1.1",
+      "startedAt": "2026-11-07T02:29:49.075Z",
+      "durationMs": 6,
+      "sizeBytes": 0,
+      "remoteAddress": "198.51.100.21:443",
+      "localAddress": "192.0.2.10:51901",
+      "connectionId": "conn-02-01",
+      "streamId": "21",
+      "request": {
+        "headers": [
+          {
+            "name": "Host",
+            "value": "api.example.test"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json"
+          },
+          {
+            "name": "User-Agent",
+            "value": "nginx/1.26.2"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0021"
+          }
+        ],
+        "body": ""
+      },
+      "response": {
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8"
+          },
+          {
+            "name": "Content-Length",
+            "value": "0"
+          },
+          {
+            "name": "Server",
+            "value": "nginx"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0021"
+          },
+          {
+            "name": "Access-Control-Allow-Origin",
+            "value": "https://shop.example.test"
+          },
+          {
+            "name": "Access-Control-Allow-Methods",
+            "value": "GET, POST, OPTIONS"
+          },
+          {
+            "name": "Access-Control-Max-Age",
+            "value": "600"
+          }
+        ],
+        "body": ""
+      },
+      "state": "complete",
+      "family": "http",
+      "transport": "tcp",
+      "metadata": {
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "api.example.test",
+          "alpn": "http/1.1",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "t13d0911h1_f91f431d341e_c34edd1a8701"
+        }
+      }
+    },
+    {
+      "id": "req-022",
+      "processId": "curl",
+      "method": "GET",
+      "scheme": "https",
+      "host": "api.example.test",
+      "path": "/health",
+      "status": 200,
+      "protocol": "HTTP/1.1",
+      "startedAt": "2026-11-07T02:29:48.638Z",
+      "durationMs": 11,
+      "sizeBytes": 47,
+      "remoteAddress": "198.51.100.21:443",
+      "localAddress": "192.0.2.10:52001",
+      "connectionId": "conn-03-01",
+      "streamId": "22",
+      "request": {
+        "headers": [
+          {
+            "name": "Host",
+            "value": "api.example.test"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json"
+          },
+          {
+            "name": "User-Agent",
+            "value": "curl/8.10.1"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0022"
+          }
+        ],
+        "body": ""
+      },
+      "response": {
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8"
+          },
+          {
+            "name": "Content-Length",
+            "value": "47"
+          },
+          {
+            "name": "Server",
+            "value": "nginx"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0022"
+          }
+        ],
+        "body": "{\n  \"status\": \"ok\",\n  \"version\": \"demo-1.0.0\"\n}"
+      },
+      "state": "complete",
+      "family": "http",
+      "transport": "tcp",
+      "metadata": {
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "api.example.test",
+          "alpn": "http/1.1",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "t13d0911h1_f91f431d341e_c34edd1a8701"
+        }
+      }
+    },
+    {
+      "id": "req-023",
+      "processId": "curl",
+      "method": "GET",
+      "scheme": "https",
+      "host": "api.example.test",
+      "path": "/v1/profile",
+      "status": 401,
+      "protocol": "HTTP/1.1",
+      "startedAt": "2026-11-07T02:29:48.201Z",
+      "durationMs": 18,
+      "sizeBytes": 98,
+      "remoteAddress": "198.51.100.21:443",
+      "localAddress": "192.0.2.10:52001",
+      "connectionId": "conn-03-01",
+      "streamId": "23",
+      "request": {
+        "headers": [
+          {
+            "name": "Host",
+            "value": "api.example.test"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json"
+          },
+          {
+            "name": "User-Agent",
+            "value": "curl/8.10.1"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0023"
+          },
+          {
+            "name": "Authorization",
+            "value": "[REDACTED]"
+          }
+        ],
+        "body": ""
+      },
+      "response": {
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8"
+          },
+          {
+            "name": "Content-Length",
+            "value": "98"
+          },
+          {
+            "name": "Server",
+            "value": "nginx"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0023"
+          },
+          {
+            "name": "WWW-Authenticate",
+            "value": "Bearer realm=\"demo-api\""
+          }
+        ],
+        "body": "{\n  \"error\": {\n    \"code\": \"unauthorized\",\n    \"message\": \"A valid access token is required\"\n  }\n}"
+      },
+      "state": "complete",
+      "family": "http",
+      "transport": "tcp",
+      "metadata": {
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "api.example.test",
+          "alpn": "http/1.1",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "t13d0911h1_f91f431d341e_c34edd1a8701"
+        }
+      }
+    },
+    {
+      "id": "req-024",
+      "processId": "curl",
+      "method": "GET",
+      "scheme": "https",
+      "host": "api.example.test",
+      "path": "/version",
+      "status": 200,
+      "protocol": "HTTP/1.1",
+      "startedAt": "2026-11-07T02:29:47.764Z",
+      "durationMs": 7,
+      "sizeBytes": 24,
+      "remoteAddress": "198.51.100.21:443",
+      "localAddress": "192.0.2.10:52001",
+      "connectionId": "conn-03-01",
+      "streamId": "24",
+      "request": {
+        "headers": [
+          {
+            "name": "Host",
+            "value": "api.example.test"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json"
+          },
+          {
+            "name": "User-Agent",
+            "value": "curl/8.10.1"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0024"
+          }
+        ],
+        "body": ""
+      },
+      "response": {
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "text/plain; charset=utf-8"
+          },
+          {
+            "name": "Content-Length",
+            "value": "24"
+          },
+          {
+            "name": "Server",
+            "value": "nginx"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0024"
+          }
+        ],
+        "body": "checkout-api demo-1.0.0\n"
+      },
+      "state": "complete",
+      "family": "http",
+      "transport": "tcp",
+      "metadata": {
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "api.example.test",
+          "alpn": "http/1.1",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "t13d0911h1_f91f431d341e_c34edd1a8701"
+        }
+      }
+    },
+    {
+      "id": "req-025",
+      "processId": "curl",
+      "method": "POST",
+      "scheme": "https",
+      "host": "api.example.test",
+      "path": "/v1/echo",
+      "status": 200,
+      "protocol": "HTTP/1.1",
+      "startedAt": "2026-11-07T02:29:47.327Z",
+      "durationMs": 23,
+      "sizeBytes": 80,
+      "remoteAddress": "198.51.100.21:443",
+      "localAddress": "192.0.2.10:52001",
+      "connectionId": "conn-03-01",
+      "streamId": "25",
+      "request": {
+        "headers": [
+          {
+            "name": "Host",
+            "value": "api.example.test"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json"
+          },
+          {
+            "name": "User-Agent",
+            "value": "curl/8.10.1"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0025"
+          },
+          {
+            "name": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "name": "Content-Length",
+            "value": "38"
+          }
+        ],
+        "body": "{\n  \"message\": \"Hello from eCapture\"\n}"
+      },
+      "response": {
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8"
+          },
+          {
+            "name": "Content-Length",
+            "value": "80"
+          },
+          {
+            "name": "Server",
+            "value": "nginx"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0025"
+          }
+        ],
+        "body": "{\n  \"received\": {\n    \"message\": \"Hello from eCapture\"\n  },\n  \"source\": \"mock\"\n}"
+      },
+      "state": "complete",
+      "family": "http",
+      "transport": "tcp",
+      "metadata": {
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "api.example.test",
+          "alpn": "http/1.1",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "t13d0911h1_f91f431d341e_c34edd1a8701"
+        }
+      }
+    },
+    {
+      "id": "req-026",
+      "processId": "curl",
+      "method": "DELETE",
+      "scheme": "https",
+      "host": "api.example.test",
+      "path": "/v1/carts/demo-abandoned",
+      "status": 204,
+      "protocol": "HTTP/1.1",
+      "startedAt": "2026-11-07T02:29:46.890Z",
+      "durationMs": 29,
+      "sizeBytes": 0,
+      "remoteAddress": "198.51.100.21:443",
+      "localAddress": "192.0.2.10:52001",
+      "connectionId": "conn-03-01",
+      "streamId": "26",
+      "request": {
+        "headers": [
+          {
+            "name": "Host",
+            "value": "api.example.test"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json"
+          },
+          {
+            "name": "User-Agent",
+            "value": "curl/8.10.1"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0026"
+          }
+        ],
+        "body": ""
+      },
+      "response": {
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8"
+          },
+          {
+            "name": "Content-Length",
+            "value": "0"
+          },
+          {
+            "name": "Server",
+            "value": "nginx"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0026"
+          }
+        ],
+        "body": ""
+      },
+      "state": "complete",
+      "family": "http",
+      "transport": "tcp",
+      "metadata": {
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "api.example.test",
+          "alpn": "http/1.1",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "t13d0911h1_f91f431d341e_c34edd1a8701"
+        }
+      }
+    },
+    {
+      "id": "req-027",
+      "processId": "python",
+      "method": "POST",
+      "scheme": "https",
+      "host": "telemetry.example.test",
+      "path": "/v1/batches",
+      "status": 201,
+      "protocol": "HTTP/1.1",
+      "startedAt": "2026-11-07T02:29:46.453Z",
+      "durationMs": 86,
+      "sizeBytes": 61,
+      "remoteAddress": "198.51.100.27:443",
+      "localAddress": "192.0.2.10:52107",
+      "connectionId": "conn-04-07",
+      "streamId": "27",
+      "request": {
+        "headers": [
+          {
+            "name": "Host",
+            "value": "telemetry.example.test"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json"
+          },
+          {
+            "name": "User-Agent",
+            "value": "demo-worker/1.0 (pycurl; GnuTLS)"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0027"
+          },
+          {
+            "name": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "name": "Content-Length",
+            "value": "210"
+          }
+        ],
+        "body": "{\n  \"events\": [\n    {\n      \"type\": \"inventory_sync\",\n      \"count\": 48\n    },\n    {\n      \"type\": \"price_sync\",\n      \"count\": 12\n    },\n    {\n      \"type\": \"worker_heartbeat\",\n      \"status\": \"ok\"\n    }\n  ]\n}"
+      },
+      "response": {
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8"
+          },
+          {
+            "name": "Content-Length",
+            "value": "61"
+          },
+          {
+            "name": "Server",
+            "value": "nginx"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0027"
+          }
+        ],
+        "body": "{\n  \"id\": \"demo-batch-23\",\n  \"accepted\": 3,\n  \"rejected\": 0\n}"
+      },
+      "state": "complete",
+      "family": "http",
+      "transport": "tcp",
+      "metadata": {
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "telemetry.example.test",
+          "alpn": "http/1.1",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "t13d0911h1_f91f431d341e_c34edd1a8701"
+        }
+      }
+    },
+    {
+      "id": "req-028",
+      "processId": "python",
+      "method": "GET",
+      "scheme": "https",
+      "host": "stock.example.test",
+      "path": "/v1/warehouses",
+      "status": 200,
+      "protocol": "HTTP/1.1",
+      "startedAt": "2026-11-07T02:29:46.016Z",
+      "durationMs": 62,
+      "sizeBytes": 168,
+      "remoteAddress": "198.51.100.24:443",
+      "localAddress": "192.0.2.10:52104",
+      "connectionId": "conn-04-04",
+      "streamId": "28",
+      "request": {
+        "headers": [
+          {
+            "name": "Host",
+            "value": "stock.example.test"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json"
+          },
+          {
+            "name": "User-Agent",
+            "value": "demo-worker/1.0 (pycurl; GnuTLS)"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0028"
+          }
+        ],
+        "body": ""
+      },
+      "response": {
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8"
+          },
+          {
+            "name": "Content-Length",
+            "value": "168"
+          },
+          {
+            "name": "Server",
+            "value": "nginx"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0028"
+          }
+        ],
+        "body": "[\n  {\n    \"id\": \"demo-east\",\n    \"name\": \"Demo East\",\n    \"region\": \"test-east\"\n  },\n  {\n    \"id\": \"demo-west\",\n    \"name\": \"Demo West\",\n    \"region\": \"test-west\"\n  }\n]"
+      },
+      "state": "complete",
+      "family": "http",
+      "transport": "tcp",
+      "metadata": {
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "stock.example.test",
+          "alpn": "http/1.1",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "t13d0911h1_f91f431d341e_c34edd1a8701"
+        }
+      }
+    },
+    {
+      "id": "req-029",
+      "processId": "python",
+      "method": "GET",
+      "scheme": "https",
+      "host": "api.example.test",
+      "path": "/v1/jobs/demo-sync-23",
+      "status": 200,
+      "protocol": "HTTP/1.1",
+      "startedAt": "2026-11-07T02:29:45.579Z",
+      "durationMs": 45,
+      "sizeBytes": 104,
+      "remoteAddress": "198.51.100.21:443",
+      "localAddress": "192.0.2.10:52101",
+      "connectionId": "conn-04-01",
+      "streamId": "29",
+      "request": {
+        "headers": [
+          {
+            "name": "Host",
+            "value": "api.example.test"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json"
+          },
+          {
+            "name": "User-Agent",
+            "value": "demo-worker/1.0 (pycurl; GnuTLS)"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0029"
+          }
+        ],
+        "body": ""
+      },
+      "response": {
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8"
+          },
+          {
+            "name": "Content-Length",
+            "value": "104"
+          },
+          {
+            "name": "Server",
+            "value": "nginx"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0029"
+          }
+        ],
+        "body": "{\n  \"id\": \"demo-sync-23\",\n  \"state\": \"complete\",\n  \"processed\": 48,\n  \"failed\": 0,\n  \"elapsed_ms\": 730\n}"
+      },
+      "state": "complete",
+      "family": "http",
+      "transport": "tcp",
+      "metadata": {
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "api.example.test",
+          "alpn": "http/1.1",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "t13d0911h1_f91f431d341e_c34edd1a8701"
+        }
+      }
+    },
+    {
+      "id": "req-030",
+      "processId": "python",
+      "method": "POST",
+      "scheme": "https",
+      "host": "telemetry.example.test",
+      "path": "/v1/heartbeat",
+      "status": 204,
+      "protocol": "HTTP/1.1",
+      "startedAt": "2026-11-07T02:29:45.142Z",
+      "durationMs": 19,
+      "sizeBytes": 0,
+      "remoteAddress": "198.51.100.27:443",
+      "localAddress": "192.0.2.10:52107",
+      "connectionId": "conn-04-07",
+      "streamId": "30",
+      "request": {
+        "headers": [
+          {
+            "name": "Host",
+            "value": "telemetry.example.test"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json"
+          },
+          {
+            "name": "User-Agent",
+            "value": "demo-worker/1.0 (pycurl; GnuTLS)"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0030"
+          },
+          {
+            "name": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "name": "Content-Length",
+            "value": "52"
+          }
+        ],
+        "body": "{\n  \"worker\": \"demo-worker-01\",\n  \"status\": \"idle\"\n}"
+      },
+      "response": {
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8"
+          },
+          {
+            "name": "Content-Length",
+            "value": "0"
+          },
+          {
+            "name": "Server",
+            "value": "nginx"
+          },
+          {
+            "name": "X-Request-ID",
+            "value": "demo-request-0030"
+          }
+        ],
+        "body": ""
+      },
+      "state": "complete",
+      "family": "http",
+      "transport": "tcp",
+      "metadata": {
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "telemetry.example.test",
+          "alpn": "http/1.1",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "t13d0911h1_f91f431d341e_c34edd1a8701"
+        }
+      }
+    },
+    {
+      "id": "h3-002",
+      "processId": "h3-client",
+      "family": "http",
+      "transport": "udp",
+      "method": "POST",
+      "scheme": "https",
+      "host": "edge.example.test",
+      "path": "/v3/orders",
+      "status": 201,
+      "protocol": "HTTP/3",
+      "startedAt": "2026-11-07T02:29:44.705Z",
+      "durationMs": 46,
+      "sizeBytes": 55,
+      "remoteAddress": "198.51.100.40:443",
+      "localAddress": "192.0.2.10:55200",
+      "connectionId": "h3-conn-01",
+      "streamId": "4",
+      "request": {
+        "headers": [
+          {
+            "name": ":method",
+            "value": "POST"
+          },
+          {
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "name": ":authority",
+            "value": "edge.example.test"
+          },
+          {
+            "name": ":path",
+            "value": "/v3/orders"
+          },
+          {
+            "name": "accept",
+            "value": "application/json"
+          },
+          {
+            "name": "user-agent",
+            "value": "ecaptureq-demo-h3/1.0"
+          },
+          {
+            "name": "content-type",
+            "value": "application/json"
+          },
+          {
+            "name": "content-length",
+            "value": "41"
+          }
+        ],
+        "body": "{\n  \"sku\": \"demo-1001\",\n  \"quantity\": 2\n}"
+      },
+      "response": {
+        "headers": [
+          {
+            "name": ":status",
+            "value": "201"
+          },
+          {
+            "name": "content-type",
+            "value": "application/json; charset=utf-8"
+          },
+          {
+            "name": "content-length",
+            "value": "55"
+          },
+          {
+            "name": "server",
+            "value": "demo-edge"
+          },
+          {
+            "name": "alt-svc",
+            "value": "h3=\":443\"; ma=86400"
+          }
+        ],
+        "body": "{\n  \"order_id\": \"h3-demo-2086\",\n  \"status\": \"created\"\n}"
+      },
+      "state": "complete",
+      "metadata": {
+        "quicVersion": "v1",
+        "cid": "a1b2c3d4e5f60718",
+        "alpn": "h3",
+        "streamId": "4",
+        "qpack": "dynamic table · decoded",
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "edge.example.test",
+          "alpn": "h3",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "q13d0911h3_f91f431d341e_c34edd1a8701"
+        }
+      },
+      "note": "HTTP/3 模拟交互，已完成 QUIC 解密与应用消息重组。"
+    },
+    {
+      "id": "h3-003",
+      "processId": "h3-client",
+      "family": "http",
+      "transport": "udp",
+      "method": "GET",
+      "scheme": "https",
+      "host": "edge.example.test",
+      "path": "/v3/recommendations",
+      "status": 503,
+      "protocol": "HTTP/3",
+      "startedAt": "2026-11-07T02:29:44.268Z",
+      "durationMs": 220,
+      "sizeBytes": 140,
+      "remoteAddress": "198.51.100.40:443",
+      "localAddress": "192.0.2.10:55200",
+      "connectionId": "h3-conn-01",
+      "streamId": "8",
+      "request": {
+        "headers": [
+          {
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "name": ":authority",
+            "value": "edge.example.test"
+          },
+          {
+            "name": ":path",
+            "value": "/v3/recommendations"
+          },
+          {
+            "name": "accept",
+            "value": "application/json"
+          },
+          {
+            "name": "user-agent",
+            "value": "ecaptureq-demo-h3/1.0"
+          }
+        ],
+        "body": ""
+      },
+      "response": {
+        "headers": [
+          {
+            "name": ":status",
+            "value": "503"
+          },
+          {
+            "name": "content-type",
+            "value": "application/json; charset=utf-8"
+          },
+          {
+            "name": "content-length",
+            "value": "140"
+          },
+          {
+            "name": "server",
+            "value": "demo-edge"
+          },
+          {
+            "name": "alt-svc",
+            "value": "h3=\":443\"; ma=86400"
+          }
+        ],
+        "body": "{\n  \"error\": {\n    \"code\": \"model_unavailable\",\n    \"message\": \"Demo recommendation service is warming up\"\n  },\n  \"retry_after_seconds\": 5\n}"
+      },
+      "state": "complete",
+      "metadata": {
+        "quicVersion": "v1",
+        "cid": "a1b2c3d4e5f60718",
+        "alpn": "h3",
+        "streamId": "8",
+        "qpack": "dynamic table · decoded",
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "edge.example.test",
+          "alpn": "h3",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "q13d0911h3_f91f431d341e_c34edd1a8701"
+        }
+      },
+      "note": "HTTP/3 已收到完整 503 响应；这与 QUIC 流重置或解密失败不同。"
+    },
+    {
+      "id": "h3-004",
+      "processId": "h3-client",
+      "family": "http",
+      "transport": "udp",
+      "method": "GET",
+      "scheme": "https",
+      "host": "edge.example.test",
+      "path": "/v3/availability",
+      "status": null,
+      "protocol": "HTTP/3",
+      "startedAt": "2026-11-07T02:29:43.831Z",
+      "durationMs": null,
+      "sizeBytes": 0,
+      "remoteAddress": "198.51.100.40:443",
+      "localAddress": "192.0.2.10:55200",
+      "connectionId": "h3-conn-01",
+      "streamId": "12",
+      "request": {
+        "headers": [
+          {
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "name": ":authority",
+            "value": "edge.example.test"
+          },
+          {
+            "name": ":path",
+            "value": "/v3/availability"
+          },
+          {
+            "name": "accept",
+            "value": "application/json"
+          },
+          {
+            "name": "user-agent",
+            "value": "ecaptureq-demo-h3/1.0"
+          }
+        ],
+        "body": ""
+      },
+      "response": {
+        "headers": [],
+        "body": ""
+      },
+      "state": "pending",
+      "metadata": {
+        "quicVersion": "v1",
+        "cid": "a1b2c3d4e5f60718",
+        "alpn": "h3",
+        "streamId": "12",
+        "qpack": "dynamic table · decoded",
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "edge.example.test",
+          "alpn": "h3",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "q13d0911h3_f91f431d341e_c34edd1a8701"
+        }
+      },
+      "note": "已捕获请求头，固定样例保留等待响应状态。"
+    },
+    {
+      "id": "h3-005",
+      "processId": "h3-client",
+      "family": "http",
+      "transport": "udp",
+      "method": "GET",
+      "scheme": "https",
+      "host": "edge.example.test",
+      "path": "/v3/locations",
+      "status": 200,
+      "protocol": "HTTP/3",
+      "startedAt": "2026-11-07T02:29:43.394Z",
+      "durationMs": 31,
+      "sizeBytes": 180,
+      "remoteAddress": "198.51.100.40:443",
+      "localAddress": "192.0.2.10:55202",
+      "connectionId": "h3-conn-02",
+      "streamId": "16",
+      "request": {
+        "headers": [
+          {
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "name": ":authority",
+            "value": "edge.example.test"
+          },
+          {
+            "name": ":path",
+            "value": "/v3/locations"
+          },
+          {
+            "name": "accept",
+            "value": "application/json"
+          },
+          {
+            "name": "user-agent",
+            "value": "ecaptureq-demo-h3/1.0"
+          }
+        ],
+        "body": ""
+      },
+      "response": {
+        "headers": [
+          {
+            "name": ":status",
+            "value": "200"
+          },
+          {
+            "name": "content-type",
+            "value": "application/json; charset=utf-8"
+          },
+          {
+            "name": "content-length",
+            "value": "180"
+          },
+          {
+            "name": "server",
+            "value": "demo-edge"
+          },
+          {
+            "name": "alt-svc",
+            "value": "h3=\":443\"; ma=86400"
+          }
+        ],
+        "body": "{\n  \"locations\": [\n    {\n      \"id\": \"demo-warehouse-1\",\n      \"region\": \"cn-east\"\n    },\n    {\n      \"id\": \"demo-warehouse-2\",\n      \"region\": \"cn-south\"\n    }\n  ],\n  \"count\": 2\n}"
+      },
+      "state": "complete",
+      "metadata": {
+        "quicVersion": "v2",
+        "cid": "c2d3e4f506172839",
+        "alpn": "h3",
+        "streamId": "16",
+        "qpack": "dynamic table · decoded",
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "edge.example.test",
+          "alpn": "h3",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "q13d0911h3_f91f431d341e_c34edd1a8701"
+        }
+      },
+      "note": "HTTP/3 模拟交互，已完成 QUIC 解密与应用消息重组。"
+    },
+    {
+      "id": "quic-002",
+      "processId": "edge-tunnel",
+      "family": "quic",
+      "protocol": "QUIC",
+      "transport": "udp",
+      "host": "tunnel.example.test",
+      "operation": "STREAM",
+      "summary": "Stream 4 · 后续片段",
+      "direction": "client_to_server",
+      "state": "complete",
+      "outcome": "observed",
+      "startedAt": "2026-11-07T02:29:42.957Z",
+      "durationMs": null,
+      "sizeBytes": 25,
+      "remoteAddress": "198.51.100.50:443",
+      "localAddress": "192.0.2.10:55300",
+      "connectionId": "quic-conn-01",
+      "payload": "channel=telemetry; seq=2\n",
+      "payloadEncoding": "utf8",
+      "metadata": {
+        "version": "v1",
+        "cid": "8fa09b37c2d5e610",
+        "encryptionLevel": "1rtt",
+        "kind": "stream_chunk",
+        "offset": 19,
+        "end": false,
+        "streamId": "4",
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "tunnel.example.test",
+          "alpn": "h3",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "q13d0911h3_f91f431d341e_c34edd1a8701"
+        }
+      },
+      "streamId": "4",
+      "relatedIds": [
+        "quic-001",
+        "quic-003"
+      ]
+    },
+    {
+      "id": "quic-003",
+      "processId": "edge-tunnel",
+      "family": "quic",
+      "protocol": "QUIC",
+      "transport": "udp",
+      "host": "tunnel.example.test",
+      "operation": "FIN",
+      "summary": "Stream 4 · 流结束",
+      "direction": "client_to_server",
+      "state": "complete",
+      "outcome": "observed",
+      "startedAt": "2026-11-07T02:29:42.520Z",
+      "durationMs": null,
+      "sizeBytes": 0,
+      "remoteAddress": "198.51.100.50:443",
+      "localAddress": "192.0.2.10:55300",
+      "connectionId": "quic-conn-01",
+      "payload": "",
+      "payloadEncoding": "utf8",
+      "metadata": {
+        "version": "v1",
+        "cid": "8fa09b37c2d5e610",
+        "encryptionLevel": "1rtt",
+        "kind": "stream_end",
+        "offset": 44,
+        "end": true,
+        "streamId": "4",
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "tunnel.example.test",
+          "alpn": "h3",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "q13d0911h3_f91f431d341e_c34edd1a8701"
+        }
+      },
+      "streamId": "4",
+      "relatedIds": [
+        "quic-001",
+        "quic-002"
+      ],
+      "note": "观察到 STREAM FIN，载荷为空；不推断上层应用事务成功。"
+    },
+    {
+      "id": "quic-004",
+      "processId": "edge-tunnel",
+      "family": "quic",
+      "protocol": "QUIC",
+      "transport": "udp",
+      "host": "tunnel.example.test",
+      "operation": "RESET",
+      "summary": "Stream 8 · 对端重置",
+      "direction": "server_to_client",
+      "state": "complete",
+      "outcome": "observed",
+      "startedAt": "2026-11-07T02:29:42.083Z",
+      "durationMs": null,
+      "sizeBytes": 0,
+      "remoteAddress": "198.51.100.50:443",
+      "localAddress": "192.0.2.10:55300",
+      "connectionId": "quic-conn-01",
+      "payload": "",
+      "payloadEncoding": "utf8",
+      "metadata": {
+        "version": "v1",
+        "cid": "8fa09b37c2d5e610",
+        "encryptionLevel": "1rtt",
+        "kind": "stream_reset",
+        "offset": 64,
+        "end": true,
+        "streamId": "8",
+        "errorCode": 268,
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "tunnel.example.test",
+          "alpn": "h3",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "q13d0911h3_f91f431d341e_c34edd1a8701"
+        }
+      },
+      "streamId": "8",
+      "note": "QUIC 流重置事件；错误码属于对应应用协议，不是 HTTP 状态码。"
+    },
+    {
+      "id": "quic-005",
+      "processId": "edge-tunnel",
+      "family": "quic",
+      "protocol": "QUIC",
+      "transport": "udp",
+      "host": "tunnel.example.test",
+      "operation": "DATAGRAM",
+      "summary": "二进制数据报 · 7 bytes",
+      "direction": "server_to_client",
+      "state": "complete",
+      "outcome": "observed",
+      "startedAt": "2026-11-07T02:29:41.646Z",
+      "durationMs": null,
+      "sizeBytes": 7,
+      "remoteAddress": "198.51.100.50:443",
+      "localAddress": "192.0.2.10:55300",
+      "connectionId": "quic-conn-01",
+      "payload": "00ff10a57e0042",
+      "payloadEncoding": "hex",
+      "metadata": {
+        "version": "v1",
+        "cid": "8fa09b37c2d5e610",
+        "encryptionLevel": "1rtt",
+        "kind": "datagram",
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "tunnel.example.test",
+          "alpn": "h3",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "q13d0911h3_f91f431d341e_c34edd1a8701"
+        }
+      },
+      "note": "保持消息边界的独立数据报，没有 stream ID、offset 或 FIN。"
+    },
+    {
+      "id": "quic-006",
+      "processId": "edge-tunnel",
+      "family": "quic",
+      "protocol": "QUIC",
+      "transport": "udp",
+      "host": "tunnel.example.test",
+      "operation": "DATAGRAM",
+      "summary": "空数据报 · 0 bytes",
+      "direction": "client_to_server",
+      "state": "complete",
+      "outcome": "observed",
+      "startedAt": "2026-11-07T02:29:41.209Z",
+      "durationMs": null,
+      "sizeBytes": 0,
+      "remoteAddress": "198.51.100.50:443",
+      "localAddress": "192.0.2.10:55300",
+      "connectionId": "quic-conn-02",
+      "payload": "",
+      "payloadEncoding": "utf8",
+      "metadata": {
+        "version": "v2",
+        "cid": "720ad7f18b3ec902",
+        "kind": "datagram",
+        "encryptionLevel": "0rtt",
+        "earlyData": "rejected",
+        "tls": {
+          "version": "TLS 1.3",
+          "cipher_suite": "TLS_AES_128_GCM_SHA256",
+          "cipher_suite_id": "0x1301",
+          "server_name": "tunnel.example.test",
+          "alpn": "h3",
+          "key_exchange_group": "X25519",
+          "signature_algorithm": "rsa_pss_rsae_sha256",
+          "ja3": "d0f0abd6468071d3729c6091982abed0",
+          "ja3_raw": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392,0-23-65281-10-11-35-16-13-43-51-45,29-23-24,0",
+          "ja4": "q13d0911h3_f91f431d341e_c34edd1a8701"
+        }
+      },
+      "note": "有效的零长度数据报。已认证的 early 数据被保留用于分析，但对端拒绝 0-RTT，不代表业务已接受。"
+    },
+    {
+      "id": "mysql-002",
+      "processId": "mysqld",
+      "family": "mysql",
+      "protocol": "MySQL",
+      "transport": "tcp",
+      "host": "db.example.test",
+      "operation": "INSERT",
+      "summary": "INSERT INTO audit_events (event_type, entity_id) VALUES ('payment_attempt', 'demo-1086');",
+      "direction": "client_to_server",
+      "state": "complete",
+      "outcome": "observed",
+      "startedAt": "2026-11-07T02:29:40.772Z",
+      "durationMs": null,
+      "sizeBytes": 89,
+      "remoteAddress": "198.51.100.31:55900",
+      "localAddress": "192.0.2.10:3306",
+      "connectionId": "mysql-conn-01",
+      "payload": "INSERT INTO audit_events (event_type, entity_id) VALUES ('payment_attempt', 'demo-1086');",
+      "payloadEncoding": "utf8",
+      "metadata": {
+        "sql": "INSERT INTO audit_events (event_type, entity_id) VALUES ('payment_attempt', 'demo-1086');",
+        "capturedLength": 89,
+        "originalLength": 89,
+        "truncated": false,
+        "dispatchReturn": "SUCCESS",
+        "dispatchCode": 0,
+        "captureSource": "mysqld hook"
+      },
+      "note": "捕获到 mysqld 查询事件；dispatch_command 返回值不是 SQL 执行结果。"
+    },
+    {
+      "id": "mysql-003",
+      "processId": "mysqld",
+      "family": "mysql",
+      "protocol": "MySQL",
+      "transport": "tcp",
+      "host": "db.example.test",
+      "operation": "UPDATE",
+      "summary": "UPDATE inventory SET reserved = reserved + 2",
+      "direction": "client_to_server",
+      "state": "complete",
+      "outcome": "observed",
+      "startedAt": "2026-11-07T02:29:40.335Z",
+      "durationMs": null,
+      "sizeBytes": 69,
+      "remoteAddress": "198.51.100.31:55900",
+      "localAddress": "192.0.2.10:3306",
+      "connectionId": "mysql-conn-01",
+      "payload": "UPDATE inventory SET reserved = reserved + 2 WHERE sku = 'demo-1001';",
+      "payloadEncoding": "utf8",
+      "metadata": {
+        "sql": "UPDATE inventory SET reserved = reserved + 2 WHERE sku = 'demo-1001';",
+        "capturedLength": 69,
+        "originalLength": 69,
+        "truncated": false,
+        "dispatchReturn": "SUCCESS",
+        "dispatchCode": 0,
+        "captureSource": "mysqld hook"
+      },
+      "note": "捕获到 mysqld 查询事件；dispatch_command 返回值不是 SQL 执行结果。"
+    },
+    {
+      "id": "mysql-004",
+      "processId": "mysqld",
+      "family": "mysql",
+      "protocol": "MySQL",
+      "transport": "tcp",
+      "host": "db.example.test",
+      "operation": "SELECT",
+      "summary": "SELECT order_id, status, total_cents, created_at FROM orders",
+      "direction": "client_to_server",
+      "state": "partial",
+      "outcome": "partial",
+      "startedAt": "2026-11-07T02:29:39.898Z",
+      "durationMs": null,
+      "sizeBytes": 256,
+      "remoteAddress": "198.51.100.31:55900",
+      "localAddress": "192.0.2.10:3306",
+      "connectionId": "mysql-conn-01",
+      "payload": "SELECT order_id, status, total_cents, created_at FROM orders WHERE customer_id IN ('demo-customer-001','demo-customer-002','demo-customer-003','demo-customer-004','demo-customer-005','demo-customer-006','demo-customer-007','demo-customer-008','demo-custome",
+      "payloadEncoding": "utf8",
+      "metadata": {
+        "sql": "SELECT order_id, status, total_cents, created_at FROM orders WHERE customer_id IN ('demo-customer-001','demo-customer-002','demo-customer-003','demo-customer-004','demo-customer-005','demo-customer-006','demo-customer-007','demo-customer-008','demo-custome",
+        "capturedLength": 256,
+        "originalLength": 649,
+        "truncated": true,
+        "dispatchReturn": "SUCCESS",
+        "dispatchCode": 0,
+        "captureSource": "mysqld hook"
+      },
+      "note": "查询字节被截断，仅保留前 256 字节；未提供完整 SQL，也没有查询结果集。"
+    },
+    {
+      "id": "mysql-005",
+      "processId": "mysqld",
+      "family": "mysql",
+      "protocol": "MySQL",
+      "transport": "tcp",
+      "host": "db.example.test",
+      "operation": "SELECT",
+      "summary": "SELECT payment_id, provider_status FROM payments",
+      "direction": "client_to_server",
+      "state": "complete",
+      "outcome": "error",
+      "startedAt": "2026-11-07T02:29:39.461Z",
+      "durationMs": null,
+      "sizeBytes": 78,
+      "remoteAddress": "198.51.100.31:55900",
+      "localAddress": "192.0.2.10:3306",
+      "connectionId": "mysql-conn-01",
+      "payload": "SELECT payment_id, provider_status FROM payments WHERE order_id = 'demo-1086';",
+      "payloadEncoding": "utf8",
+      "metadata": {
+        "sql": "SELECT payment_id, provider_status FROM payments WHERE order_id = 'demo-1086';",
+        "capturedLength": 78,
+        "originalLength": 78,
+        "truncated": false,
+        "dispatchReturn": "V57_FAILED",
+        "dispatchCode": -2,
+        "captureSource": "mysqld hook"
+      },
+      "note": "捕获到 mysqld 查询事件；dispatch_command 返回值不是 SQL 执行结果。"
+    },
+    {
+      "id": "redis-001",
+      "processId": "redis-worker",
+      "family": "redis",
+      "protocol": "Redis",
+      "transport": "tcp",
+      "host": "cache.example.test",
+      "operation": "GET",
+      "summary": "GET order:demo-1086",
+      "direction": "client_to_server",
+      "state": "complete",
+      "outcome": "observed",
+      "startedAt": "2026-11-07T02:29:39.024Z",
+      "durationMs": 2,
+      "sizeBytes": 85,
+      "remoteAddress": "203.0.113.41:6380",
+      "localAddress": "192.0.2.10:56100",
+      "connectionId": "redis-conn-01",
+      "payload": "*2\r\n$3\r\nGET\r\n$15\r\norder:demo-1086\r\n",
+      "payloadEncoding": "utf8",
+      "metadata": {
+        "kind": "transaction",
+        "command": "GET",
+        "args": [
+          "order:demo-1086"
+        ],
+        "requestId": 1,
+        "respVersion": 3,
+        "result": {
+          "type": "bulk_string",
+          "value": "{\"order_id\":\"demo-1086\",\"status\":\"pending\"}"
+        },
+        "matched": true,
+        "requestPayload": "*2\r\n$3\r\nGET\r\n$15\r\norder:demo-1086\r\n",
+        "responsePayload": "$43\r\n{\"order_id\":\"demo-1086\",\"status\":\"pending\"}\r\n"
+      }
+    },
+    {
+      "id": "redis-002",
+      "processId": "redis-worker",
+      "family": "redis",
+      "protocol": "Redis",
+      "transport": "tcp",
+      "host": "cache.example.test",
+      "operation": "SET",
+      "summary": "SET order:demo-1086:status paid",
+      "direction": "client_to_server",
+      "state": "complete",
+      "outcome": "observed",
+      "startedAt": "2026-11-07T02:29:38.587Z",
+      "durationMs": 4,
+      "sizeBytes": 74,
+      "remoteAddress": "203.0.113.41:6380",
+      "localAddress": "192.0.2.10:56100",
+      "connectionId": "redis-conn-01",
+      "payload": "*5\r\n$3\r\nSET\r\n$22\r\norder:demo-1086:status\r\n$4\r\npaid\r\n$2\r\nEX\r\n$3\r\n300\r\n",
+      "payloadEncoding": "utf8",
+      "metadata": {
+        "kind": "transaction",
+        "command": "SET",
+        "args": [
+          "order:demo-1086:status",
+          "paid",
+          "EX",
+          "300"
+        ],
+        "requestId": 2,
+        "respVersion": 3,
+        "result": {
+          "type": "simple_string",
+          "value": "OK"
+        },
+        "matched": true,
+        "requestPayload": "*5\r\n$3\r\nSET\r\n$22\r\norder:demo-1086:status\r\n$4\r\npaid\r\n$2\r\nEX\r\n$3\r\n300\r\n",
+        "responsePayload": "+OK\r\n"
+      }
+    },
+    {
+      "id": "redis-004",
+      "processId": "redis-worker",
+      "family": "redis",
+      "protocol": "Redis",
+      "transport": "tcp",
+      "host": "cache.example.test",
+      "operation": "GET",
+      "summary": "GET cart:items",
+      "direction": "client_to_server",
+      "state": "complete",
+      "outcome": "error",
+      "startedAt": "2026-11-07T02:29:38.150Z",
+      "durationMs": 2,
+      "sizeBytes": 98,
+      "remoteAddress": "203.0.113.41:6380",
+      "localAddress": "192.0.2.10:56100",
+      "connectionId": "redis-conn-01",
+      "payload": "*2\r\n$3\r\nGET\r\n$10\r\ncart:items\r\n",
+      "payloadEncoding": "utf8",
+      "metadata": {
+        "kind": "transaction",
+        "command": "GET",
+        "args": [
+          "cart:items"
+        ],
+        "requestId": 4,
+        "respVersion": 3,
+        "result": {
+          "type": "error",
+          "value": "WRONGTYPE Operation against a key holding the wrong kind of value"
+        },
+        "matched": true,
+        "requestPayload": "*2\r\n$3\r\nGET\r\n$10\r\ncart:items\r\n",
+        "responsePayload": "-WRONGTYPE Operation against a key holding the wrong kind of value\r\n",
+        "error": "WRONGTYPE"
+      }
+    },
+    {
+      "id": "redis-005",
+      "processId": "redis-worker",
+      "family": "redis",
+      "protocol": "Redis",
+      "transport": "tcp",
+      "host": "cache.example.test",
+      "operation": "BLPOP",
+      "summary": "BLPOP jobs:demo 0",
+      "direction": "client_to_server",
+      "state": "pending",
+      "outcome": "pending",
+      "startedAt": "2026-11-07T02:29:37.713Z",
+      "durationMs": null,
+      "sizeBytes": 37,
+      "remoteAddress": "203.0.113.41:6380",
+      "localAddress": "192.0.2.10:56100",
+      "connectionId": "redis-conn-01",
+      "payload": "*3\r\n$5\r\nBLPOP\r\n$9\r\njobs:demo\r\n$1\r\n0\r\n",
+      "payloadEncoding": "utf8",
+      "metadata": {
+        "kind": "transaction",
+        "command": "BLPOP",
+        "args": [
+          "jobs:demo",
+          "0"
+        ],
+        "requestId": 5,
+        "respVersion": 3,
+        "result": null,
+        "matched": false,
+        "requestPayload": "*3\r\n$5\r\nBLPOP\r\n$9\r\njobs:demo\r\n$1\r\n0\r\n",
+        "responsePayload": ""
+      },
+      "note": "阻塞式命令样例尚未观察到响应；null result 代表等待，不是 RESP null 回复。"
+    },
+    {
+      "id": "redis-006",
+      "processId": "redis-worker",
+      "family": "redis",
+      "protocol": "Redis",
+      "transport": "tcp",
+      "host": "cache.example.test",
+      "operation": "PUSH",
+      "summary": "orders.created · Pub/Sub",
+      "direction": "server_to_client",
+      "state": "complete",
+      "outcome": "observed",
+      "startedAt": "2026-11-07T02:29:37.276Z",
+      "durationMs": null,
+      "sizeBytes": 83,
+      "remoteAddress": "203.0.113.41:6380",
+      "localAddress": "192.0.2.10:56100",
+      "connectionId": "redis-pubsub-01",
+      "payload": ">3\r\n$7\r\nmessage\r\n$14\r\norders.created\r\n$38\r\n{\"order_id\":\"demo-2086\",\"total\":12800}\r\n",
+      "payloadEncoding": "utf8",
+      "metadata": {
+        "kind": "push",
+        "command": "PUSH",
+        "args": [],
+        "respVersion": 3,
+        "result": {
+          "type": "push",
+          "value": [
+            {
+              "type": "bulk_string",
+              "value": "message"
+            },
+            {
+              "type": "bulk_string",
+              "value": "orders.created"
+            },
+            {
+              "type": "bulk_string",
+              "value": "{\"order_id\":\"demo-2086\",\"total\":12800}"
+            }
+          ]
+        },
+        "channel": "orders.created"
+      },
+      "note": "服务端主动推送；没有普通请求配对，不消耗请求响应队列位置。"
+    },
+    {
+      "id": "redis-007",
+      "processId": "redis-worker",
+      "family": "redis",
+      "protocol": "Redis",
+      "transport": "tcp",
+      "host": "cache.example.test",
+      "operation": "ATTRIBUTE",
+      "summary": "附加属性 · ttl / source",
+      "direction": "server_to_client",
+      "state": "complete",
+      "outcome": "observed",
+      "startedAt": "2026-11-07T02:29:36.839Z",
+      "durationMs": null,
+      "sizeBytes": 57,
+      "remoteAddress": "203.0.113.41:6380",
+      "localAddress": "192.0.2.10:56100",
+      "connectionId": "redis-conn-01",
+      "payload": "|3\r\n+ttl\r\n:120\r\n+source\r\n+cache\r\n+hints\r\n*2\r\n+sample\r\n_\r\n",
+      "payloadEncoding": "utf8",
+      "metadata": {
+        "kind": "attribute",
+        "command": "ATTRIBUTE",
+        "args": [],
+        "respVersion": 3,
+        "result": {
+          "type": "map",
+          "value": [
+            {
+              "key": {
+                "type": "simple_string",
+                "value": "ttl"
+              },
+              "value": {
+                "type": "integer",
+                "value": 120
+              }
+            },
+            {
+              "key": {
+                "type": "simple_string",
+                "value": "source"
+              },
+              "value": {
+                "type": "simple_string",
+                "value": "cache"
+              }
+            },
+            {
+              "key": {
+                "type": "simple_string",
+                "value": "hints"
+              },
+              "value": {
+                "type": "array",
+                "value": [
+                  {
+                    "type": "simple_string",
+                    "value": "sample"
+                  },
+                  {
+                    "type": "null",
+                    "value": null
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "note": "RESP3 attribute 独立事件，不能伪装成一条普通命令的响应。"
+    },
+    {
+      "id": "mqtt-001",
+      "processId": "mqtt-agent",
+      "family": "mqtt",
+      "protocol": "MQTT",
+      "transport": "tcp",
+      "host": "broker.example.test",
+      "operation": "CONNECT",
+      "summary": "sensor-demo-17 · 建立会话",
+      "direction": "client_to_server",
+      "state": "complete",
+      "outcome": "observed",
+      "startedAt": "2026-11-07T02:29:36.402Z",
+      "durationMs": null,
+      "sizeBytes": 0,
+      "remoteAddress": "203.0.113.51:8883",
+      "localAddress": "192.0.2.10:56300",
+      "connectionId": "mqtt-conn-01",
+      "payload": "",
+      "payloadEncoding": "utf8",
+      "metadata": {
+        "packetName": "CONNECT",
+        "packetType": 1,
+        "clientId": "sensor-demo-17",
+        "kind": "control",
+        "protocolLevel": 4,
+        "keepAlive": 60,
+        "cleanSession": true,
+        "username": "[REDACTED]",
+        "password": "[REDACTED]"
+      },
+      "relatedIds": [
+        "mqtt-002"
+      ],
+      "note": "MQTT 3.1.1 CONNECT 模拟报文；凭证仅显示脱敏占位符。"
+    },
+    {
+      "id": "mqtt-002",
+      "processId": "mqtt-agent",
+      "family": "mqtt",
+      "protocol": "MQTT",
+      "transport": "tcp",
+      "host": "broker.example.test",
+      "operation": "CONNACK",
+      "summary": "sensor-demo-17 · 连接确认",
+      "direction": "server_to_client",
+      "state": "complete",
+      "outcome": "observed",
+      "startedAt": "2026-11-07T02:29:35.965Z",
+      "durationMs": null,
+      "sizeBytes": 0,
+      "remoteAddress": "203.0.113.51:8883",
+      "localAddress": "192.0.2.10:56300",
+      "connectionId": "mqtt-conn-01",
+      "payload": "",
+      "payloadEncoding": "utf8",
+      "metadata": {
+        "packetName": "CONNACK",
+        "packetType": 2,
+        "clientId": "sensor-demo-17",
+        "kind": "control",
+        "returnCode": 0,
+        "sessionPresent": false
+      },
+      "relatedIds": [
+        "mqtt-001"
+      ]
+    },
+    {
+      "id": "mqtt-003",
+      "processId": "mqtt-agent",
+      "family": "mqtt",
+      "protocol": "MQTT",
+      "transport": "tcp",
+      "host": "broker.example.test",
+      "operation": "SUBSCRIBE",
+      "summary": "factory/+/temperature · 2 topics",
+      "direction": "client_to_server",
+      "state": "complete",
+      "outcome": "observed",
+      "startedAt": "2026-11-07T02:29:35.528Z",
+      "durationMs": null,
+      "sizeBytes": 0,
+      "remoteAddress": "203.0.113.51:8883",
+      "localAddress": "192.0.2.10:56300",
+      "connectionId": "mqtt-conn-01",
+      "payload": "",
+      "payloadEncoding": "utf8",
+      "metadata": {
+        "packetName": "SUBSCRIBE",
+        "packetType": 8,
+        "clientId": "sensor-demo-17",
+        "kind": "subscribe",
+        "packetId": 17,
+        "topics": [
+          {
+            "topic": "factory/+/temperature",
+            "qos": 1
+          },
+          {
+            "topic": "factory/alerts",
+            "qos": 0
+          }
+        ]
+      },
+      "relatedIds": [
+        "mqtt-004"
+      ]
+    },
+    {
+      "id": "mqtt-004",
+      "processId": "mqtt-agent",
+      "family": "mqtt",
+      "protocol": "MQTT",
+      "transport": "tcp",
+      "host": "broker.example.test",
+      "operation": "SUBACK",
+      "summary": "Packet 17 · 订阅确认",
+      "direction": "server_to_client",
+      "state": "complete",
+      "outcome": "observed",
+      "startedAt": "2026-11-07T02:29:35.091Z",
+      "durationMs": null,
+      "sizeBytes": 0,
+      "remoteAddress": "203.0.113.51:8883",
+      "localAddress": "192.0.2.10:56300",
+      "connectionId": "mqtt-conn-01",
+      "payload": "",
+      "payloadEncoding": "utf8",
+      "metadata": {
+        "packetName": "SUBACK",
+        "packetType": 9,
+        "clientId": "sensor-demo-17",
+        "kind": "control",
+        "packetId": 17,
+        "returnCodes": [
+          1,
+          0
+        ],
+        "topics": [
+          {
+            "topic": "factory/+/temperature",
+            "qos": 1
+          },
+          {
+            "topic": "factory/alerts",
+            "qos": 0
+          }
+        ]
+      },
+      "relatedIds": [
+        "mqtt-003"
+      ],
+      "note": "观察到订阅确认，不代表之后的消息已投递。"
+    },
+    {
+      "id": "mqtt-006",
+      "processId": "mqtt-agent",
+      "family": "mqtt",
+      "protocol": "MQTT",
+      "transport": "tcp",
+      "host": "broker.example.test",
+      "operation": "PUBLISH",
+      "summary": "factory/line-01/vibration",
+      "direction": "client_to_server",
+      "state": "complete",
+      "outcome": "observed",
+      "startedAt": "2026-11-07T02:29:34.654Z",
+      "durationMs": null,
+      "sizeBytes": 6,
+      "remoteAddress": "203.0.113.51:8883",
+      "localAddress": "192.0.2.10:56300",
+      "connectionId": "mqtt-conn-01",
+      "payload": "01ff8000407e",
+      "payloadEncoding": "hex",
+      "metadata": {
+        "packetName": "PUBLISH",
+        "packetType": 3,
+        "clientId": "sensor-demo-17",
+        "kind": "publish",
+        "topic": "factory/line-01/vibration",
+        "qos": 1,
+        "packetId": 42,
+        "dup": false,
+        "retain": true,
+        "ackObserved": false
+      },
+      "relatedIds": [
+        "mqtt-007"
+      ],
+      "note": "二进制业务载荷；尚未观察到 PUBACK，不能标记为已送达。"
+    },
+    {
+      "id": "mqtt-007",
+      "processId": "mqtt-agent",
+      "family": "mqtt",
+      "protocol": "MQTT",
+      "transport": "tcp",
+      "host": "broker.example.test",
+      "operation": "PUBLISH",
+      "summary": "factory/line-01/vibration · DUP",
+      "direction": "client_to_server",
+      "state": "complete",
+      "outcome": "observed",
+      "startedAt": "2026-11-07T02:29:34.217Z",
+      "durationMs": null,
+      "sizeBytes": 6,
+      "remoteAddress": "203.0.113.51:8883",
+      "localAddress": "192.0.2.10:56300",
+      "connectionId": "mqtt-conn-01",
+      "payload": "01ff8000407e",
+      "payloadEncoding": "hex",
+      "metadata": {
+        "packetName": "PUBLISH",
+        "packetType": 3,
+        "clientId": "sensor-demo-17",
+        "kind": "publish",
+        "topic": "factory/line-01/vibration",
+        "qos": 1,
+        "packetId": 42,
+        "dup": true,
+        "retain": true,
+        "ackObserved": false
+      },
+      "relatedIds": [
+        "mqtt-006"
+      ],
+      "note": "单独保留观察到的 DUP 报文；不自动去重，也不推断 exactly-once 投递。"
+    }
+  ]
+}
