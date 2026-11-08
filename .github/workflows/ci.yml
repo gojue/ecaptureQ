@@ -43,7 +43,8 @@ jobs:
           python3 scripts/check-version.py
           python3 -B -m unittest discover -s test -p '*_test.py'
           sh -n scripts/build-desktop.sh
-          bash -n scripts/sign-macos.sh
+          bash -n scripts/sign-macos.sh scripts/verify-linux-install.sh
+          sh -n scripts/build-macos-universal.sh
   server:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -62,7 +63,7 @@ jobs:
           go mod tidy -diff
       - run: go test -race ./...
       - run: go vet ./...
-      - run: CGO_ENABLED=0 go build -trimpath -o bin/ecaptureq-server ./cmd/server
+      - run: CGO_ENABLED=0 go build -trimpath -o bin/ecaptureq-web ./cmd/server
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: '24'
@@ -71,9 +72,9 @@ jobs:
         shell: bash
         run: |
           mkdir -p artifacts
-          bin/ecaptureq-server --addr 127.0.0.1:28257 > artifacts/server-root.log 2>&1 &
+          bin/ecaptureq-web --addr 127.0.0.1:28257 > artifacts/server-root.log 2>&1 &
           root_pid=$!
-          bin/ecaptureq-server --addr 127.0.0.1:28258 --base-path /ecaptureq-web/ > artifacts/server-prefix.log 2>&1 &
+          bin/ecaptureq-web --addr 127.0.0.1:28258 --base-path /ecaptureq-web/ > artifacts/server-prefix.log 2>&1 &
           prefix_pid=$!
           trap 'kill "$root_pid" "$prefix_pid" 2>/dev/null || true; wait || true' EXIT
           for base in http://127.0.0.1:28257/ http://127.0.0.1:28258/ecaptureq-web/; do

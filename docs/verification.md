@@ -242,3 +242,32 @@ the interactive Gatekeeper approval flow and other operating systems' runtime
 installation remain untested here. Ad-hoc verification establishes bundle
 integrity, not Apple developer identity or Gatekeeper approval; users may need
 the documented app-specific **Open Anyway** action.
+
+
+## Native installers and universal macOS packaging — 2026-11-08
+
+The `feat/native-installers` branch starts from merged main `899a89d` and prepares
+`1.0.0-alpha.3`, without modifying the published alpha.2 tag or assets. Public
+products become eCaptureQ and eCaptureQ Web. The package set is 15 files plus a
+single SHA256SUMS; each Linux product has DEB/RPM for both CPUs, each macOS product
+has a universal ZIP, the Mac app additionally has a DMG, and Windows keeps ZIPs.
+
+Local macOS arm64 checks passed: 34 Python tests (including missing/wrong universal
+slices, mismatched app resources, second-slice signature failure, Linux package
+boundaries and complete download links), actionlint 1.7.12, shell syntax, version
+gates and 67 relative documentation/image links. A real Xcode build produced both
+Intel and Apple Silicon app and Web slices; `lipo` merged and verified both, final
+ad-hoc signing and per-slice signature checks passed, ZIP/DMG creation and DMG
+integrity passed, and both final executable `--help` paths ran on arm64. Linux Web
+amd64/arm64 DEB/RPM were generated with pinned nFPM v2.48.0. Tool dependencies did
+not change the application go.mod/go.sum. Local logs/packages are ignored.
+
+Hosted CI additionally requires downloaded universal apps/CLIs to run on native
+Intel and Apple Silicon runners, and native amd64/arm64 Ubuntu 24.04 and Fedora 43
+containers to install/remove both Linux packages. Those checks cover Web health,
+no GUI dependency for Web, app dynamic libraries, command startup, menu metadata,
+documentation and preservation of user configuration. Check this branch's Actions
+run for the executed results. Graphical dialogs and Linux desktop interaction,
+older distributions/macOS versions, Developer ID notarization and real probe
+traffic are not established by package/loader checks. No release is published by
+this branch; tag creation remains a separate authorized action.

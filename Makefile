@@ -7,7 +7,7 @@ protocol:
 	go run ./scripts/check-protocol
 
 server: protocol
-	go build -trimpath -o bin/ecaptureq-server ./cmd/server
+	go build -trimpath -o bin/ecaptureq-web ./cmd/server
 
 desktop:
 	sh scripts/build-desktop.sh
@@ -27,4 +27,4 @@ release-check: version
 	GOWORK=off go run ./scripts/check-protocol
 	GOWORK=off go test -race ./...
 	GOWORK=off go vet ./...
-	GOWORK=off CGO_ENABLED=0 go build -trimpath -o bin/ecaptureq-server ./cmd/server
+	GOWORK=off CGO_ENABLED=0 go build -trimpath -o bin/ecaptureq-web ./cmd/server

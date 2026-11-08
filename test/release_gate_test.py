@@ -6,6 +6,9 @@ from pathlib import Path
 import plistlib
 import tempfile
 import unittest
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -50,8 +53,8 @@ class ReleaseGateTest(unittest.TestCase):
                 data = ("synthetic-package:" + name).encode()
                 (directory / name).write_bytes(data)
                 (directory / (name + ".sha256")).write_text(f"{hashlib.sha256(data).hexdigest()}  {name}\n")
-            self.assertEqual(release_gate.collect(directory, "1.0.0-test"), 14)
-            self.assertEqual(len((directory / "SHA256SUMS").read_text().splitlines()), 14)
+            self.assertEqual(release_gate.collect(directory, "1.0.0-test"), 15)
+            self.assertEqual(len((directory / "SHA256SUMS").read_text().splitlines()), 15)
             chosen = next(iter(names))
             (directory / chosen).write_bytes(b"corrupted")
             with self.assertRaisesRegex(ValueError, "Checksum mismatch"):
@@ -59,6 +62,33 @@ class ReleaseGateTest(unittest.TestCase):
             (directory / chosen).unlink()
             with self.assertRaisesRegex(ValueError, "missing="):
                 release_gate.collect(directory, "1.0.0-test")
+
+    def test_public_downloads_have_one_manifest_and_detect_corruption(self):
+        with tempfile.TemporaryDirectory() as temp:
+            directory, public = Path(temp) / 'internal', Path(temp) / 'public'
+            directory.mkdir()
+            for name in release_gate.expected_packages('1.2.3'):
+                data = name.encode()
+                (directory / name).write_bytes(data)
+                (directory / (name + '.sha256')).write_text(f'{hashlib.sha256(data).hexdigest()}  {name}\n')
+            release_gate.collect(directory, '1.2.3', public)
+            self.assertEqual(len(list(public.iterdir())), 16)
+            self.assertFalse(list(public.glob('*.sha256')))
+            self.assertEqual(release_gate.collect(public, '1.2.3'), 15)
+            (public / 'SHA256SUMS').write_text('incorrect manifest\n')
+            with self.assertRaisesRegex(ValueError, 'Checksum mismatch'):
+                release_gate.collect(public, '1.2.3')
+            (public / 'SHA256SUMS').unlink()
+            with self.assertRaisesRegex(ValueError, 'missing='):
+                release_gate.collect(public, '1.2.3')
+
+    def test_download_matrix_has_universal_macos_and_native_linux_packages(self):
+        names = release_gate.expected_packages('1.2.3')
+        self.assertEqual(len(names), 15)
+        self.assertEqual(len([name for name in names if name.endswith('.deb')]), 4)
+        self.assertEqual(len([name for name in names if name.endswith('.rpm')]), 4)
+        self.assertEqual(len([name for name in names if '-macos-universal.' in name]), 3)
+        self.assertFalse(any('-desktop-' in name or '-server-' in name or '-darwin-' in name for name in names))
 
 
 if __name__ == "__main__":

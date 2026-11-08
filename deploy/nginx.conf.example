@@ -1,5 +1,5 @@
 # Example only. Do not replace a running site's configuration with this file.
-# Start: ecaptureq-server --addr 127.0.0.1:28257 --base-path /ecaptureq-web/ \
+# Start: ecaptureq-web --addr 127.0.0.1:28257 --base-path /ecaptureq-web/ \
 #          --exclude-http-path-prefix /ecaptureq-web/ --mode live
 server {
     listen 8080;

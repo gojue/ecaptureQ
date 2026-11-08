@@ -2,7 +2,7 @@
 # Build on the target desktop OS. Cross compilation requires its native SDK.
 set -eu
 cd "$(dirname "$0")/.."
-go run ./scripts/check-protocol
+GOOS=$(go env GOHOSTOS) GOARCH=$(go env GOHOSTARCH) go run ./scripts/check-protocol
 desktop_version=$(cat VERSION)
 desktop_bundle_version=${desktop_version%%-*}
 desktop_bundle_version=${desktop_bundle_version%%+*}
@@ -29,7 +29,7 @@ case "$target_os" in
     cp build/desktop/Info.plist "$bundle/Contents/Info.plist"
     /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $desktop_bundle_version" "$bundle/Contents/Info.plist"
     /usr/libexec/PlistBuddy -c "Set :ECaptureQVersion $desktop_version" "$bundle/Contents/Info.plist"
-    echo "Built $bundle ($desktop_version, unsigned; sign and notarize before distribution)."
+    echo "Built $bundle ($desktop_version, sign the final bundle before distribution)."
     ;;
   windows)
     go build -trimpath -tags desktop,production -ldflags '-s -w -H windowsgui' -o dist/eCaptureQ.exe ./cmd/desktop

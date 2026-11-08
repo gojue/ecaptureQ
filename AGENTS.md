@@ -109,3 +109,16 @@ mode must fail the build rather than fall back silently. Package metadata must
 distinguish `adhoc` (not notarized), `unsigned` and `notarized` and verify the
 claimed signature before uploading archives. Do not recommend globally disabling
 Gatekeeper or clearing quarantine as the normal installation path.
+
+## Distribution names and installers
+
+Public downloads are eCaptureQ (desktop) and eCaptureQ Web, named `ecaptureq-`
+and `ecaptureq-web-`. Keep internal entries separate. macOS desktop and Web
+releases are universal x86_64 + arm64; merge before signing and validate both
+slices, with native startup checks on both runner types. Linux DEB/RPM must
+install and uninstall in clean Ubuntu/Fedora containers on both architectures;
+Web must not acquire GUI dependencies or auto-start a service. Preserve user
+configuration. nFPM v2.48.0 / build-tool Go 1.26.10 are pinned outside the app
+module. Public releases contain 15 packages and one verified SHA256SUMS; retain
+individual checksum sidecars only inside CI. Never rewrite existing releases to
+adopt new filenames.

@@ -22,7 +22,7 @@
 | --- | --- | --- |
 | eCapture | 探针、流量捕获、解密，并发布标准事件 | 本文使用 Linux 采集主机；其他采集平台以 eCapture 官方支持范围为准 |
 | eCaptureQ Desktop | 连接数据源、关联消息、筛选和展示 | macOS、Windows、Linux；直接打开桌面应用 |
-| eCaptureQ Web | 相同的分析功能，通过浏览器访问 | 在服务器或本机运行 `ecaptureq-server`，再打开浏览器 |
+| eCaptureQ Web | 相同的分析功能，通过浏览器访问 | 在服务器或本机运行 `ecaptureq-web`，再打开浏览器 |
 
 ```mermaid
 flowchart LR
@@ -52,47 +52,61 @@ flowchart LR
 
 ### 1. 选择下载包
 
-从 [Releases](https://github.com/gojue/ecaptureQ/releases) 选择文件名中带 `desktop` 或 `server` 的新版产物。如果尚未发布新版，可在成功的 [CI 运行](https://github.com/gojue/ecaptureQ/actions/workflows/ci.yml) 页面下载 `release-bundle` 预览包。
+从 [Releases](https://github.com/gojue/ecaptureQ/releases) 下载 **eCaptureQ 应用**，安装后直接打开即可。下面的新命名和原生安装包从 `1.0.0-alpha.3` 开始；此前版本的文件名保持不变。尚未发布时，可在成功的 [CI 运行](https://github.com/gojue/ecaptureQ/actions/workflows/ci.yml) 中下载 `release-bundle` 预览包。
 
-文件名格式为 `ecaptureq-<版本>-<类型>-<系统>-<架构>.<格式>`。`amd64` 也叫 x86_64 / x64，`arm64` 也叫 aarch64；Mac 的 Apple Silicon 选 ARM64，Intel 选 AMD64。
-
-| 系统 | 桌面版 | Web 服务版 |
+| 系统 | 推荐下载 | CPU 选择 |
 | --- | --- | --- |
-| macOS | `desktop-darwin-amd64.dmg` / `desktop-darwin-arm64.dmg`，也提供 ZIP | `server-darwin-amd64.zip` / `server-darwin-arm64.zip` |
-| Windows | `desktop-windows-amd64.zip` / `desktop-windows-arm64.zip` | `server-windows-amd64.zip` / `server-windows-arm64.zip` |
-| Linux | `desktop-linux-amd64.tar.gz` / `desktop-linux-arm64.tar.gz` | `server-linux-amd64.tar.gz` / `server-linux-arm64.tar.gz` |
+| macOS | `ecaptureq-<版本>-macos-universal.dmg` | 同一个包支持 Intel 和 Apple Silicon，无须选择 CPU；另提供便携 ZIP |
+| Windows | `ecaptureq-<版本>-windows-<架构>.zip` | `amd64` 或 `arm64` |
+| Linux（Ubuntu / Debian） | `ecaptureq-<版本>-linux-<架构>.deb` | `amd64` 或 `arm64` |
+| Linux（Fedora） | `ecaptureq-<版本>-linux-<架构>.rpm` | `amd64` 或 `arm64` |
 
-表中省略了共同的 `ecaptureq-<版本>-` 前缀。发布包附有 `SHA256SUMS`；签名与公证状态见包内 `BUILD-INFO.json`。macOS 桌面包默认使用免费的 **ad-hoc 签名，未经 Apple 公证，也没有 Apple 认证的开发者身份**。Android 和 iOS 暂无客户端产物，支持计划待定。
+`amd64` 也叫 x86_64 / x64，`arm64` 也叫 aarch64。发布页提供一个统一的 `SHA256SUMS`。macOS 默认采用 **ad-hoc 签名，未经 Apple 公证，也没有 Apple 认证的开发者身份**。Android 和 iOS 暂无产物。
 
-### 2. 打开桌面版，或启动 Web 版
+### 2. 安装并打开 eCaptureQ
 
-**桌面版**
-
-- **macOS**：打开 DMG，将 `eCaptureQ.app` 拖到 Applications 后启动；也可解压 ZIP 后打开应用。构建最低目标为 macOS 12，旧系统的实际兼容性见[验证记录](docs/verification.md)。
-- **Windows**：解压 ZIP，运行 `eCaptureQ.exe`。若提示缺少 WebView2，安装微软的 [WebView2 Runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/)。
-- **Linux**：解压 tar.gz，在图形桌面会话中运行 `./eCaptureQ`。需要 GTK4 和 WebKitGTK 6.0；例如 Ubuntu 24.04 可先执行：
+- **macOS**：打开 DMG，将 `eCaptureQ.app` 拖到 Applications 后启动；也可解压 ZIP。构建最低目标为 macOS 12，旧系统实际兼容性见[验证记录](docs/verification.md)。
+- **Windows**：解压 ZIP，运行 `eCaptureQ.exe`。缺少 WebView2 时安装微软的 [WebView2 Runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/)。
+- **Linux**：按发行版安装 DEB 或 RPM，然后从应用菜单打开 **eCaptureQ**，或在图形桌面会话中运行 `ecaptureq`。包管理器会安装 GTK4 / WebKitGTK 6.0 等依赖。DEB 构建基线为 Ubuntu 24.04；RPM 在 Fedora 43 验证，不承诺兼容旧版 RHEL/CentOS。
 
 ```sh
-sudo apt-get install libgtk-4-1 libwebkitgtk-6.0-4
+# Ubuntu / Debian：将文件名替换为实际下载的版本与架构
+sudo apt install ./ecaptureq-<版本>-linux-<架构>.deb
+
+# Fedora
+sudo dnf install ./ecaptureq-<版本>-linux-<架构>.rpm
 ```
 
-**macOS 首次打开**：先确认包来自本仓库的 Releases 或 Actions，并核对 `SHA256SUMS`。若首次打开提示无法验证开发者或 Apple 无法检查软件，可在「系统设置 → 隐私与安全」中找到 eCaptureQ，选择「仍要打开」并确认；受管理的 Mac 可能不允许此操作，参见 [Apple 说明](https://support.apple.com/en-us/102445)。ad-hoc 签名不提供免提示安装，也不保证更新后沿用之前的系统授权。
+**macOS 首次打开**：先确认包来自本仓库的 Releases 或 Actions，并核对 `SHA256SUMS`。若提示无法验证开发者或 Apple 无法检查软件，在「系统设置 → 隐私与安全」中选择 eCaptureQ 的「仍要打开」并确认；受管理的 Mac 可能不允许此操作，参见 [Apple 说明](https://support.apple.com/en-us/102445)。ad-hoc 签名不提供免提示安装，也不保证更新后沿用之前的系统授权。
 
-**Web 版**
+<details>
+<summary>通过浏览器使用：下载 eCaptureQ Web</summary>
 
-解压对应系统的 `server` 包，在解压目录打开终端：
+需要部署到服务器、无图形桌面的主机，或偏好浏览器访问时，选择带 `ecaptureq-web-` 前缀的包。它提供同一套分析界面，不需要 GTK/WebKit，也不是 eCapture 采集器。
+
+| 系统 | Web 部署包 |
+| --- | --- |
+| macOS | `ecaptureq-web-<版本>-macos-universal.zip`，同时支持 Intel / Apple Silicon |
+| Windows | `ecaptureq-web-<版本>-windows-<架构>.zip` |
+| Linux | `ecaptureq-web-<版本>-linux-<架构>.deb` 或 `.rpm` |
+
+Linux 使用 `apt install ./文件名.deb` 或 `dnf install ./文件名.rpm` 安装；macOS / Windows 解压 ZIP。Linux 安装不会自动启动服务，也不会修改用户配置。
 
 ```sh
-# macOS / Linux
-./ecaptureq-server --addr 127.0.0.1:28257
+# Linux 安装后
+ecaptureq-web --addr 127.0.0.1:28257
+# macOS：在解压目录中
+./ecaptureq-web --addr 127.0.0.1:28257
 ```
 
 ```powershell
-# Windows PowerShell
-.\ecaptureq-server.exe --addr 127.0.0.1:28257
+# Windows PowerShell：在解压目录中
+.\ecaptureq-web.exe --addr 127.0.0.1:28257
 ```
 
-浏览器访问 **http://127.0.0.1:28257/**。Web 版不需要桌面 GUI 库；默认只监听回环地址。远程访问及反向代理子路径配置见[使用参考](docs/reference.md)。
+浏览器访问 **http://127.0.0.1:28257/**。默认只监听回环地址；远程访问与反向代理子路径见[使用参考](docs/reference.md)。Web 与桌面应用可以同时安装，各自维护会话缓存。两种模式都需要另行连接 eCapture 数据源，安装包均不包含采集器。
+
+</details>
 
 ### 3. 先用模拟数据熟悉界面
 
@@ -133,7 +147,7 @@ ssh -N -L 127.0.0.1:28256:127.0.0.1:28256 user@linux-host
 
 右上角显示「已连接数 / 总来源数」，面板中可查看每个来源的状态、重连和运行日志。可以重复添加多个数据源，单个来源断线不会停止其他来源。
 
-**Web 模式的连接由 `ecaptureq-server` 发起，不是由浏览器发起。** 地址中的 `127.0.0.1` 指运行服务的机器，SSH 隧道也应建在那台机器上。桌面模式则由桌面应用所在机器连接。
+**Web 模式的连接由 `ecaptureq-web` 发起，不是由浏览器发起。** 地址中的 `127.0.0.1` 指运行服务的机器，SSH 隧道也应建在那台机器上。桌面模式则由桌面应用所在机器连接。
 
 ![数据源面板：两个合成事件来源均已连接](docs/images/sources.png)
 
@@ -142,7 +156,7 @@ ssh -N -L 127.0.0.1:28256:127.0.0.1:28256 user@linux-host
 也可以启动时指定来源：
 
 ```sh
-./ecaptureq-server --mode live --ecaptureq ws://127.0.0.1:28256/
+./ecaptureq-web --mode live --ecaptureq ws://127.0.0.1:28256/
 ```
 
 需要在重启后保留来源配置时，将包内 `config/sources.example.json` 复制为自己的文件，修改端点后通过 `--sources sources.local.json` 启动。未指定配置文件时，在界面新增的来源只保留在当前实例中。桌面带参数启动、配置格式及错误处理见[使用参考](docs/reference.md)。

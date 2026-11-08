@@ -85,8 +85,8 @@ GOWORK=off go mod tidy -diff
 浏览器回归需要运行两个服务，分别验证根路径与反向代理前缀：
 
 ```sh
-./bin/ecaptureq-server --addr 127.0.0.1:28257
-./bin/ecaptureq-server --addr 127.0.0.1:28258 --base-path /ecaptureq-web/
+./bin/ecaptureq-web --addr 127.0.0.1:28257
+./bin/ecaptureq-web --addr 127.0.0.1:28258 --base-path /ecaptureq-web/
 ```
 
 上述服务分别占用终端；在另一个终端运行：
