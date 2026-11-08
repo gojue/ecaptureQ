@@ -52,8 +52,8 @@ expire after 7 days. Release assets remain on the Release page.
 2. Run `make check`, `make release-check`, native builds and the relevant runtime
    acceptance. Check the branch's hosted CI and downloadable packages.
 3. After deciding to publish, push a `v`-prefixed tag matching `VERSION` on the
-   intended commit. For example, VERSION `1.0.0-alpha.1` requires tag
-   `v1.0.0-alpha.1`. The workflow checks an existing tag and never creates one.
+   intended commit. For example, VERSION `1.0.0-alpha.2` requires tag
+   `v1.0.0-alpha.2`. The workflow checks an existing tag and never creates one.
 4. `Release` runs validation and builds before creating the release. A version
    with a SemVer prerelease suffix is marked prerelease and not latest; a stable
    version is marked latest. Notes combine `docs/release-notes.md` and GitHub's
@@ -62,18 +62,23 @@ expire after 7 days. Release assets remain on the Release page.
 The repository's default branch is `main`. After the reviewed changes have been
 committed and merged, use a clean checkout of that branch to tag the reviewed
 commit. **Creating a local tag alone does not start GitHub Actions**: the tag must
-be pushed to `origin`. For the current `1.0.0-alpha.1` version:
+be pushed to `origin`. For the current `1.0.0-alpha.2` version:
 
 ```sh
 git fetch origin main
 git switch main
 git pull --ff-only origin main
 git status --short
-python3 scripts/check-version.py --tag v1.0.0-alpha.1
+python3 scripts/check-version.py --tag v1.0.0-alpha.2
 # Run these two commands only when ready to publish the reviewed version:
-git tag -a v1.0.0-alpha.1 -m "eCaptureQ v1.0.0-alpha.1"
-git push origin refs/tags/v1.0.0-alpha.1
+git tag -a v1.0.0-alpha.2 -m "eCaptureQ v1.0.0-alpha.2"
+git push origin refs/tags/v1.0.0-alpha.2
 ```
+
+The existing `v1.0.0-alpha.1` tag records the earlier release attempt whose macOS
+signing failed. This change prepares `1.0.0-alpha.2`; keep the earlier tag in
+place rather than moving it to the signing fix. No new tag is created by editing
+the version files.
 
 If choosing another version, update all version files before committing and use
 the matching tag instead. Do not reuse or overwrite an existing release tag. On
@@ -87,41 +92,65 @@ assets of an existing release. If publication failed partway through, inspect th
 existing release before deciding how to finish it; do not delete tags or overwrite
 published files blindly. This development update does not create a tag or release.
 
-## macOS signing and notarization
+## macOS signing modes
 
-Tag builds can reuse the existing repository secrets:
+The default is **`adhoc`**, for both CI packages and tag releases. This mode uses
+macOS `codesign` with the ad-hoc identity `-`, verifies the executable and app
+bundle, then creates ZIP/DMG artifacts. It needs no Apple certificate, developer
+membership or signing secrets and does not call Apple's notarization service.
+The macOS job does not inject Apple secrets into the ad-hoc signing step, even
+if old or expired secrets remain configured in the repository.
 
-- `APPLE_CERTIFICATE`: base64-encoded Developer ID Application P12.
+`BUILD-INFO.json` records `signing: "adhoc"` and `notarized: false`. This describes
+signature integrity only: it does not identify an Apple-verified developer or
+make Gatekeeper automatically trust the app. The package's `INSTALL.txt` and
+[README](../README.md) explain first launch. After verifying the repository source
+and SHA-256 checksum, a user whose first launch is blocked can use System
+Settings → Privacy & Security → Open Anyway for this app, then confirm. Managed
+Macs may disallow this exception. Do not assume that a newer ad-hoc build inherits
+previous launch exceptions or system permissions. See [Apple's instructions](https://support.apple.com/en-us/102445).
+
+The reusable `Build packages` workflow accepts the string input
+`macos-signing-mode`, defaulting to `adhoc`. Branch/PR CI and manual builds use
+ad-hoc signing without Apple secrets. The `Release` workflow reads the repository
+**Actions variable** `MACOS_SIGNING_MODE`; leaving it unset selects `adhoc`.
+The presence of `APPLE_*` secrets never selects a signing mode automatically.
+
+### Optional Developer ID signing
+
+To restore Apple-authenticated signing and notarization, explicitly set
+`MACOS_SIGNING_MODE=developer-id` under the repository's Actions variables and
+provide all six valid secrets below. This mode is restricted to pushed version
+tags. Renew the required Apple membership/certificate and verify the identity
+before enabling it; expired credentials from the previous release attempt are
+not sufficient.
+
+- `APPLE_CERTIFICATE`: base64-encoded Developer ID Application P12, including its private key.
 - `APPLE_CERTIFICATE_PASSWORD`: P12 password.
 - `APPLE_SIGNING_IDENTITY`: full `Developer ID Application: ...` identity.
 - `APPLE_ID`, `APPLE_PASSWORD`: Apple ID and app-specific notarization password.
 - `APPLE_TEAM_ID`: developer team ID.
 
-With all six set, `scripts/sign-macos.sh` creates a temporary private keychain,
-signs with hardened runtime, submits via `notarytool`, waits up to 30 minutes and
-staples the accepted ticket before packaging. It verifies the signature/ticket
-again and deletes temporary certificates, credentials and keychain on exit.
-Neither PR nor branch builds run this step. Complete absence of signing settings
-produces explicitly **unsigned** packages; a partial setup fails to avoid silently
-downgrading a configured signing pipeline. `BUILD-INFO.json` and the job summary
-report the actual result.
+With explicit `developer-id` mode and complete credentials,
+`scripts/sign-macos.sh` uses a temporary private keychain, signs with hardened
+runtime, submits via `notarytool`, waits up to 30 minutes and staples the accepted
+ticket before packaging. The signer and packager verify the signature/ticket.
+Successful packages record `signing: "notarized"` and `notarized: true`.
+Missing or invalid credentials, signature errors or notarization errors fail the
+release; this explicit mode never silently falls back to ad-hoc signing.
 
-Windows code signing and Linux package signing are not configured. No Apple secret
-was retrieved and no notarization or actual Release publication was performed
-during development. Native window, clipboard, file dialog and real probe checks
-remain separate acceptance work even when compilation and packaging pass.
-
-Existing secret **names** only confirm configuration presence. They do not prove
-that the P12 certificate is valid, the identity matches, or Apple will accept a
-notarization submission. Branch CI builds unsigned macOS artifacts and deliberately
-does not exercise these external release operations. Invalid signing credentials
-or a notarization failure stop the tag release rather than silently publishing an
-unsigned replacement; review the signing step's error before retrying.
+Secret names only confirm configuration presence. They do not prove that a P12
+contains a usable private key, the certificate is valid, the identity matches,
+or Apple will accept a notarization submission. Real Developer ID signing and
+notarization still require separate validation when that mode is re-enabled.
+Windows code signing and Linux package signing are not configured. Native window,
+clipboard, file dialog and real probe checks remain separate acceptance work
+even when compilation, signing integrity and packaging pass.
 
 ## Verify without publishing
 
 ```sh
-python3 scripts/check-version.py --tag v1.0.0-alpha.1
+python3 scripts/check-version.py --tag v1.0.0-alpha.2
 python3 -B -m unittest discover -s test -p '*_test.py'
 go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 -shellcheck=''
 ```
@@ -131,16 +160,18 @@ cover version mismatch, missing/corrupted archives, and packaging boundaries;
 actionlint checks workflow syntax and reusable-call inputs. A successful branch
 CI also exercises the same six-target build matrix and complete-artifact checksum
 gate used by tag releases. The manual `Build packages` action can rebuild these
-unsigned artifacts without publishing. Actual Apple signing/notarization and the
-final GitHub Release API call are only exercised by an authorized tag release;
-they are not claimed as tested by these checks.
+ad-hoc-signed macOS and other platform artifacts without publishing. These checks
+do not establish Gatekeeper trust or Apple notarization. Actual Developer ID
+signing/notarization is only exercised by a tag release explicitly selecting
+that mode; the final GitHub Release API call also needs an authorized tag release.
 
 ## Local packaging
 
 ```sh
 GOWORK=off make server desktop
 python3 scripts/package-release.py --kind server --os darwin --arch arm64
-python3 scripts/package-release.py --kind desktop --os darwin --arch arm64 --dmg
+bash scripts/sign-macos.sh dist/eCaptureQ.app adhoc
+python3 scripts/package-release.py --kind desktop --os darwin --arch arm64 --signing adhoc --dmg
 ```
 
 Use the actual target and an already-built binary; `--binary` can select a

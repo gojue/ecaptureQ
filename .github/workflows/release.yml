@@ -36,14 +36,14 @@ jobs:
     needs: [version, validate]
     uses: ./.github/workflows/build.yml
     with:
-      sign-macos: true
+      macos-signing-mode: ${{ vars.MACOS_SIGNING_MODE || 'adhoc' }}
     secrets:
-      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-      APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-      APPLE_ID: ${{ secrets.APPLE_ID }}
-      APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      APPLE_CERTIFICATE: ${{ vars.MACOS_SIGNING_MODE == 'developer-id' && secrets.APPLE_CERTIFICATE || '' }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ vars.MACOS_SIGNING_MODE == 'developer-id' && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
+      APPLE_SIGNING_IDENTITY: ${{ vars.MACOS_SIGNING_MODE == 'developer-id' && secrets.APPLE_SIGNING_IDENTITY || '' }}
+      APPLE_ID: ${{ vars.MACOS_SIGNING_MODE == 'developer-id' && secrets.APPLE_ID || '' }}
+      APPLE_PASSWORD: ${{ vars.MACOS_SIGNING_MODE == 'developer-id' && secrets.APPLE_PASSWORD || '' }}
+      APPLE_TEAM_ID: ${{ vars.MACOS_SIGNING_MODE == 'developer-id' && secrets.APPLE_TEAM_ID || '' }}
   publish:
     needs: [version, validate, build]
     runs-on: ubuntu-24.04

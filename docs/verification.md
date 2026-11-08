@@ -203,5 +203,42 @@ result. No tag or release was created during documentation validation.
 The tag-triggered release call chain and version gates were inspected without
 publishing. The repository has all six expected Apple signing-secret names, but
 their values, certificate validity and an actual notarization were not checked.
-Publishing still requires working signing credentials when they are configured;
-the unsigned CI matrix is not evidence of successful Apple notarization.
+At that point, publishing required working signing credentials when configured,
+and branch CI produced unsigned macOS packages. The certificate-free follow-up
+below supersedes that policy; those earlier checks did not verify notarization.
+
+## Certificate-free macOS packaging — 2026-11-08
+
+The authorized `v1.0.0-alpha.1` release attempt at merged main `2de4b95`
+[failed in both macOS signing jobs](https://github.com/gojue/ecaptureQ/actions/runs/42453669783).
+The configured signing identity could not be found in the imported keychain;
+the maintainer confirmed that the Apple certificate/membership had expired.
+Other target builds passed, but publication was skipped. That tag is preserved.
+
+The follow-up branch `fix/macos-adhoc-release` prepares `1.0.0-alpha.2`
+(macOS build `2`). CI and release packaging now default explicitly to `adhoc`.
+This path neither reads Apple credentials nor creates a keychain or contacts the
+notary service. Developer ID remains an explicit, tag-only option; failure never
+downgrades it to ad-hoc. Packaging checks the requested mode, actual signature and
+copied bundle before creating assets. Metadata records `signing: adhoc` and
+`notarized: false` for the default macOS desktop packages.
+
+Local verification on macOS arm64 passed:
+
+- 25 Python release/version/signing tests, including unusable credentials in
+  ad-hoc mode, formal-signing failures, keychain restoration, tampered signatures,
+  mismatched signing claims and missing notarization tickets.
+- actionlint 1.7.12, shell syntax, version/tag consistency and whitespace checks.
+- A fresh native `1.0.0-alpha.2` desktop build and real ad-hoc code signing.
+- ZIP and DMG creation, SHA-256 checks, DMG integrity verification, and strict
+  signature verification after extracting the ZIP. Both packages retain the
+  public README images; ZIP metadata matches the version and signing mode.
+
+Ignored local evidence is in `artifacts/adhoc-*.log`,
+`artifacts/adhoc-package-verification.json` and `dist/packages/`.
+Hosted matrix results are available under the branch's Actions runs. No new tag
+or release is created by this follow-up. Valid Developer ID signing/notarization,
+the interactive Gatekeeper approval flow and other operating systems' runtime
+installation remain untested here. Ad-hoc verification establishes bundle
+integrity, not Apple developer identity or Gatekeeper approval; users may need
+the documented app-specific **Open Anyway** action.

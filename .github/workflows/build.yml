@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
   workflow_call:
     inputs:
-      sign-macos:
-        type: boolean
-        default: false
+      macos-signing-mode:
+        type: string
+        default: adhoc
     secrets:
       APPLE_CERTIFICATE:
         required: false
@@ -29,7 +29,34 @@ env:
   GOFLAGS: '-mod=readonly'
 
 jobs:
+  settings:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      macos-signing-mode: ${{ steps.settings.outputs.macos-signing-mode }}
+    steps:
+      - name: Validate explicit macOS signing mode
+        id: settings
+        env:
+          SIGNING_MODE: ${{ inputs.macos-signing-mode || 'adhoc' }}
+          EVENT_NAME: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+        shell: bash
+        run: |
+          case "$SIGNING_MODE" in
+            adhoc) ;;
+            developer-id)
+              if [[ "$EVENT_NAME" != push || "$REF" != refs/tags/v* ]]; then
+                echo 'Developer ID signing is only available for version-tag releases.' >&2
+                exit 1
+              fi
+              ;;
+            *) echo 'macos-signing-mode must be adhoc or developer-id.' >&2; exit 1 ;;
+          esac
+          echo "macos-signing-mode=$SIGNING_MODE" >> "$GITHUB_OUTPUT"
+          echo "macOS signing mode: $SIGNING_MODE" >> "$GITHUB_STEP_SUMMARY"
   server:
+    needs: settings
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -60,6 +87,7 @@ jobs:
           compression-level: 0
           retention-days: 7
   desktop:
+    needs: settings
     strategy:
       fail-fast: false
       matrix:
@@ -96,9 +124,13 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev
       - name: Compile native application
         run: sh scripts/build-desktop.sh
-      - name: Sign and notarize macOS release application
-        id: sign
-        if: ${{ inputs.sign-macos && runner.os == 'macOS' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
+      - name: Sign macOS application without a certificate
+        id: sign-adhoc
+        if: ${{ runner.os == 'macOS' && needs.settings.outputs.macos-signing-mode == 'adhoc' }}
+        run: bash scripts/sign-macos.sh dist/eCaptureQ.app adhoc
+      - name: Sign and notarize macOS release with Developer ID
+        id: sign-developer-id
+        if: ${{ runner.os == 'macOS' && needs.settings.outputs.macos-signing-mode == 'developer-id' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -106,15 +138,22 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: bash scripts/sign-macos.sh dist/eCaptureQ.app
+        run: bash scripts/sign-macos.sh dist/eCaptureQ.app developer-id
       - name: Package application
         env:
           TARGET_OS: ${{ matrix.os }}
           TARGET_ARCH: ${{ matrix.arch }}
-          SIGNING: ${{ steps.sign.outputs.signing || 'unsigned' }}
+          SIGNING: ${{ steps.sign-adhoc.outputs.signing || steps.sign-developer-id.outputs.signing || 'unsigned' }}
+          EXPECTED_MODE: ${{ needs.settings.outputs.macos-signing-mode }}
         run: |
           extra=()
-          if [ "$TARGET_OS" = darwin ]; then extra+=(--dmg); fi
+          if [ "$TARGET_OS" = darwin ]; then
+            case "$EXPECTED_MODE:$SIGNING" in
+              adhoc:adhoc|developer-id:notarized) ;;
+              *) echo 'macOS signing result does not match the requested mode.' >&2; exit 1 ;;
+            esac
+            extra+=(--dmg)
+          fi
           python3 scripts/package-release.py --kind desktop --os "$TARGET_OS" --arch "$TARGET_ARCH" --signing "$SIGNING" "${extra[@]}"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:

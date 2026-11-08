@@ -96,7 +96,13 @@ go build -trimpath -tags desktop,production -ldflags "-s -w -H windowsgui" -o di
 
 开发运行使用 `go run -tags desktop ./cmd/desktop --mode mock`。桌面直接嵌入共享 UI 和 Handler，无须另启动 Web 服务，也不默认额外监听 TCP 端口。
 
-macOS 脚本会重建 `dist/eCaptureQ.app`，不保留旧包中的资源或签名。它生成的是未签名本地包；签名、公证以及发布凭据要求见 [发布指南](releases.md)。
+macOS 编译脚本会重建 `dist/eCaptureQ.app`，不保留旧包中的资源或签名。分发前单独执行默认的免费 ad-hoc 签名：
+
+```sh
+bash scripts/sign-macos.sh dist/eCaptureQ.app adhoc
+```
+
+此模式不需要证书或 Apple 会员，也不调用 Apple 公证服务；签名校验通过不代表 Gatekeeper 会自动信任应用。首次启动方法见 [README](../README.md)，正式 Developer ID 签名的显式启用条件见 [发布指南](releases.md)。
 
 ## AMD64 与 ARM64
 
@@ -124,7 +130,8 @@ make release-check
 
 ```sh
 python3 scripts/package-release.py --kind server --os darwin --arch arm64
-python3 scripts/package-release.py --kind desktop --os darwin --arch arm64 --dmg
+bash scripts/sign-macos.sh dist/eCaptureQ.app adhoc
+python3 scripts/package-release.py --kind desktop --os darwin --arch arm64 --signing adhoc --dmg
 ```
 
 打包脚本读取已编译的程序，校验其目标架构，在 `dist/packages/` 生成压缩包与校验和；不会把整个工作目录放入产物。标签触发、版本一致性检查、完整产物清单和发布过程统一维护在 [发布指南](releases.md)。
