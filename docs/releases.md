@@ -30,6 +30,8 @@ desktop needs GTK4 and WebKitGTK 6.0 at runtime (for Ubuntu 24.04,
 `libgtk-4-1 libwebkitgtk-6.0-4`); Windows desktop needs WebView2. macOS builds set
 a 12.0 minimum, but older OS versions still require runtime acceptance. These
 are Wails artifacts; old MSI/AppImage/APK formats are not carried forward.
+Android and iOS are not release targets yet; their support is undecided. They do
+not block the desktop and Web matrix.
 
 Names follow `ecaptureq-VERSION-KIND-OS-ARCH.EXT`. Each archive contains the
 selected executable/app, public documentation, LICENSE/NOTICE, placeholder source
@@ -56,6 +58,29 @@ expire after 7 days. Release assets remain on the Release page.
    with a SemVer prerelease suffix is marked prerelease and not latest; a stable
    version is marked latest. Notes combine `docs/release-notes.md` and GitHub's
    generated changelog. Review that file when the product's release scope changes.
+
+The repository's default branch is `main`. After the reviewed changes have been
+committed and merged, use a clean checkout of that branch to tag the reviewed
+commit. **Creating a local tag alone does not start GitHub Actions**: the tag must
+be pushed to `origin`. For the current `1.0.0-alpha.1` version:
+
+```sh
+git fetch origin main
+git switch main
+git pull --ff-only origin main
+git status --short
+python3 scripts/check-version.py --tag v1.0.0-alpha.1
+# Run these two commands only when ready to publish the reviewed version:
+git tag -a v1.0.0-alpha.1 -m "eCaptureQ v1.0.0-alpha.1"
+git push origin refs/tags/v1.0.0-alpha.1
+```
+
+If choosing another version, update all version files before committing and use
+the matching tag instead. Do not reuse or overwrite an existing release tag. On
+the [Actions page](https://github.com/gojue/ecaptureQ/actions/workflows/release.yml),
+check that the `Release` run points to the intended commit and that `publish`
+completes. All six desktop platform/architecture pairs must succeed before the
+release is published; a partial platform matrix is not accepted.
 
 Rerunning validation/build jobs is safe. Publication deliberately does not replace
 assets of an existing release. If publication failed partway through, inspect the
@@ -85,6 +110,30 @@ Windows code signing and Linux package signing are not configured. No Apple secr
 was retrieved and no notarization or actual Release publication was performed
 during development. Native window, clipboard, file dialog and real probe checks
 remain separate acceptance work even when compilation and packaging pass.
+
+Existing secret **names** only confirm configuration presence. They do not prove
+that the P12 certificate is valid, the identity matches, or Apple will accept a
+notarization submission. Branch CI builds unsigned macOS artifacts and deliberately
+does not exercise these external release operations. Invalid signing credentials
+or a notarization failure stop the tag release rather than silently publishing an
+unsigned replacement; review the signing step's error before retrying.
+
+## Verify without publishing
+
+```sh
+python3 scripts/check-version.py --tag v1.0.0-alpha.1
+python3 -B -m unittest discover -s test -p '*_test.py'
+go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 -shellcheck=''
+```
+
+The version check validates the proposed tag without creating one. The unit tests
+cover version mismatch, missing/corrupted archives, and packaging boundaries;
+actionlint checks workflow syntax and reusable-call inputs. A successful branch
+CI also exercises the same six-target build matrix and complete-artifact checksum
+gate used by tag releases. The manual `Build packages` action can rebuild these
+unsigned artifacts without publishing. Actual Apple signing/notarization and the
+final GitHub Release API call are only exercised by an authorized tag release;
+they are not claimed as tested by these checks.
 
 ## Local packaging
 

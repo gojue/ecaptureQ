@@ -174,3 +174,34 @@ metadata, version mismatch, missing targets and corrupt hashes. See
 No version tag, GitHub Release or Apple notarization was created during this
 follow-up. Full signing and the final publication step require a real authorized
 release and are not reported as executed tests.
+
+## Merged-main and user-documentation verification — 2026-11-08
+
+The implementation is now merged into default branch `main` at `7637fff`.
+Its [hosted CI run](https://github.com/gojue/ecaptureQ/actions/runs/42451978578)
+completed all 12 jobs successfully: frontend and three-platform Go checks,
+root/prefix browser regression, six Web server targets, six native desktop
+targets and collection of all 14 archive/image assets. Desktop targets are
+Linux, macOS and Windows, each with amd64/arm64. This supersedes the earlier
+expanded-matrix uncertainty; it does not claim native interactive acceptance.
+
+The user-documentation update adds three screenshots of the actual running Web
+UI, using bundled mock records and two local synthetic Protobuf sources. Their
+[provenance](images/README.md) distinguishes these images from native-window or
+real-probe tests. Temporary browser/server/source processes were stopped.
+
+Local checks of this documentation update passed: relative documentation/image
+links, fenced blocks, version/tag consistency for `v1.0.0-alpha.1`, actionlint
+1.7.12, eight Python packaging/release-gate tests and whitespace checks. The
+packager now includes public screenshots and the single official SVG resource.
+Actual macOS ZIP and Linux tar.gz packages were inspected: all four README image
+references resolve to the exact source bytes, and package SHA-256 checks pass.
+This packaging change was validated locally before submission; it was not part
+of the earlier hosted run. Check the corresponding branch CI for its hosted
+result. No tag or release was created during documentation validation.
+
+The tag-triggered release call chain and version gates were inspected without
+publishing. The repository has all six expected Apple signing-secret names, but
+their values, certificate validity and an actual notarization were not checked.
+Publishing still requires working signing credentials when they are configured;
+the unsigned CI matrix is not evidence of successful Apple notarization.
