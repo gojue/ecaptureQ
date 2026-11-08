@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/gojue/ecaptureQ/internal/app"
-	"github.com/gojue/ecaptureQ/internal/httpapi"
+	"github.com/gojue/ecaptureq/internal/app"
+	"github.com/gojue/ecaptureq/internal/httpapi"
 )
 
 type Config struct {

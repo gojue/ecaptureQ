@@ -5,8 +5,8 @@ package httpapi
 
 import (
 	"encoding/json"
-	"github.com/gojue/ecaptureQ/frontend"
-	"github.com/gojue/ecaptureQ/internal/app"
+	"github.com/gojue/ecaptureq/frontend"
+	"github.com/gojue/ecaptureq/internal/app"
 	"net/http"
 	"net/http/httptest"
 	"os"

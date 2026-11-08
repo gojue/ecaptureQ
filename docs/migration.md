@@ -1,7 +1,7 @@
 # Migration provenance
 
 The product and repository remain **eCaptureQ**. Canonical remote:
-https://github.com/gojue/ecaptureQ. Go module: `github.com/gojue/ecaptureQ` (case kept).
+https://github.com/gojue/ecaptureQ. Go module: `github.com/gojue/ecaptureq` (lowercase; repository/product name unchanged).
 The same GitHub repository retains its existing community entry points; no new
 repository or repository rename is part of this migration.
 

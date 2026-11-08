@@ -18,7 +18,7 @@ working tree. Old features are not acceptance requirements.
 
 Product names, module/import paths, links, examples, export names, theme preference
 key, CI and output names are aligned with eCaptureQ. Module:
-`github.com/gojue/ecaptureQ`; app ID: `com.gojue.ecaptureq`. Development version
+`github.com/gojue/ecaptureq`; app ID: `com.gojue.ecaptureq`. Development version
 `1.0.0-alpha.1` matches VERSION, package.json and generated app metadata. macOS
 numeric version is `1.0.0`, build `1`.
 
@@ -134,14 +134,18 @@ runtime acceptance on older macOS versions.
 
 ## Outstanding verification
 
-1. Hosted CI results must be checked separately for the pushed commit. Its
-   protocol, Go test/vet and build gates pass locally using public dependencies
-   with `GOWORK=off`; there is no remaining protocol publication blocker.
+1. Initial hosted runs for `f81697b` passed Go race/vet, protocol checks and
+   macOS/Windows/Linux desktop compilation. The browser job passed its UI/security
+   assertions but failed while deleting Chrome's still-active temporary profile
+   (`ENOTEMPTY`). The follow-up waits for Chrome closure and retries transient
+   filesystem cleanup; local root/prefix browser tests passed. Check the latest
+   Actions run for the expanded six-target desktop/package matrix.
 2. Native window rendering, save dialogs, system clipboard, external browser and
    title-bar close were not exercised. Computer Use permission was unavailable
    during development; process and adapter tests are not substitutes.
-3. Linux/Windows desktop builds and runtime were not tested locally. Only their
-   pure Go server binaries were cross-compiled; the desktop CI matrix is supplied.
+3. Linux/Windows desktop builds passed in the initial hosted CI, but their runtime
+   was not exercised locally. Cross-platform package gates do not replace native
+   interactive acceptance.
 4. Other macOS versions, signing, notarization and installation upgrades are not
    verified. This bundle is a local development artifact, not a published build.
 5. No authorized Linux probe environment was used. Synthetic data does not prove
@@ -152,3 +156,21 @@ runtime acceptance on older macOS versions.
 Old SQL filtering, integrated capture, Android UI and old configuration compatibility
 are outside this rewrite's acceptance scope. See [upgrade.md](upgrade.md). Future
 SQL support is a new implementation task.
+
+## CI and publication follow-up
+
+The Go module/imports now consistently use `github.com/gojue/ecaptureq`; public
+repository links and product branding keep eCaptureQ. The lowercase GitHub path
+was verified to resolve the same repository/branch. Race tests, vet and the
+CGO-disabled server build passed again after this change.
+
+Workflow syntax/expression validation (actionlint 1.7.12), 27 Node tests, seven
+Python version/package/checksum gate tests, root/prefix browser smoke, and the
+updated macOS arm64 desktop build passed locally. Real ZIP/tar.gz packaging and
+macOS DMG creation/integrity checks also passed. Packaging rejects wrong target
+metadata, version mismatch, missing targets and corrupt hashes. See
+[releases.md](releases.md) for the reusable CI/build/tag-release flow.
+
+No version tag, GitHub Release or Apple notarization was created during this
+follow-up. Full signing and the final publication step require a real authorized
+release and are not reported as executed tests.

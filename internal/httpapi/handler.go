@@ -13,7 +13,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gojue/ecaptureQ/internal/app"
+	"github.com/gojue/ecaptureq/internal/app"
 )
 
 func New(options app.Options, live *app.Store, staticFiles fs.FS, policy Policy) (http.Handler, error) {

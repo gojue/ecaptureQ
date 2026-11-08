@@ -1,0 +1,147 @@
+name: Build packages
+
+on:
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      sign-macos:
+        type: boolean
+        default: false
+    secrets:
+      APPLE_CERTIFICATE:
+        required: false
+      APPLE_CERTIFICATE_PASSWORD:
+        required: false
+      APPLE_SIGNING_IDENTITY:
+        required: false
+      APPLE_ID:
+        required: false
+      APPLE_PASSWORD:
+        required: false
+      APPLE_TEAM_ID:
+        required: false
+
+permissions:
+  contents: read
+
+env:
+  GOWORK: 'off'
+  GOFLAGS: '-mod=readonly'
+
+jobs:
+  server:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+      - run: python3 scripts/check-version.py
+      - run: go run ./scripts/check-protocol
+      - name: Build and package all Web servers
+        shell: bash
+        run: |
+          for target_os in linux darwin windows; do
+            for target_arch in amd64 arm64; do
+              binary="bin/ecaptureq-server-$target_os-$target_arch"
+              CGO_ENABLED=0 GOOS="$target_os" GOARCH="$target_arch" \
+                go build -trimpath -ldflags '-s -w' -o "$binary" ./cmd/server
+              python3 scripts/package-release.py --kind server --os "$target_os" --arch "$target_arch" --binary "$binary"
+            done
+          done
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: packages-server
+          path: dist/packages/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {runner: ubuntu-24.04, os: linux, arch: amd64}
+          - {runner: ubuntu-24.04-arm, os: linux, arch: arm64}
+          - {runner: macos-15-intel, os: darwin, arch: amd64}
+          - {runner: macos-15, os: darwin, arch: arm64}
+          - {runner: windows-2025, os: windows, arch: amd64}
+          - {runner: windows-11-arm, os: windows, arch: arm64}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          architecture: ${{ matrix.arch == 'amd64' && 'x64' || 'arm64' }}
+      - run: python3 scripts/check-version.py
+      - name: Verify native target
+        env:
+          TARGET_OS: ${{ matrix.os }}
+          TARGET_ARCH: ${{ matrix.arch }}
+        run: |
+          test "$(go env GOHOSTOS)" = "$TARGET_OS"
+          test "$(go env GOHOSTARCH)" = "$TARGET_ARCH"
+      - name: Linux GUI development libraries
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev
+      - name: Compile native application
+        run: sh scripts/build-desktop.sh
+      - name: Sign and notarize macOS release application
+        id: sign
+        if: ${{ inputs.sign-macos && runner.os == 'macOS' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: bash scripts/sign-macos.sh dist/eCaptureQ.app
+      - name: Package application
+        env:
+          TARGET_OS: ${{ matrix.os }}
+          TARGET_ARCH: ${{ matrix.arch }}
+          SIGNING: ${{ steps.sign.outputs.signing || 'unsigned' }}
+        run: |
+          extra=()
+          if [ "$TARGET_OS" = darwin ]; then extra+=(--dmg); fi
+          python3 scripts/package-release.py --kind desktop --os "$TARGET_OS" --arch "$TARGET_ARCH" --signing "$SIGNING" "${extra[@]}"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: packages-desktop-${{ matrix.os }}-${{ matrix.arch }}
+          path: dist/packages/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+  verify-packages:
+    needs: [server, desktop]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          pattern: packages-*
+          path: dist/packages
+          merge-multiple: true
+      - name: Verify all targets and checksums
+        run: python3 scripts/collect-release.py dist/packages
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: release-bundle
+          path: dist/packages/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7

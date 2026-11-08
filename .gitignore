@@ -7,6 +7,8 @@
 /.DS_Store
 /coverage.out
 /node_modules/
+__pycache__/
+*.pyc
 /*.pcap
 /*.pcapng
 /*.keylog

@@ -17,8 +17,8 @@ import (
 	"time"
 
 	pb "github.com/gojue/ecapture/v2/protobuf/gen/v1"
-	"github.com/gojue/ecaptureQ/frontend"
-	"github.com/gojue/ecaptureQ/internal/app"
+	"github.com/gojue/ecaptureq/frontend"
+	"github.com/gojue/ecaptureq/internal/app"
 	"golang.org/x/net/websocket"
 	"google.golang.org/protobuf/proto"
 )

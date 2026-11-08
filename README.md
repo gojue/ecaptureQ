@@ -12,10 +12,10 @@ eCapture 负责探针、捕获、解密与标准事件发布；eCaptureQ 不包�
 
 ## 环境与构建
 
-- Go 1.26.0+；模块为 `github.com/gojue/ecaptureQ`。
+- Go 1.26.0+；模块为 `github.com/gojue/ecaptureq`。
 - 原生前端无 npm 构建步骤；Node.js 24+ 用于测试。
 - Web 服务是纯 Go，可 `CGO_ENABLED=0` 构建，无 GTK/WebKit 依赖。
-- 桌面固定 Wails **v3.1.0**，macOS 需 Xcode，Windows 需 WebView2，Linux 需 GTK4 与 WebKitGTK 6.0 开发库。按目标系统本机构建；签名、公证和安装包发布不在本次范围。
+- 桌面固定 Wails **v3.1.0**，macOS 需 Xcode，Windows 需 WebView2，Linux 需 GTK4 与 WebKitGTK 6.0 开发库。按目标系统本机构建；CI 和标签发布提供三平台 amd64/arm64 产物，macOS 支持可选签名与公证。
 - 若 Go 安装环境设置了旧 `GOROOT`，先移除该环境覆盖，允许 Go 自动选择所需工具链。
 
 直接从本仓库构建；Go 会下载 `go.mod` 固定的公开依赖：
@@ -154,6 +154,10 @@ HTTP 图片从捕获字节生成本地 Blob，不重新请求被捕获 URL；SVG
 连接页直接读取官方 Event.tls，展示实际提供的版本、密码套件、SNI、ALPN、组、签名算法、JA3/JA4。SNI 不从 HTTP Host 推断；指纹取首次线上 ClientHello，ECH Outer 会标明。缺失值保持未知。真实上报须由含相关发布变更的采集器及其 Decryptor v1.4.3+ 提供，UI 不导入 Decryptor。
 
 ## 验证
+
+GitHub Actions 的 `CI` 在分支 push 和 PR 上运行前端、Go race/vet、协议、浏览器根路径/子路径回归，通过后调用 `Build packages`，生成六种 Web 服务和六种桌面产物。可从运行页面下载 `release-bundle`（保留 7 天），其中含 macOS DMG/ZIP、Windows ZIP、Linux tar.gz，以及 `SHA256SUMS`。构建只使用官方依赖，不附带采集器；桌面编译成功不代表已验证所有原生交互。
+
+`Release` 仅在推送匹配版本的 `v*` 标签时触发：先校验 VERSION、package.json、Info.plist 与标签一致，再执行同一套 CI、构建、校验和门禁，最后发布 GitHub Release；预发布版本自动标记 prerelease。普通分支/PR 不发布。macOS 复用原仓库 Apple signing secrets，缺少全部凭据时明确提供未签名包；部分缺失会失败。详见 [构建和发布指南](docs/releases.md)。
 
 ```sh
 make check

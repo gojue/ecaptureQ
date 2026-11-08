@@ -16,7 +16,7 @@ import (
 	"sync"
 	"unicode"
 
-	"github.com/gojue/ecaptureQ/internal/httpapi"
+	"github.com/gojue/ecaptureq/internal/httpapi"
 )
 
 const (

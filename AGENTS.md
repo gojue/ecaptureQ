@@ -10,7 +10,7 @@ eBPF, libpcap or Decryptor runtime packages. Never execute source launch metadat
 
 The only product is eCaptureQ, with Web and Desktop entries. Its canonical
 repository remains `https://github.com/gojue/ecaptureQ` and its Go module is
-`github.com/gojue/ecaptureQ`, preserving the repository's case. eCaptureW is only
+`github.com/gojue/ecaptureq`, using a lowercase Go module path. eCaptureW is only
 the historical working name of the imported rewrite, not another active product.
 Keep public names, import paths, app identifiers, artifact names and docs aligned.
 

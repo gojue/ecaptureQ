@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gojue/ecaptureQ/internal/httpapi"
+	"github.com/gojue/ecaptureq/internal/httpapi"
 )
 
 type fakeNative struct {

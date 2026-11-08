@@ -1,0 +1,75 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  version:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - id: version
+        name: Require tag and version consistency
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: python3 scripts/check-version.py --tag "$RELEASE_TAG"
+  validate:
+    needs: version
+    uses: ./.github/workflows/ci.yml
+    with:
+      skip-packages: true
+  build:
+    needs: [version, validate]
+    uses: ./.github/workflows/build.yml
+    with:
+      sign-macos: true
+    secrets:
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+  publish:
+    needs: [version, validate, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: release-bundle
+          path: dist/packages
+      - run: python3 scripts/collect-release.py dist/packages
+      - name: Publish verified release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          PRERELEASE: ${{ needs.version.outputs.prerelease }}
+        shell: bash
+        run: |
+          flags=(--latest)
+          if [ "$PRERELEASE" = true ]; then flags=(--prerelease --latest=false); fi
+          # Publish only when every platform and archive has passed; never create a tag.
+          gh release create "$RELEASE_TAG" dist/packages/* \
+            --verify-tag --title "eCaptureQ $RELEASE_TAG" --generate-notes \
+            --notes-file docs/release-notes.md "${flags[@]}"

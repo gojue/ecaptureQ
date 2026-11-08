@@ -5,6 +5,7 @@ cd "$(dirname "$0")/.."
 go run ./scripts/check-protocol
 desktop_version=$(cat VERSION)
 desktop_bundle_version=${desktop_version%%-*}
+desktop_bundle_version=${desktop_bundle_version%%+*}
 target_os=$(go env GOOS)
 host_os=$(go env GOHOSTOS)
 if [ "$target_os" != "$host_os" ]; then
@@ -15,6 +16,8 @@ mkdir -p dist
 case "$target_os" in
   darwin)
     bundle=dist/eCaptureQ.app
+    # Never carry stale resources or an old code signature into a fresh build.
+    rm -rf "$bundle"
     mkdir -p "$bundle/Contents/MacOS" "$bundle/Contents/Resources"
     # Prefer Apple's SDK-matched compiler over an unrelated clang on PATH.
     desktop_cc=${CC:-$(xcrun --find clang)}

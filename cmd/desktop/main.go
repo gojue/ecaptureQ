@@ -16,11 +16,11 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/gojue/ecaptureQ/frontend"
-	"github.com/gojue/ecaptureQ/internal/app"
-	"github.com/gojue/ecaptureQ/internal/cli"
-	"github.com/gojue/ecaptureQ/internal/httpapi"
-	"github.com/gojue/ecaptureQ/internal/platform"
+	"github.com/gojue/ecaptureq/frontend"
+	"github.com/gojue/ecaptureq/internal/app"
+	"github.com/gojue/ecaptureq/internal/cli"
+	"github.com/gojue/ecaptureq/internal/httpapi"
+	"github.com/gojue/ecaptureq/internal/platform"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 

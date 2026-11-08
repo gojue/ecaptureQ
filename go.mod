@@ -1,4 +1,4 @@
-module github.com/gojue/ecaptureQ
+module github.com/gojue/ecaptureq
 
 go 1.26.0
 

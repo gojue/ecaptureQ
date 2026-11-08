@@ -16,6 +16,15 @@ const proc = spawn(chrome,['--headless=new','--disable-gpu','--no-first-run','--
   '--remote-debugging-port=0','--remote-allow-origins=*','--user-data-dir='+profile,'about:blank'],{stdio:['ignore','ignore','pipe']});
 let stderr='',launchError;proc.stderr.on('data',data=>stderr+=data);proc.on('error',error=>launchError=error);
 const sleep = ms=>new Promise(resolve=>setTimeout(resolve,ms));
+// Observe close from launch, including a signal exit or spawn error. Chromium's
+// helper processes can keep stdio/profile files open after the parent exits.
+const browserClosed=new Promise(resolve=>proc.once('close',resolve));
+async function waitForBrowserClose(milliseconds) {
+  let timer;
+  try {
+    return await Promise.race([browserClosed.then(()=>true),new Promise(resolve=>{timer=setTimeout(()=>resolve(false),milliseconds);})]);
+  } finally { clearTimeout(timer); }
+}
 let ws,nextID=0;const pending=new Map(),listeners=new Map();
 function send(method,params={},sessionId) {
   const id=++nextID;
@@ -149,7 +158,11 @@ try {
   console.log('PASS security: escaped fields/logs, inert sandbox HTML, local SVG image, no captured URL requests, logs stay expanded during polling');
 } finally {
   if(ws?.readyState===WebSocket.OPEN){try{await send('Browser.close');}catch{}ws.close();}
-  proc.kill('SIGTERM');
-  if(proc.exitCode===null)await Promise.race([new Promise(resolve=>proc.once('exit',resolve)),sleep(3000)]);
-  await rm(profile,{recursive:true,force:true});
+  if(!await waitForBrowserClose(3000)) {
+    proc.kill('SIGTERM');
+    if(!await waitForBrowserClose(3000)){proc.kill('SIGKILL');await waitForBrowserClose(3000);}
+  }
+  // Chromium may finish a profile write as it shuts down. Retry only the
+  // filesystem's transient removal errors; persistent cleanup failures fail CI.
+  await rm(profile,{recursive:true,force:true,maxRetries:10,retryDelay:100});
 }
