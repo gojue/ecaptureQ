@@ -1,36 +1,26 @@
 <p align="center">
-  <img src="frontend/ecapture-logo.svg" alt="eCaptureQ" width="96" />
+  <img src="frontend/ecaptureq-logo.svg" alt="eCaptureQ" width="96" />
 </p>
 
 # eCaptureQ
 
-**把 eCapture 采集到的网络消息，变成可搜索、可关联、可查看的协议工作区。**
+**用 eCapture 采集，用 eCaptureQ 分析。**
 
-在 macOS、Windows 或 Linux 上打开桌面应用，也可以通过浏览器使用 Web 版。按进程、协议和目标主机找到流量，在同一个界面查看请求、响应、连接、进程命令和 TLS 信息。
-
-[下载](https://github.com/gojue/ecaptureQ/releases) · [快速开始](#快速开始) · [连接 eCapture](#连接-ecapture) · [完整文档](docs/README.md) · [反馈问题](https://github.com/gojue/ecaptureQ/issues)
-
-![eCaptureQ 三栏界面：进程与协议筛选、消息列表、HTTP 请求详情](docs/images/overview.png)
-
-*实际运行的共享 Web 界面。本文截图使用内置模拟数据或合成事件，未展示真实捕获内容。*
+eCaptureQ 将 eCapture 采集到的网络消息，转化为**可搜索、可关联、可查看的分析界面**。连接一个或多个数据源，在左栏按进程、协议和目标主机缩小范围，在中栏选择消息，在右栏查看请求、响应、连接、进程命令和 TLS 信息。
 
 ## eCapture 与 eCaptureQ 的关系
 
-[eCapture](https://github.com/gojue/ecapture) 是采集端，**eCaptureQ 是分析界面**。两者独立运行，通过 eCapture 的 `--ecaptureq` WebSocket 接口连接。
+[eCapture](https://github.com/gojue/ecapture) 在采集主机上运行，负责探针、流量采集、TLS 解密和应用消息输出。**eCaptureQ 是它的图形化分析界面**：连接数据源，关联请求与响应，管理有界缓存，并提供筛选、搜索和消息详情。两者独立运行，eCaptureQ 通过 eCapture 的 `--ecaptureq` WebSocket 接口接收应用消息。
+
+![从终端到图形界面的概念示意：左侧 eCapture 采集与解密，右侧 eCaptureQ 关联并展示应用消息和捕获的图片内容](docs/images/terminal-to-interface-fine.webp)
+
+*从终端到界面：eCapture 负责采集与解密，eCaptureQ 负责关联与图形化查看。此图为概念插画，非应用截图；箭头表示应用消息流向，WebSocket 连接由 eCaptureQ 发起。*
 
 | 项目 | 负责什么 | 在哪里运行 |
 | --- | --- | --- |
-| eCapture | 探针、流量捕获、解密，并发布标准事件 | 本文使用 Linux 采集主机；其他采集平台以 eCapture 官方支持范围为准 |
+| eCapture | 探针、流量捕获、解密，并发布标准事件 | 符合 eCapture 要求的 Linux / Android 采集环境；本文示例使用 Linux |
 | eCaptureQ Desktop | 连接数据源、关联消息、筛选和展示 | macOS、Windows、Linux；直接打开桌面应用 |
 | eCaptureQ Web | 相同的分析功能，通过浏览器访问 | 在服务器或本机运行 `ecaptureq-web`，再打开浏览器 |
-
-```mermaid
-flowchart LR
-    App["Linux 上的目标程序"] --> Capture["eCapture：采集、解密、发布事件"]
-    Capture -->|"WebSocket 事件"| Desktop["eCaptureQ Desktop"]
-    Capture -->|"WebSocket 事件"| Server["eCaptureQ Web 服务"]
-    Server --> Browser["浏览器"]
-```
 
 桌面版可以连接远端 Linux，不需要在本机安装或启动采集探针，也不需要另启 Web 服务。**macOS / Windows 桌面支持不代表 eCapture 探针能在这些系统上运行。** Web 和 Desktop 各自维护缓存，分别启动的实例不会共享会话。
 
@@ -49,6 +39,14 @@ flowchart LR
 *按 MQTT 筛选后查看 Topic、QoS、Packet ID 和载荷信息；图中数据为模拟样例。*
 
 ## 快速开始
+
+在 macOS、Windows 或 Linux 上打开桌面应用，也可以启动 eCaptureQ Web，通过浏览器使用同一套分析界面。
+
+[下载](https://github.com/gojue/ecaptureQ/releases) · [快速开始](#快速开始) · [连接 eCapture](#连接-ecapture) · [官网介绍](https://ecapture.cc/q/zh/) · [完整文档](docs/README.md) · [反馈问题](https://github.com/gojue/ecaptureQ/issues)
+
+![eCaptureQ 三栏界面：进程与协议筛选、消息列表、HTTP 请求详情](docs/images/overview.png)
+
+*实际运行的共享 Web 界面。本文截图使用内置模拟数据或合成事件，未展示真实捕获内容。*
 
 ### 1. 选择下载包
 

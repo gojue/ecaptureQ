@@ -61,7 +61,7 @@ def linux_config(stage, kind, arch, version):
     if kind == "desktop":
         contents.extend([
             {"src": str(ROOT / "build/linux/ecaptureq.desktop"), "dst": "/usr/share/applications/ecaptureq.desktop", "file_info": {"mode": 0o644}},
-            {"src": str(ROOT / "frontend/ecapture-logo.svg"), "dst": "/usr/share/icons/hicolor/scalable/apps/ecaptureq.svg", "file_info": {"mode": 0o644}},
+            {"src": str(ROOT / "frontend/ecaptureq-logo.svg"), "dst": "/usr/share/icons/hicolor/scalable/apps/ecaptureq.svg", "file_info": {"mode": 0o644}},
         ])
         # Built on Ubuntu 24.04; do not promise compatibility with older C libraries.
         config["overrides"] = {
@@ -133,7 +133,7 @@ def package(kind, target_os, arch, version, binary, output, dmg=False, signing="
             shutil.copy2(ROOT / filename, stage / filename)
         # The README shares the official UI logo; do not ship the frontend source tree.
         (stage / "frontend").mkdir()
-        shutil.copy2(ROOT / "frontend/ecapture-logo.svg", stage / "frontend/ecapture-logo.svg")
+        shutil.copy2(ROOT / "frontend/ecaptureq-logo.svg", stage / "frontend/ecaptureq-logo.svg")
         (stage / "config").mkdir()
         shutil.copy2(ROOT / "config/sources.example.json", stage / "config/sources.example.json")
         # Public documentation screenshots must accompany the README's relative links.

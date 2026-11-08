@@ -9,3 +9,9 @@ initially named eCaptureW, then imported as the complete next-generation eCaptur
 Web and Wails desktop implementation in the existing gojue/ecaptureQ repository.
 Original copyright notices are retained. No collector implementation or generated
 Protobuf source is copied.
+
+The product relationship illustration in
+docs/images/terminal-to-interface-fine.webp is from gojue/ecapture.cc
+(Copyright (c) 2022 gojue), distributed under the MIT license preserved in
+docs/images/terminal-to-interface-LICENSE.txt. See docs/images/README.md for
+its source and provenance.

@@ -135,7 +135,7 @@ func TestBasePathAssetsAPIsAndRedirects(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			for _, asset := range []string{"", "index.html", "app.js", "http-body.js", "platform.js", "styles.css", "protocol-viewers.js", "ecapture-logo.svg", "api/health", "api/workspace?mode=mock"} {
+			for _, asset := range []string{"", "index.html", "app.js", "http-body.js", "platform.js", "styles.css", "protocol-viewers.js", "ecaptureq-logo.svg", "api/health", "api/workspace?mode=mock"} {
 				w := httptest.NewRecorder()
 				handler.ServeHTTP(w, httptest.NewRequest(http.MethodGet, base+asset, nil))
 				if asset == "index.html" {
@@ -272,7 +272,7 @@ func TestReverseProxyPreservesPrefixHostAndOriginPolicy(t *testing.T) {
 				}
 				return response, string(data)
 			}
-			for _, route := range []string{"", "app.js", "styles.css", "ecapture-logo.svg", "api/health", "api/workspace?mode=mock"} {
+			for _, route := range []string{"", "app.js", "styles.css", "ecaptureq-logo.svg", "api/health", "api/workspace?mode=mock"} {
 				response, body := request(http.MethodGet, base+route, "", "")
 				if response.StatusCode != http.StatusOK || body == "" {
 					t.Fatalf("proxied %s: status=%d", route, response.StatusCode)

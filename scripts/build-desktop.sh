@@ -41,6 +41,14 @@ case "$target_os" in
     echo "Built $desktop_output ($desktop_version, sign the final bundle before distribution)."
     ;;
   windows)
+    desktop_arch=$(go env GOARCH)
+    desktop_resource="cmd/desktop/rsrc_windows_${desktop_arch}.syso"
+    if [ -e "$desktop_resource" ]; then
+      echo "Refusing to overwrite existing Windows resource: $desktop_resource" >&2
+      exit 1
+    fi
+    trap 'rm -f "$desktop_resource"' EXIT HUP INT TERM
+    sh scripts/build-windows-icon.sh "$desktop_arch" "$desktop_resource"
     go build -trimpath -tags desktop,production -ldflags '-s -w -H windowsgui' -o dist/eCaptureQ.exe ./cmd/desktop
     echo "Built dist/eCaptureQ.exe ($desktop_version, requires WebView2)."
     ;;
