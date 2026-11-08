@@ -24,6 +24,25 @@ def check_binary(binary, target_os, arch):
             raise ValueError(f"Binary does not contain expected {key}={value} build metadata")
 
 
+def check_macos_signature(bundle, signing):
+    """Verify actual signed content before assigning distribution metadata."""
+    for code in (bundle / "Contents/MacOS/eCaptureQ", bundle):
+        subprocess.run(["codesign", "--verify", "--deep", "--strict", str(code)], check=True)
+        details = subprocess.check_output(
+            ["codesign", "--display", "--verbose=2", str(code)],
+            text=True, stderr=subprocess.STDOUT,
+        ).splitlines()
+        adhoc = "Signature=adhoc" in details
+        if signing == "adhoc" and not adhoc:
+            raise ValueError("Requested ad-hoc package does not have an ad-hoc signature")
+        if signing == "notarized" and (
+            adhoc or not any(line.startswith("Authority=Developer ID Application:") for line in details)
+        ):
+            raise ValueError("Notarized package requires a Developer ID Application signature")
+    if signing == "notarized":
+        subprocess.run(["xcrun", "stapler", "validate", str(bundle)], check=True)
+
+
 def checksum(path):
     digest = hashlib.sha256()
     with path.open("rb") as source:
@@ -47,16 +66,19 @@ def package(kind, target_os, arch, version, binary, output, dmg=False, signing="
         raise ValueError("Version must be a semantic version without a leading v")
     if dmg and (kind != "desktop" or target_os != "darwin" or sys.platform != "darwin"):
         raise ValueError("--dmg requires a macOS host and macOS desktop package")
-    if signing == "notarized" and (kind != "desktop" or target_os != "darwin"):
-        raise ValueError("Notarized signing status is only supported for macOS desktop")
+    if signing not in ("unsigned", "adhoc", "notarized"):
+        raise ValueError("Unknown signing status")
+    if signing != "unsigned" and (kind != "desktop" or target_os != "darwin"):
+        raise ValueError("Ad-hoc/notarized signing status is only supported for macOS desktop")
+    if signing != "unsigned" and sys.platform != "darwin":
+        raise ValueError("Verify signed macOS desktop packages on a macOS host")
     binary = binary.resolve(strict=True)
     executable = binary / "Contents/MacOS/eCaptureQ" if kind == "desktop" and target_os == "darwin" else binary
     if not executable.is_file():
         raise ValueError(f"Built executable is missing: {executable}")
     check_binary(executable, target_os, arch)
-    if signing == "notarized":
-        subprocess.run(["codesign", "--verify", "--deep", "--strict", str(binary)], check=True)
-        subprocess.run(["xcrun", "stapler", "validate", str(binary)], check=True)
+    if signing != "unsigned":
+        check_macos_signature(binary, signing)
     output.mkdir(parents=True, exist_ok=True)
     output = output.resolve()
     name = f"ecaptureq-{version}-{kind}-{target_os}-{arch}"
@@ -79,6 +101,8 @@ def package(kind, target_os, arch, version, binary, output, dmg=False, signing="
                     raise ValueError("Application bundle contains a link outside the bundle")
             # ditto retains the notarization ticket; copytree does not preserve all macOS metadata.
             subprocess.run(["ditto", str(binary), str(stage / "eCaptureQ.app")], check=True)
+            if signing != "unsigned":
+                check_macos_signature(stage / "eCaptureQ.app", signing)
         else:
             suffix = ".exe" if target_os == "windows" else ""
             filename = ("ecaptureq-server" if kind == "server" else "eCaptureQ") + suffix
@@ -90,16 +114,24 @@ def package(kind, target_os, arch, version, binary, output, dmg=False, signing="
         except (OSError, subprocess.CalledProcessError):
             commit = "unknown"
         info = {"product": "eCaptureQ", "version": version, "kind": kind, "os": target_os,
-                "arch": arch, "commit": commit, "signing": signing}
+                "arch": arch, "commit": commit, "signing": signing, "notarized": signing == "notarized"}
         (stage / "BUILD-INFO.json").write_text(json.dumps(info, indent=2) + "\n", encoding="utf-8")
         runtime = {"linux": "Desktop requires GTK4 and WebKitGTK 6.0 runtime libraries.",
                    "windows": "Desktop requires the Microsoft Edge WebView2 runtime.",
                    "darwin": "Desktop requires macOS 12 or newer; older versions have not been validated."}[target_os]
+        signing_help = ""
+        if signing == "adhoc":
+            signing_help = (
+                "This app is ad-hoc signed, without an Apple-certified developer identity, "
+                "and has NOT been notarized by Apple.\n"
+                "If macOS blocks the first launch, verify the download source and checksum, then use "
+                "System Settings > Privacy & Security > Open Anyway for this app.\n"
+            )
         (stage / "INSTALL.txt").write_text(
             f"eCaptureQ {version} ({kind}, {target_os}/{arch})\n\n"
             "Server: run ecaptureq-server --addr 127.0.0.1:28257 and open the address in your browser.\n"
             "Desktop: launch eCaptureQ; no separately started server is needed.\n"
-            + runtime + "\nSigning status: " + signing + ".\n"
+            + runtime + "\nSigning status: " + signing + ".\n" + signing_help +
             "The source example contains placeholders. Configure your own remote eCapture endpoint.\n"
             "No collector, captured traffic or private settings are bundled. See README.md and docs/.\n",
             encoding="utf-8")
@@ -140,7 +172,7 @@ def main():
     parser.add_argument("--binary", type=Path)
     parser.add_argument("--output", type=Path, default=ROOT / "dist/packages")
     parser.add_argument("--dmg", action="store_true")
-    parser.add_argument("--signing", choices=("unsigned", "notarized"), default="unsigned")
+    parser.add_argument("--signing", choices=("unsigned", "adhoc", "notarized"), default="unsigned")
     args = parser.parse_args()
     if args.binary is None:
         if args.kind == "server":

@@ -62,7 +62,7 @@ flowchart LR
 | Windows | `desktop-windows-amd64.zip` / `desktop-windows-arm64.zip` | `server-windows-amd64.zip` / `server-windows-arm64.zip` |
 | Linux | `desktop-linux-amd64.tar.gz` / `desktop-linux-arm64.tar.gz` | `server-linux-amd64.tar.gz` / `server-linux-arm64.tar.gz` |
 
-表中省略了共同的 `ecaptureq-<版本>-` 前缀。发布包附有 `SHA256SUMS`；签名状态见包内 `BUILD-INFO.json`。Android 和 iOS 暂无客户端产物，支持计划待定。
+表中省略了共同的 `ecaptureq-<版本>-` 前缀。发布包附有 `SHA256SUMS`；签名与公证状态见包内 `BUILD-INFO.json`。macOS 桌面包默认使用免费的 **ad-hoc 签名，未经 Apple 公证，也没有 Apple 认证的开发者身份**。Android 和 iOS 暂无客户端产物，支持计划待定。
 
 ### 2. 打开桌面版，或启动 Web 版
 
@@ -75,6 +75,8 @@ flowchart LR
 ```sh
 sudo apt-get install libgtk-4-1 libwebkitgtk-6.0-4
 ```
+
+**macOS 首次打开**：先确认包来自本仓库的 Releases 或 Actions，并核对 `SHA256SUMS`。若首次打开提示无法验证开发者或 Apple 无法检查软件，可在「系统设置 → 隐私与安全」中找到 eCaptureQ，选择「仍要打开」并确认；受管理的 Mac 可能不允许此操作，参见 [Apple 说明](https://support.apple.com/en-us/102445)。ad-hoc 签名不提供免提示安装，也不保证更新后沿用之前的系统授权。
 
 **Web 版**
 

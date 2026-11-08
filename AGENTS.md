@@ -101,3 +101,11 @@ steps in `docs/releases.md`; keep `docs/README.md` linked to these guides.
 Use actual UI screenshots with mock/synthetic data, record their provenance and
 ensure README images also resolve inside distribution archives. Android/iOS are
 undecided targets, not advertised artifacts.
+
+macOS CI and releases default to certificate-free ad-hoc signing. Expired or
+present Apple secrets must never implicitly enable Developer ID signing. Only
+an explicit `developer-id` release mode may use them, and any failure in that
+mode must fail the build rather than fall back silently. Package metadata must
+distinguish `adhoc` (not notarized), `unsigned` and `notarized` and verify the
+claimed signature before uploading archives. Do not recommend globally disabling
+Gatekeeper or clearing quarantine as the normal installation path.

@@ -6,7 +6,9 @@ import importlib.util
 import io
 import json
 from pathlib import Path
+import shutil
 import stat
+import subprocess
 import tarfile
 import tempfile
 import unittest
@@ -57,6 +59,7 @@ class ReleasePackageTest(unittest.TestCase):
             info = json.load(contents.extractfile(prefix + "/BUILD-INFO.json"))
             self.assertEqual(info["version"], "1.2.3-rc.1")
             self.assertEqual(info["signing"], "unsigned")
+            self.assertFalse(info["notarized"])
         checksum = archive.with_name(archive.name + ".sha256").read_text()
         self.assertEqual(checksum, hashlib.sha256(archive.read_bytes()).hexdigest() + "  " + archive.name + "\n")
 
@@ -111,6 +114,107 @@ class ReleasePackageTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "semantic version"):
             packager.package("server", "linux", "arm64", "../../private", self.binary, self.output)
         self.assertFalse(self.output.exists())
+
+    def test_signing_status_cannot_be_used_for_other_platforms_or_server(self):
+        for signing in ("adhoc", "notarized"):
+            for kind, target_os in (("server", "darwin"), ("desktop", "linux"), ("desktop", "windows")):
+                with self.subTest(signing=signing, kind=kind, target_os=target_os):
+                    with self.assertRaisesRegex(ValueError, "only supported for macOS desktop"):
+                        packager.package(kind, target_os, "arm64", "1.2.3", self.binary, self.output, signing=signing)
+        with self.assertRaisesRegex(ValueError, "Unknown signing"):
+            packager.package("desktop", "darwin", "arm64", "1.2.3", self.binary, self.output, signing="trusted")
+        self.assertFalse(self.output.exists())
+
+    def make_macos_bundle(self):
+        bundle = self.root / "eCaptureQ.app"
+        (bundle / "Contents/MacOS").mkdir(parents=True)
+        shutil.copy2(self.binary, bundle / "Contents/MacOS/eCaptureQ")
+        return bundle.resolve()
+
+    def package_macos(self, signing, signature="adhoc", broken_source=False, broken_copy=False, broken_ticket=False):
+        bundle = self.make_macos_bundle()
+
+        def fake_run(command, **kwargs):
+            if command[0] == "codesign":
+                # Simulate platform validation, including damage introduced during copy.
+                code = Path(command[-1])
+                original = code == bundle or bundle in code.parents
+                if broken_source or (broken_copy and not original):
+                    raise subprocess.CalledProcessError(1, command, stderr="code or signature modified")
+            elif command[:3] == ["xcrun", "stapler", "validate"]:
+                if broken_ticket:
+                    raise subprocess.CalledProcessError(1, command, stderr="ticket validation failed")
+            elif command[0] == "ditto":
+                if command[1] == "-c":
+                    stage, archive_path = map(Path, command[-2:])
+                    with zipfile.ZipFile(archive_path, "w") as archive:
+                        for entry in stage.rglob("*"):
+                            archive.write(entry, entry.relative_to(stage.parent).as_posix())
+                else:
+                    shutil.copytree(command[1], command[2])
+            else:
+                self.fail(f"Unexpected command: {command[0]}")
+            return subprocess.CompletedProcess(command, 0)
+
+        def fake_output(command, **kwargs):
+            if command[0] == "codesign":
+                if signature == "adhoc":
+                    return "Identifier=com.gojue.ecaptureq\nSignature=adhoc\nTeamIdentifier=not set\n"
+                return "Identifier=com.gojue.ecaptureq\nAuthority=Developer ID Application: Synthetic Identity\nTeamIdentifier=SYNTHETIC\n"
+            if command[0] == "git":
+                return "0" * 40 + "\n"
+            self.fail(f"Unexpected metadata command: {command[0]}")
+
+        with patch.object(packager, "ROOT", self.root), patch.object(packager, "check_binary"), \
+                patch.object(packager.sys, "platform", "darwin"), \
+                patch.object(packager.subprocess, "run", side_effect=fake_run), \
+                patch.object(packager.subprocess, "check_output", side_effect=fake_output), \
+                contextlib.redirect_stdout(io.StringIO()):
+            return packager.package("desktop", "darwin", "arm64", "1.2.3", bundle, self.output, signing=signing)[0]
+
+    def test_adhoc_package_has_truthful_metadata_and_first_launch_instructions(self):
+        archive = self.package_macos("adhoc")
+        with zipfile.ZipFile(archive) as contents:
+            prefix = "ecaptureq-1.2.3-desktop-darwin-arm64/"
+            info = json.loads(contents.read(prefix + "BUILD-INFO.json"))
+            self.assertEqual(info["signing"], "adhoc")
+            self.assertFalse(info["notarized"])
+            instructions = contents.read(prefix + "INSTALL.txt").decode()
+            self.assertIn("NOT been notarized", instructions)
+            self.assertIn("Privacy & Security > Open Anyway", instructions)
+            self.assertEqual(contents.read(prefix + "eCaptureQ.app/Contents/MacOS/eCaptureQ"), self.binary.read_bytes())
+
+    def test_developer_id_signature_cannot_be_mislabeled_adhoc(self):
+        with self.assertRaisesRegex(ValueError, "does not have an ad-hoc signature"):
+            self.package_macos("adhoc", signature="developer-id")
+        self.assertFalse(self.output.exists())
+
+    def test_adhoc_signature_cannot_be_mislabeled_notarized(self):
+        with self.assertRaisesRegex(ValueError, "requires a Developer ID"):
+            self.package_macos("notarized")
+        self.assertFalse(self.output.exists())
+
+    def test_damaged_source_signature_stops_packaging(self):
+        with self.assertRaises(subprocess.CalledProcessError):
+            self.package_macos("adhoc", broken_source=True)
+        self.assertFalse(self.output.exists())
+
+    def test_damage_during_bundle_copy_does_not_produce_an_archive(self):
+        with self.assertRaises(subprocess.CalledProcessError):
+            self.package_macos("adhoc", broken_copy=True)
+        self.assertEqual(list(self.output.iterdir()), [])
+
+    def test_notarized_package_requires_valid_ticket(self):
+        with self.assertRaises(subprocess.CalledProcessError):
+            self.package_macos("notarized", signature="developer-id", broken_ticket=True)
+        self.assertFalse(self.output.exists())
+
+    def test_verified_notarized_package_records_true_status(self):
+        archive = self.package_macos("notarized", signature="developer-id")
+        with zipfile.ZipFile(archive) as contents:
+            info = json.loads(contents.read("ecaptureq-1.2.3-desktop-darwin-arm64/BUILD-INFO.json"))
+            self.assertEqual(info["signing"], "notarized")
+            self.assertTrue(info["notarized"])
 
 
 if __name__ == "__main__":
