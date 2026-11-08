@@ -1,0 +1,74 @@
+name: Validate eCaptureQ
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  GOWORK: "off"
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node --test test/*.test.mjs
+      - run: node --check frontend/app.js && node --check frontend/protocol-viewers.js
+  server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go mod download
+      # Check the required official schema before compiling the application.
+      - run: go run ./scripts/check-protocol
+      - run: go test -race ./...
+      - run: go vet ./...
+      - run: CGO_ENABLED=0 go build -trimpath -o bin/ecaptureq-server ./cmd/server
+      - name: Compile pure Go server for Linux and Windows
+        shell: bash
+        run: |
+          for target_os in linux windows; do
+            for target_arch in amd64 arm64; do
+              CGO_ENABLED=0 GOOS="$target_os" GOARCH="$target_arch" \
+                go build -trimpath -o "bin/ecaptureq-server-$target_os-$target_arch" ./cmd/server
+            done
+          done
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Browser regression at root and proxy prefix
+        shell: bash
+        run: |
+          bin/ecaptureq-server --addr 127.0.0.1:28257 &
+          root_pid=$!
+          bin/ecaptureq-server --addr 127.0.0.1:28258 --base-path /ecaptureq-web/ &
+          prefix_pid=$!
+          trap 'kill "$root_pid" "$prefix_pid"' EXIT
+          node test/browser-smoke.mjs http://127.0.0.1:28257/
+          node test/browser-smoke.mjs http://127.0.0.1:28258/ecaptureq-web/
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go mod download
+      - run: go run ./scripts/check-protocol
+      - name: Linux GUI development libraries
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev
+      - run: go test -race ./...
+      - name: Compile native application
+        shell: bash
+        run: sh scripts/build-desktop.sh

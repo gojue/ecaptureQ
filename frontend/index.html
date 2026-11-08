@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="eCaptureQ 多协议分析工作台，支持实时采集与独立模拟会话。">
+  <title>eCaptureQ — Protocol Inspector</title>
+  <link rel="icon" type="image/svg+xml" href="ecapture-logo.svg">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="protocol-viewers.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <svg class="icon-defs" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.5 4.5"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-server" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="7" rx="2"/><rect x="4" y="14" width="16" height="7" rx="2"/><path d="M7 6.5h.01M7 17.5h.01M11 6.5h6M11 17.5h6"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3 2.8 5.8 6.4.9-4.6 4.5 1.1 6.4-5.7-3-5.7 3 1.1-6.4L2.8 9.7l6.4-.9Z"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="m8 4 12 8-12 8Z"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></symbol>
+    <symbol id="i-reset" viewBox="0 0 24 24"><path d="M4 10a8 8 0 1 1 1 7M4 4v6h6"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 16v4h16v-4"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 15.5A8.5 8.5 0 0 1 8.5 4 8.5 8.5 0 1 0 20 15.5Z"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M15 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3"/></symbol>
+    <symbol id="i-code" viewBox="0 0 24 24"><path d="m7 6-6 6 6 6m10-12 6 6-6 6M14 3l-4 18"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="m10 13 4-4M8 15l-2 2a3 3 0 0 1-4-4l5-5a3 3 0 0 1 4 0m2 3a3 3 0 0 0 4 0l5-5a3 3 0 0 0-4-4l-2 2"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/></symbol>
+    <symbol id="i-github" viewBox="0 0 24 24"><path d="M9 19c-4 1-4-2-6-2m12 5v-4a3.5 3.5 0 0 0-1-2.7c3.4-.4 7-1.7 7-7.3a5.7 5.7 0 0 0-1.5-4 5.3 5.3 0 0 0-.1-4S18.2-.4 15 1.5a15 15 0 0 0-6 0C5.8-.4 4.6 0 4.6 0a5.3 5.3 0 0 0-.1 4A5.7 5.7 0 0 0 3 8c0 5.6 3.6 6.9 7 7.3A3.5 3.5 0 0 0 9 18v4" transform="translate(1 1) scale(.9)"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10h.01"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="m12 3 10 18H2Zm0 6v5m0 3h.01"/></symbol>
+    <symbol id="i-wrap" viewBox="0 0 24 24"><path d="M3 5h18M3 10h14a4 4 0 0 1 0 8h-4m3-3-3 3 3 3M3 15h5"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3"/></symbol>
+    <symbol id="i-terminal" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="m6 9 3 3-3 3m7 0h5"/></symbol>
+    <symbol id="i-activity" viewBox="0 0 24 24"><path d="M2 12h5l3-8 4 16 3-8h5"/></symbol>
+    <symbol id="i-sidebar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="m10 5-7 7 7 7M3 12h18"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
+  </defs></svg>
+  <div class="application" id="app">
+    <header class="app-header">
+      <div class="brand"><img class="brand-symbol" src="ecapture-logo.svg" alt="eCaptureQ" width="34" height="34"><strong>eCaptureQ</strong><span class="web-badge">WEB</span><span class="brand-divider"></span><span class="brand-descriptor">Protocol Inspector</span></div>
+      <div class="header-right"><button class="demo-badge connection-toggle" id="connection-toggle" aria-label="查看数据源连接状态"><span class="connection-dot"></span><span id="mode-label">模拟数据</span></button><button class="icon-button" id="theme-toggle" aria-label="切换深色模式" title="切换主题"><svg class="icon"><use href="#i-moon"/></svg></button><a class="icon-button header-link" id="website-link" href="https://ecapture.cc" target="_blank" rel="noopener noreferrer" aria-label="eCapture 官方网站（新窗口）" title="官方网站 · ecapture.cc"><svg class="icon"><use href="#i-globe"/></svg></a><a class="icon-button header-link" id="github-link" href="https://github.com/gojue/ecaptureQ" target="_blank" rel="noopener noreferrer" aria-label="GitHub 仓库（新窗口）" title="GitHub · gojue/ecaptureQ"><svg class="icon"><use href="#i-github"/></svg></a></div>
+    </header>
+    <div class="app-toolbar">
+      <div class="capture-actions"><div class="source-switch" aria-label="数据模式"><button data-mode="live" aria-pressed="false">实时</button><button data-mode="mock" aria-pressed="true">模拟</button></div><span class="toolbar-divider"></span><button class="toolbar-button capture-button" id="capture-toggle"><span class="record-dot"></span><span>开始模拟</span></button><button class="icon-button" id="reset-demo" aria-label="重置模拟数据" title="重置模拟数据"><svg class="icon"><use href="#i-reset"/></svg></button></div>
+      <div class="toolbar-right"><span class="live-label" id="live-label">样例会话</span><button class="toolbar-button" id="export-data"><svg class="icon"><use href="#i-download"/></svg><span>导出 JSON</span></button></div>
+    </div>
+    <main class="workspace" id="workspace">
+      <aside class="sidebar" id="sidebar" aria-label="进程筛选">
+        <div class="sidebar-top"><span>工作区</span><span class="sidebar-caption">LOCAL</span></div>
+        <button class="nav-item active" data-scope="all"><svg class="icon"><use href="#i-grid"/></svg><span>全部流量</span><span class="nav-count" id="all-count">—</span></button>
+        <button class="nav-item" data-scope="starred" title="查看当前页面会话内标记的记录"><svg class="icon"><use href="#i-star"/></svg><span>已标记</span><span class="nav-count" id="starred-count">0</span></button>
+        <div id="protocol-section"><div class="sidebar-heading"><span>协议</span><button class="text-button" id="clear-protocol" hidden>全部协议</button></div>
+        <div class="protocol-list" id="protocol-list" aria-label="协议筛选"></div></div>
+        <div class="sidebar-heading"><span>进程</span><div class="process-heading-actions"><span id="process-count">—</span><button class="text-button" id="clear-process" hidden>清除</button></div></div>
+        <div id="process-list" class="process-list"></div>
+        <div class="sidebar-heading domain-heading"><span>目标主机</span><button class="text-button" id="clear-domain" hidden>清除</button></div>
+        <div id="domain-list" class="domain-list"></div>
+        <div class="sidebar-bottom"><div class="sidebar-note-icon"><svg class="icon"><use href="#i-lock"/></svg></div><div><strong>从进程看见通信</strong><p>应用消息 · 流事件 · SQL</p></div></div>
+      </aside>
+      <div class="splitter" id="sidebar-splitter" role="separator" tabindex="0" aria-label="调整进程栏宽度" aria-orientation="vertical" aria-valuemin="176" aria-valuemax="300" aria-valuenow="218"></div>
+      <section class="requests-pane" aria-label="多协议流量列表">
+        <div class="pane-heading"><div class="heading-title"><button class="icon-button mobile-process" id="toggle-processes" aria-label="打开进程与协议筛选"><svg class="icon"><use href="#i-sidebar"/></svg></button><h1 id="scope-title">全部流量</h1><span class="count-badge" id="visible-count">—</span></div><span class="sort-label">采集记录</span></div>
+        <div class="search-row"><label class="search-box"><svg class="icon"><use href="#i-search"/></svg><input id="request-search" type="search" maxlength="512" placeholder="搜索 URL、SQL、Topic、命令或内容…" aria-label="搜索流量记录"><kbd>⌘ K</kbd></label></div>
+        <div class="filter-row" aria-label="流量类别筛选"><div class="filter-chips"><button class="filter-chip active" data-filter="all">全部</button><button class="filter-chip" data-filter="errors">异常 <span id="error-count">0</span></button><button class="filter-chip" data-filter="pending">未配对</button><button class="filter-chip" data-filter="json">JSON</button></div></div>
+        <div id="active-filters" class="active-filters" aria-label="当前筛选条件" hidden><div id="filter-tags" class="filter-tags"></div><button class="text-button" id="clear-filters" aria-label="清除全部筛选">清除全部</button></div>
+        <div class="request-grid table-head" aria-hidden="true"><span class="col-index">#</span><span>状态</span><span>类型</span><span>摘要 / 目标</span><span class="col-duration">耗时</span><span class="col-size">大小</span></div>
+        <div id="request-list" class="request-list" role="list" aria-label="流量记录"></div>
+        <div class="list-footer"><span id="list-summary">正在读取样例…</span><span id="page-controls" hidden><button id="page-prev" class="text-button" aria-label="上一页">上一页</button><button id="page-next" class="text-button" aria-label="下一页">下一页</button></span><span id="total-size"></span></div>
+      </section>
+      <div class="splitter" id="detail-splitter" role="separator" tabindex="0" aria-label="调整详情栏宽度" aria-orientation="vertical" aria-valuemin="340" aria-valuemax="720" aria-valuenow="470"></div>
+      <section class="detail-pane" id="detail-pane" aria-label="协议检查器">
+        <div class="detail-empty" id="detail-empty" hidden><svg class="large-icon"><use href="#i-search"/></svg><h2>选择一条记录</h2><p>查看协议详情、载荷和连接信息</p></div>
+        <div id="detail-view" class="detail-view">
+          <div class="detail-heading"><button class="icon-button mobile-back" id="back-to-list" aria-label="返回请求列表"><svg class="icon"><use href="#i-back"/></svg></button><span id="detail-method" class="method-badge">POST</span><h2 id="detail-path">/v1/payments</h2><button class="icon-button" id="bookmark-request" aria-label="标记请求" aria-pressed="false" title="标记请求"><svg class="icon"><use href="#i-star"/></svg></button></div>
+          <div class="detail-url-row"><svg class="icon"><use href="#i-lock"/></svg><span id="detail-url"></span><button class="icon-button compact" id="copy-url" aria-label="复制请求 URL" title="复制 URL"><svg class="icon"><use href="#i-copy"/></svg></button></div>
+          <div class="request-facts" id="request-facts"></div>
+          <nav class="detail-tabs" id="detail-tabs" role="tablist" aria-label="协议详情"></nav>
+          <div id="tab-content" class="tab-content" role="tabpanel" aria-labelledby="tab-request"></div>
+        </div>
+      </section>
+    </main>
+    <footer class="statusbar"><div><span class="status-indicator"></span><span id="status-message">演示会话 · 未连接真实采集器</span></div><div><span id="selection-status"></span><span class="statusbar-divider"></span><span id="protocol-status">多协议工作区</span></div></footer>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <dialog class="connection-dialog" id="connection-dialog" aria-labelledby="connection-title"><div class="connection-dialog-heading"><h2 id="connection-title">数据源</h2><button class="source-add-button" id="add-source-toggle" type="button"><svg class="icon"><use href="#i-plus"/></svg>添加数据源</button><button class="icon-button" id="close-connection" aria-label="关闭数据源状态"><svg class="icon"><use href="#i-close"/></svg></button></div>
+    <form id="add-source-form" class="source-form" hidden>
+      <div class="source-form-heading"><h3>添加数据源</h3><button class="text-button" type="button" id="cancel-add-source">取消</button></div>
+      <label>名称 <span>可选</span><input id="source-label" name="label" maxlength="160" placeholder="例如：开发服务器 · GoTLS" autocomplete="off"></label>
+      <label>WebSocket 地址 <span>必填</span><input id="source-endpoint" name="endpoint" type="url" required maxlength="2048" placeholder="ws://127.0.0.1:28257/" autocomplete="off" spellcheck="false"></label>
+      <p class="source-form-hint">连接由当前 eCaptureQ 实例发起，请填写该实例可访问的 eCapture 数据源地址。</p>
+      <details><summary>采集信息 <span>可选</span></summary>
+        <div class="source-form-grid"><label>采集主机<input id="source-host" name="host" maxlength="256" placeholder="实际运行 eCapture 的主机" autocomplete="off"></label><label>采集模块<select id="source-module" name="module"><option value="">未登记</option><option value="tls">TLS · OpenSSL / BoringSSL</option><option value="gotls">GoTLS</option><option value="gnutls">GnuTLS</option></select></label></div>
+        <p class="source-form-hint">核心模块使用 text / pcapng 数据源。这里登记实际采集信息，不会启动或修改远端探针。</p>
+        <label>实际启动命令<textarea id="source-command" name="command" rows="3" maxlength="16384" placeholder="ecapture gotls … --model text --text-source pcapng …" spellcheck="false"></textarea></label>
+      </details>
+      <p id="source-form-error" class="source-form-error" role="alert" hidden></p>
+      <div class="source-form-footer"><span id="source-save-hint"></span><button class="source-add-button" id="submit-source" type="submit">添加并连接</button></div>
+    </form>
+    <div id="connection-content"><div id="connection-status"></div><details id="source-log-details" class="source-log-details" hidden><summary>最近运行日志</summary><div class="source-logs"></div></details></div></dialog>
+  <div id="loading" class="loading-overlay"><img class="loading-symbol" src="ecapture-logo.svg" alt="eCaptureQ" width="64" height="64"><span>正在打开工作区…</span></div>
+</body>
+</html>

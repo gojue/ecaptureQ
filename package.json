@@ -1,43 +1,12 @@
 {
-  "name": "eaptureq",
+  "name": "ecaptureq",
+  "version": "1.0.0-alpha.1",
   "private": true,
-  "version": "0.3.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
-    "clean": "rm -rf dist node_modules .turbo && pnpm install",
-    "tauri": "tauri",
-    "tauri:dev": "tauri dev",
-    "tauri:build": "tsc && vite build && tauri build",
-    "tauri:build:decoupled": "cross-env DECOUPLED_MODE=true pnpm tauri build",
-    "android:build": "tauri android build --target aarch64",
-    "android:init": "tauri android init"
+    "test": "node --test test/*.test.mjs"
   },
-  "dependencies": {
-    "@tauri-apps/api": "^2.8.0",
-    "@tauri-apps/plugin-shell": "~2.3.1",
-    "lucide-react": "^0.344.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-router-dom": "^7.9.1",
-    "react-window": "^1.8.11"
-  },
-  "devDependencies": {
-    "@tauri-apps/cli": "^2.8.4",
-    "@tauri-apps/plugin-shell": "~2",
-    "@types/node": "^24.5.0",
-    "@types/react": "^18.3.24",
-    "@types/react-dom": "^18.3.7",
-    "@types/react-window": "^1.8.8",
-    "@vitejs/plugin-react": "^4.7.0",
-    "autoprefixer": "^10.4.21",
-    "cross-env": "^10.0.0",
-    "postcss": "^8.5.6",
-    "prettier": "^3.7.1",
-    "tailwindcss": "^3.4.17",
-    "typescript": "~5.6.3",
-    "vite": "^6.3.6"
+  "engines": {
+    "node": ">=24.14"
   }
 }
