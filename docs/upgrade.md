@@ -6,7 +6,8 @@ eCaptureQ 沿用原产品名称和 `gojue/ecaptureQ` 仓库，采用全新的 Go
 
 ## 首次启动
 
-1. 按 [README](../README.md) 构建或运行新版。所需官方协议已固定到公开
+1. 按 [README](../README.md) 下载并运行新版；需要从源码构建时参考
+   [编译指南](compilation.md)。所需官方协议已固定到公开
    [上游提交](upstream-status.md)，构建不需要相邻 eCapture 源码或本地 workspace。
 2. 默认模拟模式可独立浏览样例。连接真实数据时，在 Linux 采集主机上另行
    运行支持相应事件字段的 eCapture，再向新版添加它的 WebSocket 地址。
@@ -27,13 +28,14 @@ eCaptureQ 沿用原产品名称和 `gojue/ecaptureQ` 仓库，采用全新的 Go
 - 当前支持数据源管理、实时/模拟切换、消息关联、协议详情、搜索与筛选、
   标记、导出和主题等，完整语义以 README 和实现为准。
 - 旧版 SQL 过滤将作为未来新功能重新设计；当前搜索框不执行 SQL。
-- 本版不捆绑或管理 eCapture 探针进程，不提供旧版集成采集和 Android UI。
+- 本版不捆绑或管理 eCapture 探针进程，不提供旧版集成采集；Android 和 iOS
+  客户端支持待定。
   桌面可连接远端 Linux 的 eCapture；macOS/Windows 客户端不会让探针在这些
   系统上运行。
 
 ## 仓库与发布状态
 
-本次迁移在原 eCaptureQ 仓库的新本地分支中进行。GitHub 仓库地址、Stars、
-关注者和 Issues 没有迁移到另一个仓库。默认分支、提交历史、旧远程分支、
-标签和 Release 均未在本次实施中修改或删除。新版验证完成后，发布与仓库
-切换须另行授权执行。
+新实现已合并到原 eCaptureQ 仓库的默认分支 `main`。GitHub 仓库地址、Stars、
+关注者和 Issues 继续保留在同一个仓库。发布下载以 Releases 页面为准；
+不要将旧 Tauri 版本的包与新版 `desktop` / `server` 包混用。维护者审核后推送
+匹配版本的标签，才会触发新版构建和发布，具体流程见 [发布指南](releases.md)。

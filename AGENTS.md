@@ -46,7 +46,7 @@ legacy adapters or restore old behavior without a new requirement. New users
 configure sources through the new CLI, manifest or UI; never silently import,
 overwrite or delete the previous application's configuration or user data.
 
-Work in the original eCaptureQ repository's migration branch/worktree. Do not
+Work in the original eCaptureQ repository's isolated topic branch/worktree. Do not
 create a replacement GitHub repository. Preserve the existing repository's
 community metadata, other worktrees and unrelated uncommitted changes. Commit and
 push only when the user explicitly authorizes them. Rewriting history, changing
@@ -91,3 +91,13 @@ No real captures, credentials, private configuration, machine paths, generated
 binaries or local `go.work` in public files. Source migration provenance and
 verification evidence belong in `docs/`. No automatic deployments or changes to
 external capture services or Nginx installations.
+
+## Documentation
+
+Keep README focused on downloads, installation, source connection and daily use.
+Put build instructions in `docs/compilation.md`, development/testing in
+`docs/development.md`, detailed behavior in `docs/reference.md` and publication
+steps in `docs/releases.md`; keep `docs/README.md` linked to these guides.
+Use actual UI screenshots with mock/synthetic data, record their provenance and
+ensure README images also resolve inside distribution archives. Android/iOS are
+undecided targets, not advertised artifacts.

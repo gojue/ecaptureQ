@@ -66,9 +66,13 @@ def package(kind, target_os, arch, version, binary, output, dmg=False, signing="
         stage.mkdir()
         for filename in ("LICENSE", "NOTICE", "README.md"):
             shutil.copy2(ROOT / filename, stage / filename)
+        # The README shares the official UI logo; do not ship the frontend source tree.
+        (stage / "frontend").mkdir()
+        shutil.copy2(ROOT / "frontend/ecapture-logo.svg", stage / "frontend/ecapture-logo.svg")
         (stage / "config").mkdir()
         shutil.copy2(ROOT / "config/sources.example.json", stage / "config/sources.example.json")
-        shutil.copytree(ROOT / "docs", stage / "docs", ignore=shutil.ignore_patterns("*.log", "*.png"))
+        # Public documentation screenshots must accompany the README's relative links.
+        shutil.copytree(ROOT / "docs", stage / "docs", ignore=shutil.ignore_patterns("*.log"))
         if binary.is_dir():
             for entry in binary.rglob("*"):
                 if entry.is_symlink() and not entry.resolve().is_relative_to(binary):

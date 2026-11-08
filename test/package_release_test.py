@@ -1,5 +1,6 @@
 """Exercise release archive boundaries and distribution metadata."""
 import contextlib
+from base64 import b64decode
 import hashlib
 import importlib.util
 import io
@@ -25,6 +26,9 @@ class ReleasePackageTest(unittest.TestCase):
         self.root = Path(self.temp.name)
         for name in ("LICENSE", "NOTICE", "README.md"):
             (self.root / name).write_text(name)
+        (self.root / "frontend").mkdir()
+        (self.root / "frontend/ecapture-logo.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg"/>')
+        (self.root / "frontend/app.js").write_text("// frontend source is not part of the release archive")
         (self.root / "config").mkdir()
         (self.root / "config/sources.example.json").write_text("[]")
         (self.root / "docs").mkdir()
@@ -63,6 +67,37 @@ class ReleasePackageTest(unittest.TestCase):
             self.assertEqual(contents.read(prefix + "ecaptureq-server.exe"), b"synthetic executable")
             self.assertEqual(contents.read(prefix + "config/sources.example.json"), b"[]")
             self.assertFalse(any("private" in name or "sources.local" in name for name in contents.namelist()))
+
+    def test_readme_screenshots_remain_available_in_tar_and_zip(self):
+        image_path = "docs/images/overview.png"
+        logo_path = "frontend/ecapture-logo.svg"
+        screenshot = b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a4p8AAAAASUVORK5CYII=")
+        (self.root / "README.md").write_text(f'<img src="{logo_path}" alt="eCaptureQ"/>\n![Overview]({image_path})\n')
+        (self.root / "docs/images").mkdir()
+        (self.root / image_path).write_bytes(screenshot)
+        (self.root / "docs/build.log").write_text("local build output; must not ship")
+        for target_os in ("linux", "windows"):
+            with self.subTest(target_os=target_os):
+                archive = self.package(target_os)
+                prefix = f"ecaptureq-1.2.3-rc.1-server-{target_os}-arm64/"
+                if target_os == "linux":
+                    with tarfile.open(archive) as contents:
+                        readme = contents.extractfile(prefix + "README.md").read()
+                        image = contents.extractfile(prefix + image_path).read()
+                        logo = contents.extractfile(prefix + logo_path).read()
+                        names = contents.getnames()
+                else:
+                    with zipfile.ZipFile(archive) as contents:
+                        readme = contents.read(prefix + "README.md")
+                        image = contents.read(prefix + image_path)
+                        logo = contents.read(prefix + logo_path)
+                        names = contents.namelist()
+                self.assertIn(image_path.encode(), readme)
+                self.assertIn(logo_path.encode(), readme)
+                self.assertEqual(image, screenshot)
+                self.assertEqual(logo, (self.root / logo_path).read_bytes())
+                self.assertNotIn(prefix + "docs/build.log", names)
+                self.assertNotIn(prefix + "frontend/app.js", names)
 
     def test_target_metadata_is_required(self):
         with patch.object(packager.subprocess, "check_output", return_value="build GOOS=linux\n\tbuild GOARCH=arm64\n"):
