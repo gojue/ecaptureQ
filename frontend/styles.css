@@ -31,6 +31,10 @@
 @media(pointer:coarse){.icon-button{width:38px;height:38px}.filter-chip{min-height:35px}.search-box{height:40px}.search-box input{font-size:16px}.request-row{min-height:58px}.process-item{min-height:52px}.nav-item{min-height:42px}.viewer-tabs button{min-height:32px}}
 @media(prefers-reduced-motion:no-preference){.request-row.fresh{animation:row-arrive .5s ease-out}.toast{animation:toast-in .15s ease-out}@keyframes row-arrive{from{background:var(--green-soft)}to{background:var(--panel)}}@keyframes toast-in{from{opacity:0;transform:translate(-50%,5px)}to{opacity:1;transform:translate(-50%,0)}}}
 .web-badge{font-size:9px;font-weight:650;letter-spacing:.7px;padding:2px 5px;border:1px solid var(--line-strong);border-radius:4px;color:var(--muted);margin-left:-3px}
+.update-badge{font-size:9px;font-weight:650;letter-spacing:.4px;padding:2px 7px;border-radius:10px;color:var(--accent-text);background:var(--accent-soft);border:1px solid var(--accent);text-decoration:none;white-space:nowrap;display:inline-flex;align-items:center;gap:4px}
+.update-badge::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.update-badge:hover{border-color:var(--accent-hover);color:var(--accent-hover)}
+.update-badge[hidden]{display:none}
 .protocol-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;padding:0 3px;flex-shrink:0}
 .protocol-filter{display:flex;justify-content:space-between;align-items:center;gap:4px;border:1px solid var(--line);background:var(--panel);border-radius:5px;padding:6px 7px;min-width:0;font-size:10px;text-align:left}
 .protocol-filter>span:last-child{font-size:9px;color:var(--subtle);font-variant-numeric:tabular-nums}

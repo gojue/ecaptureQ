@@ -73,11 +73,12 @@ jobs:
       - name: Build Linux and Windows Web interfaces without GUI dependencies
         shell: bash
         run: |
+          version=$(cat VERSION)
           for target_os in linux windows; do
             for target_arch in amd64 arm64; do
               binary="bin/ecaptureq-web-$target_os-$target_arch"
               CGO_ENABLED=0 GOOS="$target_os" GOARCH="$target_arch" \
-                go build -trimpath -ldflags '-s -w' -o "$binary" ./cmd/server
+                go build -trimpath -ldflags "-s -w -X github.com/gojue/ecaptureq/internal/version.Version=$version" -o "$binary" ./cmd/server
               python3 scripts/package-release.py --kind server --os "$target_os" --arch "$target_arch" --binary "$binary"
             done
           done

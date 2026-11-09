@@ -6,6 +6,7 @@ import { initSourceMetadata } from './source-form.js';
 import { protocolViews } from './protocol-viewers.js';
 import { contentCodings, decodeHTTPBody, serverInflate, maxDecodedBodyBytes } from './http-body.js';
 import { platform, fetchWithTimeout } from './platform.js';
+import { checkForUpdate } from './update-check.js';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -18,6 +19,7 @@ const statusNames = {200:'成功',201:'已创建',204:'无内容',304:'未修改
 const protocolFilters = [{id:'http',label:'HTTP/1 · 2'},{id:'http3',label:'HTTP/3'},{id:'quic',label:'QUIC'},{id:'mysql',label:'MySQL'},{id:'redis',label:'Redis'},{id:'mqtt',label:'MQTT'},{id:'raw',get label() { return t("其他 / 原始"); }}];
 const state = {scope:'all',process:null,protocol:null,domain:null,filter:'all',query:'',selected:null,tab:'request',viewer:'pretty',bodySource:'decoded',wrap:true,bookmarks:new Set(),running:false,mode:'mock',paused:false};
 let workspace, requests = [], seeds = [], timer, toastTimer, sequence = 0, pollTimer, loadController, loadGeneration = 0, revision = null, serverStatus = {}, serviceError = '';
+let pendingUpdate = null;
 
 let toastMessage;
 function toast(message, params = {}) {
@@ -823,6 +825,7 @@ function changeLanguage(language) {
   translateStatic();
   updateLanguageControls();
   $('.web-badge').textContent = platform.desktop ? t('桌面') : 'WEB';
+  renderUpdateBadge();
   setTheme(document.documentElement.dataset.theme || 'light');
   if (workspace) { renderSidebar(); renderList(); updateCaptureControls(); }
   $$('#tab-content details').forEach((element,index) => { if (index < disclosures.length) element.open = disclosures[index]; });
@@ -872,6 +875,25 @@ let workspaceLoadFailed = false;
 function renderWorkspaceError() {
   $('#loading').innerHTML = `${icon('alert','large-icon')}<strong>${t("工作区加载失败")}</strong><span>${t("请确认 Go 服务正在运行，然后刷新页面。")}</span>`;
 }
+function renderUpdateBadge() {
+  const badge = $('#update-badge');
+  if (!badge) return;
+  if (!pendingUpdate) { badge.hidden = true; badge.removeAttribute('href'); return; }
+  badge.hidden = false;
+  badge.href = pendingUpdate.url;
+  badge.setAttribute('title', t('发现新版本，点击查看 v{version}', {version: pendingUpdate.version}));
+  badge.setAttribute('aria-label', t('发现新版本，点击查看 v{version}', {version: pendingUpdate.version}));
+  badge.textContent = t('新版本 v{version}', {version: pendingUpdate.version});
+}
+async function runUpdateCheck() {
+  try {
+    const response = await fetchWithTimeout('api/version', {cache:'no-store'});
+    if (!response.ok) return;
+    const data = await response.json();
+    const update = await checkForUpdate(data?.version);
+    if (update) { pendingUpdate = update; renderUpdateBadge(); }
+  } catch { /* best-effort; never affect capture UI */ }
+}
 translateStatic();
 updateLanguageControls();
 setTheme(document.documentElement.dataset.theme || 'light');
@@ -888,5 +910,6 @@ document.addEventListener('click',event => {
   platform.openExternal(link.href).catch(error => toast(error.message));
 });
 loadWorkspace().catch(() => { workspaceLoadFailed = true; renderWorkspaceError(); });
+runUpdateCheck();
 pollTimer = setInterval(refreshLive,1000);
 window.addEventListener('beforeunload',() => { clearInterval(timer); clearInterval(pollTimer); clearImagePreview(); clearTimeout(pageTimer); detailController?.abort(); loadController?.abort(); });

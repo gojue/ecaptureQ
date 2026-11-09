@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"github.com/gojue/ecaptureq/frontend"
 	"github.com/gojue/ecaptureq/internal/app"
+	"github.com/gojue/ecaptureq/internal/version"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -95,7 +96,7 @@ func TestReadOnlyRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, path := range []string{"/api/workspace", "/api/health", "/"} {
+	for _, path := range []string{"/api/workspace", "/api/health", "/api/version", "/"} {
 		t.Run("POST "+path, func(t *testing.T) {
 			response := httptest.NewRecorder()
 			handler.ServeHTTP(response, httptest.NewRequest(http.MethodPost, path, nil))
@@ -212,6 +213,25 @@ func TestSourcePersistenceAndConflictingEdits(t *testing.T) {
 	data, err := os.ReadFile(path)
 	if err != nil || string(data) != initial {
 		t.Fatal("external edit overwritten")
+	}
+}
+
+func TestVersionRoute(t *testing.T) {
+	handler, err := newHandler()
+	if err != nil {
+		t.Fatal(err)
+	}
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/version", nil))
+	if response.Code != http.StatusOK {
+		t.Fatalf("/api/version returned status %d", response.Code)
+	}
+	var body map[string]string
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatalf("/api/version returned invalid JSON: %v", err)
+	}
+	if body["version"] != version.Version {
+		t.Fatalf("reported version %q, want %q", body["version"], version.Version)
 	}
 }
 

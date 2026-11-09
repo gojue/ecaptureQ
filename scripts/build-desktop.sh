@@ -29,7 +29,7 @@ case "$target_os" in
     # Keep SDK-default assembly objects and the final linker on the same target.
     # This is a build minimum, not a claim of runtime acceptance on macOS 12.
     MACOSX_DEPLOYMENT_TARGET=12.0 CGO_ENABLED=1 CC="$desktop_cc" SDKROOT="$desktop_sdk" \
-      go build -trimpath -tags desktop,production -ldflags '-s -w -extldflags=-mmacosx-version-min=12.0' -o "$bundle/Contents/MacOS/eCaptureQ" ./cmd/desktop
+      go build -trimpath -tags desktop,production -ldflags "-s -w -extldflags=-mmacosx-version-min=12.0 -X github.com/gojue/ecaptureq/internal/version.Version=$desktop_version" -o "$bundle/Contents/MacOS/eCaptureQ" ./cmd/desktop
     cp build/desktop/Info.plist "$bundle/Contents/Info.plist"
     /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $desktop_bundle_version" "$bundle/Contents/Info.plist"
     /usr/libexec/PlistBuddy -c "Set :ECaptureQVersion $desktop_version" "$bundle/Contents/Info.plist"
@@ -49,11 +49,11 @@ case "$target_os" in
     fi
     trap 'rm -f "$desktop_resource"' EXIT HUP INT TERM
     sh scripts/build-windows-icon.sh "$desktop_arch" "$desktop_resource"
-    go build -trimpath -tags desktop,production -ldflags '-s -w -H windowsgui' -o dist/eCaptureQ.exe ./cmd/desktop
+    go build -trimpath -tags desktop,production -ldflags "-s -w -H windowsgui -X github.com/gojue/ecaptureq/internal/version.Version=$desktop_version" -o dist/eCaptureQ.exe ./cmd/desktop
     echo "Built dist/eCaptureQ.exe ($desktop_version, requires WebView2)."
     ;;
   linux)
-    CGO_ENABLED=1 go build -trimpath -tags desktop,production -ldflags '-s -w' -o dist/eCaptureQ ./cmd/desktop
+    CGO_ENABLED=1 go build -trimpath -tags desktop,production -ldflags "-s -w -X github.com/gojue/ecaptureq/internal/version.Version=$desktop_version" -o dist/eCaptureQ ./cmd/desktop
     echo "Built dist/eCaptureQ ($desktop_version, requires GTK4 and WebKitGTK 6.0)."
     ;;
   *) echo "Unsupported desktop OS: $target_os" >&2; exit 1 ;;

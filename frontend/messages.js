@@ -557,4 +557,6 @@ export const messages = Object.freeze({
   "已捕获 {protocol} 事件": "Captured {protocol} event",
   "Redis · 超出显示上限的原始值": "Redis · bounded raw value",
   "Redis · 未解析值": "Redis · unparsed value",
+  "新版本 v{version}": "New version v{version}",
+  "发现新版本，点击查看 v{version}": "A new version is available. Click to view v{version}",
 });
