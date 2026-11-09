@@ -271,3 +271,21 @@ run for the executed results. Graphical dialogs and Linux desktop interaction,
 older distributions/macOS versions, Developer ID notarization and real probe
 traffic are not established by package/loader checks. No release is published by
 this branch; tag creation remains a separate authorized action.
+
+## LoongArch Linux Web packages — 2026-11-09
+
+Linux `loong64` DEB/RPM are added for **eCaptureQ Web only**. The server is pure
+Go, so the Web job cross-compiles it with `CGO_ENABLED=0 GOOS=linux GOARCH=loong64`
+and packages it with pinned nFPM v2.48.0 alongside amd64/arm64; nFPM labels the
+architectures `loong64` (Debian) and `loongarch64` (RPM). The desktop stays
+amd64/arm64 because it needs native GTK4/WebKitGTK 6.0 and there is no stable
+Ubuntu/Fedora loong64 container or GitHub hosted loong64 runner.
+
+Verified locally on macOS: the loong64 server cross-compile succeeds and its Go
+metadata reports `GOOS=linux GOARCH=loong64`; the release gate now expects 17
+packages plus SHA256SUMS (was 15), the generated download table adds a loong64
+column to the Web section only, and all 41 Python packaging/release-gate tests
+pass; actionlint 1.7.12 accepts the updated workflows. The collection gate
+statically checks the loong64 DEB `Architecture` and RPM `%{ARCH}` labels in CI.
+Not verified locally: running the loong64 package in a clean container, since
+Ubuntu and Fedora provide no loong64 image and there is no hosted loong64 runner.
