@@ -21,22 +21,28 @@ def render(version, repository, template):
         return f'[{label}]({base}{package_name(kind, target_os, arch, version)}.{extension})'
     tables = []
     for kind in ('desktop', 'server'):
-        if kind == 'server':
+        web = kind == 'server'
+        if web:
             tables.append('<details>\n<summary>eCaptureQ Web — browser deployment</summary>\n')
         else:
             tables.append('### Download eCaptureQ\n')
-        tables.extend(['| System | Intel / AMD64 | ARM64 |', '| --- | --- | --- |'])
+        if web:
+            tables.extend(['| System | Intel / AMD64 | ARM64 | LoongArch (loong64) |',
+                           '| --- | --- | --- | --- |'])
+        else:
+            tables.extend(['| System | Intel / AMD64 | ARM64 |', '| --- | --- | --- |'])
         mac = link('Universal ZIP', kind, 'darwin', 'universal', 'zip')
         if kind == 'desktop':
             mac = link('Universal DMG', kind, 'darwin', 'universal', 'dmg') + ' · ' + mac
-        tables.append(f'| macOS | {mac} | Same universal download |')
+        tables.append(f'| macOS | {mac} | Same universal download |' + (' — |' if web else ''))
         win = [link('ZIP', kind, 'windows', arch, 'zip') for arch in ('amd64', 'arm64')]
-        tables.append(f'| Windows | {win[0]} | {win[1]} |')
+        tables.append(f'| Windows | {win[0]} | {win[1]} |' + (' — |' if web else ''))
         for label, extension in (('Ubuntu / Debian', 'deb'), ('Fedora', 'rpm')):
             linux = [link(extension.upper(), kind, 'linux', arch, extension) for arch in ('amd64', 'arm64')]
-            tables.append(f'| Linux ({label}) | {linux[0]} | {linux[1]} |')
+            loong = link(extension.upper(), kind, 'linux', 'loong64', extension) if web else None
+            tables.append(f'| Linux ({label}) | {linux[0]} | {linux[1]} |' + (f' {loong} |' if web else ''))
         tables.append('')
-        if kind == 'server':
+        if web:
             tables.append('</details>\n')
     tables.append(f'[SHA256SUMS]({base}SHA256SUMS)\n')
     return template.replace('<!-- downloads -->', '\n'.join(tables))

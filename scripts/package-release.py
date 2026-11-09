@@ -220,7 +220,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--kind", choices=("server", "desktop"), required=True)
     parser.add_argument("--os", choices=("linux", "darwin", "windows"), required=True)
-    parser.add_argument("--arch", choices=("amd64", "arm64", "universal"), required=True)
+    parser.add_argument("--arch", choices=("amd64", "arm64", "loong64", "universal"), required=True)
     parser.add_argument("--version", default=(ROOT / "VERSION").read_text().strip())
     parser.add_argument("--binary", type=Path)
     parser.add_argument("--output", type=Path, default=ROOT / "dist/packages")
