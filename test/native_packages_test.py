@@ -106,9 +106,27 @@ class NativePackagesTest(unittest.TestCase):
         rendered = notes.render('1.2.3', 'gojue/ecaptureQ', template)
         linked = re.findall(r'https://github.com/gojue/ecaptureQ/releases/download/v1.2.3/([^)]*)', rendered)
         self.assertEqual(set(linked), collector.expected_packages('1.2.3') | {'SHA256SUMS'})
-        self.assertEqual(len(linked), 16)
+        self.assertEqual(len(linked), 18)
         self.assertLess(rendered.index('### Download eCaptureQ'), rendered.index('<details>'))
         self.assertNotIn('<!-- downloads -->', rendered)
+
+    def test_loong64_is_linux_web_only(self):
+        self.assertEqual(release_common.package_name('server', 'linux', 'loong64', '1.2.3'),
+                         'ecaptureq-web-1.2.3-linux-loong64')
+        with self.assertRaisesRegex(ValueError, 'loong64 desktop packages are not supported'):
+            release_common.package_name('desktop', 'linux', 'loong64', '1.2.3')
+        with self.assertRaisesRegex(ValueError, 'only available for Linux'):
+            release_common.package_name('server', 'windows', 'loong64', '1.2.3')
+
+    def test_loong64_web_linux_config_has_no_desktop_dependencies(self):
+        with tempfile.TemporaryDirectory() as temp:
+            stage = Path(temp)
+            for name in ('LICENSE', 'NOTICE', 'BUILD-INFO.json', 'ecaptureq-web'):
+                (stage / name).write_text('synthetic')
+            web = packager.linux_config(stage, 'server', 'loong64', '1.2.3')
+            self.assertEqual(web['arch'], 'loong64')
+            self.assertNotIn('depends', web)
+            self.assertNotIn('overrides', web)
 
 
 if __name__ == '__main__':

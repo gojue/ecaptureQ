@@ -24,13 +24,15 @@ and `cmd/server`; they do not imply separate collector products.
 | OS | eCaptureQ | eCaptureQ Web | Build / installation validation |
 | --- | --- | --- | --- |
 | Linux amd64 / arm64 | DEB and RPM | DEB and RPM, no GUI dependencies | Native Ubuntu 24.04 build; clean Ubuntu 24.04 and Fedora 43 install/remove checks on each CPU |
+| Linux loong64 | — | DEB and RPM, no GUI dependencies | Pure Go cross-compile (`CGO_ENABLED=0`); no loong64 desktop target or hosted runner |
 | macOS universal | DMG and optional ZIP | ZIP | One Xcode SDK builds Intel + Apple Silicon slices; merged packages execute on both native runner types |
 | Windows amd64 / arm64 | Portable EXE ZIP | ZIP | Windows 2025 amd64 / Windows 11 arm64 |
 
 Names are `ecaptureq-VERSION-OS-ARCH.EXT` and
 `ecaptureq-web-VERSION-OS-ARCH.EXT`. The public OS spelling is `macos`, and its
 architecture is always `universal`; users need not select a Mac CPU. Other
-platforms retain `amd64` / `arm64`. There are **15 packages plus SHA256SUMS**.
+platforms retain `amd64` / `arm64`, with `loong64` available for Linux Web
+packages only. There are **17 packages plus SHA256SUMS**.
 Per-file `.sha256` sidecars are used internally between CI jobs and omitted from
 public downloads. Collection verifies all expected files and their hashes, then
 copies only public packages and the aggregate manifest to `release-bundle`.
@@ -52,6 +54,14 @@ application-menu entry and official SVG icon. Documentation and metadata live in
 `/usr/share/doc/ecaptureq` or `/usr/share/doc/ecaptureq-web`. They can coexist;
 there are no install scripts, systemd activation, collector binaries or user
 configuration changes. Uninstall leaves user-owned configuration untouched.
+
+LoongArch (`loong64`) is Web-only for now. The server is pure Go, so CI
+cross-compiles it with `CGO_ENABLED=0 GOOS=linux GOARCH=loong64` and packages
+DEB/RPM alongside amd64/arm64; nFPM labels these `loong64` (Debian) and
+`loongarch64` (RPM), and the collection gate verifies that metadata. The desktop
+is not built for loong64 because it needs native GTK4/WebKitGTK 6.0 and there is
+no stable Ubuntu/Fedora loong64 container or GitHub hosted runner, so the
+clean-container install/remove check covers amd64/arm64 only.
 
 Desktop DEB dependencies require glibc 2.39+, GTK 4.14+, GLib 2.80+ and WebKitGTK
 2.44+ (6.0 API). RPM uses the corresponding Fedora package names and the same

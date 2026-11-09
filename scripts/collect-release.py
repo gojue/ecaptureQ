@@ -19,6 +19,9 @@ def expected_packages(version):
                 packages.add(package_name(kind, 'linux', arch, version) + extension)
         packages.add(package_name(kind, 'darwin', 'universal', version) + '.zip')
     packages.add(package_name('desktop', 'darwin', 'universal', version) + '.dmg')
+    # LoongArch Linux is a pure-Go Web build; the desktop has no native target yet.
+    for extension in ('.deb', '.rpm'):
+        packages.add(package_name('server', 'linux', 'loong64', version) + extension)
     return packages
 
 

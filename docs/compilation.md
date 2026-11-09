@@ -112,7 +112,7 @@ bash scripts/sign-macos.sh dist/eCaptureQ.app adhoc
 
 此模式不需要证书或 Apple 会员，也不调用 Apple 公证服务；签名校验通过不代表 Gatekeeper 会自动信任应用。首次启动方法见 [README](../README.md)，正式 Developer ID 签名的显式启用条件见 [发布指南](releases.md)。
 
-## AMD64 与 ARM64
+## AMD64、ARM64 与 LoongArch
 
 Web 服务可以使用 Go 原生交叉编译，例如：
 
@@ -121,11 +121,13 @@ GOWORK=off CGO_ENABLED=0 GOOS=linux GOARCH=arm64 \
   go build -trimpath -o bin/ecaptureq-web-linux-arm64 ./cmd/server
 GOWORK=off CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
   go build -trimpath -o bin/ecaptureq-web-windows-amd64.exe ./cmd/server
+GOWORK=off CGO_ENABLED=0 GOOS=linux GOARCH=loong64 \
+  go build -trimpath -o bin/ecaptureq-web-linux-loong64 ./cmd/server
 ```
 
-`GOOS` 支持 `linux`、`darwin`、`windows`，发布目标的 `GOARCH` 为 `amd64`、`arm64`。Linux/Windows Desktop 使用目标系统和架构的原生 runner 编译；macOS 使用同一 Xcode SDK 构建双架构再合并；不要把服务器的纯 Go 交叉编译方法直接套用于依赖 SDK 的桌面入口。
+`GOOS` 支持 `linux`、`darwin`、`windows`，发布目标的 `GOARCH` 为 `amd64`、`arm64`；Linux Web 额外提供 `loong64`（纯 Go 交叉编译，桌面入口暂无该架构）。Linux/Windows Desktop 使用目标系统和架构的原生 runner 编译；macOS 使用同一 Xcode SDK 构建双架构再合并；不要把服务器的纯 Go 交叉编译方法直接套用于依赖 SDK 的桌面入口。
 
-GitHub Actions 已配置三平台、两种架构的 Web 与 Desktop 构建。Android/iOS 暂未纳入构建或发布矩阵。
+GitHub Actions 已配置三平台、amd64/arm64 的 Web 与 Desktop 构建，并为 Linux Web 额外生成 loong64 产物。Android/iOS 暂未纳入构建或发布矩阵。
 
 ## 验证与打包
 

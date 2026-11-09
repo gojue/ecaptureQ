@@ -82,6 +82,11 @@ jobs:
               python3 scripts/package-release.py --kind server --os "$target_os" --arch "$target_arch" --binary "$binary"
             done
           done
+          # LoongArch Linux is a pure-Go Web build; the desktop has no native target yet.
+          binary="bin/ecaptureq-web-linux-loong64"
+          CGO_ENABLED=0 GOOS=linux GOARCH=loong64 \
+            go build -trimpath -ldflags '-s -w' -o "$binary" ./cmd/server
+          python3 scripts/package-release.py --kind server --os linux --arch loong64 --binary "$binary"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: packages-web
@@ -252,6 +257,13 @@ jobs:
           pattern: packages-*
           path: dist/packages
           merge-multiple: true
+      - name: Verify LoongArch Web package architecture metadata
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm
+          version=$(cat VERSION)
+          test "$(dpkg-deb --field "dist/packages/ecaptureq-web-$version-linux-loong64.deb" Architecture)" = loong64
+          test "$(rpm -qp --queryformat '%{ARCH}' "dist/packages/ecaptureq-web-$version-linux-loong64.rpm")" = loongarch64
       - name: Verify every package and prepare the public downloads
         run: python3 scripts/collect-release.py dist/packages --release-dir dist/release
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7

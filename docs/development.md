@@ -102,7 +102,7 @@ node test/browser-smoke.mjs http://127.0.0.1:28258/ecaptureq-web/
 
 ## CI 与发布
 
-`CI` 在分支 push 和 PR 上验证前端、三平台 Go 测试及浏览器行为，随后复用 `Build packages`，为 Linux、macOS、Windows 的 AMD64/ARM64 生成服务器与桌面产物。每个桌面目标在对应原生 runner 上构建。
+`CI` 在分支 push 和 PR 上验证前端、三平台 Go 测试及浏览器行为，随后复用 `Build packages`，为 Linux、macOS、Windows 的 AMD64/ARM64 生成服务器与桌面产物，并为 Linux Web 额外生成 loong64 产物（纯 Go 交叉编译）。每个桌面目标在对应原生 runner 上构建。
 
 `Release` 由推送匹配 `VERSION` 的 `v*` 标签触发，执行版本检查、同一套 CI、构建、签名条件与完整校验，再发布 GitHub Release。只在本地创建 tag 不会触发 GitHub Actions；完整操作及凭据要求见 [发布指南](releases.md)。不要用实际发版来代替日常验证。
 

@@ -10,8 +10,12 @@ MAC_ARCHES = {"amd64": "x86_64", "arm64": "arm64"}
 def package_name(kind, target_os, arch, version):
     if kind not in ("desktop", "server") or target_os not in ("linux", "windows", "darwin"):
         raise ValueError("Unsupported package target")
-    if arch not in ("amd64", "arm64", "universal") or (arch == "universal" and target_os != "darwin"):
+    if arch not in ("amd64", "arm64", "loong64", "universal") or (arch == "universal" and target_os != "darwin"):
         raise ValueError("Universal packages require macOS")
+    if arch == "loong64" and target_os != "linux":
+        raise ValueError("loong64 packages are only available for Linux")
+    if arch == "loong64" and kind == "desktop":
+        raise ValueError("loong64 desktop packages are not supported")
     product = "ecaptureq" if kind == "desktop" else "ecaptureq-web"
     return f"{product}-{version}-{'macos' if target_os == 'darwin' else target_os}-{arch}"
 
