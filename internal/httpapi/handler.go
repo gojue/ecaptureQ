@@ -92,6 +92,8 @@ func New(options app.Options, live *app.Store, staticFiles fs.FS, policy Policy)
 			writeValue(w, r, live.Status())
 		case "/api/version":
 			writeValue(w, r, map[string]string{"version": version.Version})
+		case "/api/config":
+			writeValue(w, r, map[string]any{"headerCenter": options.HeaderCenter})
 		case "/api/health":
 			status := live.Status()
 			writeValue(w, r, map[string]any{"status": "ok", "mode": options.Mode, "liveConfigured": len(status.Sources) > 0, "availableModes": []string{"mock", "live"}, "connection": status.State})

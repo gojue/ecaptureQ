@@ -1,14 +1,31 @@
-[
-  {
-    "endpoint": "ws://127.0.0.1:28256/",
-    "label": "Linux collector (SSH tunnel)",
-    "capture": {
-      "host": "capture.example.test",
-      "module": "gotls",
-      "mode": "text",
-      "textSource": "pcapng",
-      "command": "ecapture gotls --elfpath /srv/demo/app --model text --text-source pcapng --ecaptureq ws://127.0.0.1:28256/",
-      "decryptorVersion": "v1.4.3"
+{
+  "sources": [
+    {
+      "endpoint": "ws://127.0.0.1:28256/",
+      "label": "Linux collector (SSH tunnel)",
+      "capture": {
+        "host": "capture.example.test",
+        "module": "gotls",
+        "mode": "text",
+        "textSource": "pcapng",
+        "command": "ecapture gotls --elfpath /srv/demo/app --model text --text-source pcapng --ecaptureq ws://127.0.0.1:28256/",
+        "decryptorVersion": "v1.4.3"
+      }
     }
-  }
-]
+  ],
+  "headerCenter": "本系统的 eCapture 与 eCaptureQ 均运行在龙芯 LoongArch64 服务器上，感谢 <a href=\"https://loongfans.cn/\" target=\"_blank\" rel=\"noopener noreferrer\">龙芯爱好者社区</a> 提供服务器支持",
+  "hiddenDomains": [
+    "github.com",
+    "githubusercontent.com",
+    "githubapp.com",
+    "githubassets.com",
+    "github.io",
+    "github.dev",
+    "githubpreview.dev",
+    "githubcopilot.com",
+    "githubstatus.com",
+    "github.blog",
+    "github.net",
+    "ghcr.io"
+  ]
+}

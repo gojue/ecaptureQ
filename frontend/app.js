@@ -20,6 +20,20 @@ const protocolFilters = [{id:'http',label:'HTTP/1 · 2'},{id:'http3',label:'HTTP
 const state = {scope:'all',process:null,protocol:null,domain:null,filter:'all',query:'',selected:null,tab:'request',viewer:'pretty',bodySource:'decoded',wrap:true,bookmarks:new Set(),running:false,mode:'mock',paused:false};
 let workspace, requests = [], seeds = [], timer, toastTimer, sequence = 0, pollTimer, loadController, loadGeneration = 0, revision = null, serverStatus = {}, serviceError = '';
 let pendingUpdate = null;
+let uiConfig = null;
+
+function renderHeaderCenter() {
+  const element = $('.header-center');
+  if (element && uiConfig?.headerCenter) element.innerHTML = uiConfig.headerCenter;
+}
+async function loadUIConfig() {
+  try {
+    const response = await fetch('api/config', {cache:'no-store'});
+    if (!response.ok) return;
+    uiConfig = await response.json();
+    renderHeaderCenter();
+  } catch { /* keep the default header */ }
+}
 
 let toastMessage;
 function toast(message, params = {}) {
@@ -911,5 +925,6 @@ document.addEventListener('click',event => {
 });
 loadWorkspace().catch(() => { workspaceLoadFailed = true; renderWorkspaceError(); });
 runUpdateCheck();
+loadUIConfig();
 pollTimer = setInterval(refreshLive,1000);
 window.addEventListener('beforeunload',() => { clearInterval(timer); clearInterval(pollTimer); clearImagePreview(); clearTimeout(pageTimer); detailController?.abort(); loadController?.abort(); });

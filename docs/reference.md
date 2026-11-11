@@ -12,7 +12,7 @@ Web 和 Desktop 共用以下选项，`--addr` 只用于 Web。运行对应程序
 | `--base-path` | `/` | UI、资源和 API 的统一路径前缀 |
 | `--mode` | `mock` | 初始界面模式：`mock` 或 `live`；不控制后台接收 |
 | `--ecaptureq` | 未配置 | eCapture WebSocket 地址；可重复提供 |
-| `--sources` | 未配置 | 可读写的数据源 JSON 清单 |
+| `--sources` | 未配置 | 可读写的 JSON 配置：数据源、页头与隐藏域名 |
 | `--max-records` | `65536` | 保留记录数量上限；允许 `1..100000` |
 | `--max-memory-mib` | `192` | 保留记录 JSON 计量上限；允许 `1..1024` MiB，不是进程 RSS 上限 |
 | `--max-frame-mib` | `8` | 单条 WebSocket 消息上限；允许 `1..64` MiB |
@@ -39,7 +39,7 @@ ecaptureq --sources ./sources.local.json --mode live
 ```
 
 `sources.local.json` 是用户自选的配置文件；可复制包内 `config/sources.example.json`
-后修改（Linux 示例位于 `/usr/share/doc/ecaptureq/config/` 或 `/usr/share/doc/ecaptureq-web/config/`），也可从内容为 `[]` 的文件开始，在界面新增来源。配置文件应保持可写。
+后修改（Linux 示例位于 `/usr/share/doc/ecaptureq/config/` 或 `/usr/share/doc/ecaptureq-web/config/`），也可从内容为 `{"sources":[]}` 的文件开始，在界面新增来源。配置文件应保持可写。
 
 默认模拟模式不需要采集器。点击顶部「实时 / 模拟」切换；`--mode` 只设置初始展示，只要配置了端点，后台接收始终继续。
 
@@ -58,11 +58,11 @@ ecaptureq --sources ./sources.local.json --mode live
 
 ```sh
 cp config/sources.example.json sources.local.json
-# 编辑为自己的端点；也可从内容为 [] 的文件开始
+# 编辑为自己的端点；也可从内容为 {"sources":[]} 的文件开始
 ./bin/ecaptureq-web --sources sources.local.json --mode live
 ```
 
-`--sources` 支持最多 128 KiB 的 JSON 数组。新增来源会原子写回配置；外部修改冲突或保存失败会显示错误且不新增连接。命令行来源仍由命令行提供；未指定文件时来源仅在本次实例内保存。配置只保存连接与登记元数据，不保存捕获记录。启动命令仅展示，登记模块/版本不冒充事件提供的事实。
+`--sources` 支持最多 128 KiB 的 JSON 对象，包含三个可选字段：`sources`（数据源数组）、`headerCenter`（页头富文本字符串，为空则使用默认文案）与 `hiddenDomains`（不展示的域名后缀列表，为空则使用内置默认值）。新增来源会原子写回配置并保留这三个字段；外部修改冲突或保存失败会显示错误且不新增连接。命令行来源仍由命令行提供；未指定文件时来源仅在本次实例内保存。配置只保存连接、页头、隐藏域名与登记元数据，不保存捕获记录。启动命令仅展示，登记模块/版本不冒充事件提供的事实。
 
 可配置：`--addr`（仅 Web）、`--base-path`、`--mode`、`--ecaptureq`、`--sources`、`--max-records`、`--max-memory-mib`、`--max-frame-mib`、`--exclude-http-path-prefix`；运行 `--help` 查看完整说明。
 
@@ -148,6 +148,8 @@ Desktop 通过 Wails 内部资源服务承载同一 UI 和 API，使用保存对
 | GET /api/workspace?mode=live&view=page | 服务端筛选、每页最多 200 条摘要 |
 | GET /api/record?id=... | 按需读取正文，已淘汰返回 404 |
 | GET /api/status、/api/sources | 来源、容量计数与日志 |
+| GET /api/version | 构建版本 |
+| GET /api/config | 页头富文本与隐藏域名等 UI 配置 |
 | POST /api/sources | 新增并可持久化来源，需要专用 header 和同源检查 |
 | GET /api/health | 模式、服务状态 |
 | POST /api/decode-body | 选中捕获字节的解压回退，不抓取 URL |

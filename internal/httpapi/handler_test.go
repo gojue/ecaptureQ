@@ -18,7 +18,7 @@ import (
 
 func TestSourceManifestProvenance(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "sources.json")
-	manifest := `[{"endpoint":"ws://127.0.0.1:28257/","label":"GoTLS validation","capture":{"host":"capture-host","module":"gotls","mode":"text","textSource":"pcapng","command":"sudo ./ecapture gotls --model text --text-source pcapng 'tcp port 8443'","collectorCommit":"test-commit","decryptorVersion":"v1.4.1"}}]`
+	manifest := `{"sources":[{"endpoint":"ws://127.0.0.1:28257/","label":"GoTLS validation","capture":{"host":"capture-host","module":"gotls","mode":"text","textSource":"pcapng","command":"sudo ./ecapture gotls --model text --text-source pcapng 'tcp port 8443'","collectorCommit":"test-commit","decryptorVersion":"v1.4.1"}}]}`
 	if err := os.WriteFile(path, []byte(manifest), 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +45,7 @@ func TestSourceManifestProvenance(t *testing.T) {
 		}
 	}
 	for name, input := range map[string]string{
-		"null": `null`, "trailing": manifest + `{}`, "unknown": `[{"endpoint":"ws://localhost/","typo":true}]`,
+		"null": `null`, "trailing": manifest + `{}`, "unknown": `{"sources":[{"endpoint":"ws://localhost/","typo":true}]}`,
 		"oversized": strings.Repeat(" ", 128<<10) + manifest,
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -179,7 +179,7 @@ func TestSourceCreationAPI(t *testing.T) {
 
 func TestSourcePersistenceAndConflictingEdits(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "sources.json")
-	initial := `[{"endpoint":"ws://localhost:28257/","label":"first"}]`
+	initial := `{"sources":[{"endpoint":"ws://localhost:28257/","label":"first"}]}`
 	if err := os.WriteFile(path, []byte(initial), 0600); err != nil {
 		t.Fatal(err)
 	}

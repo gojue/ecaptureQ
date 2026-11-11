@@ -32,6 +32,8 @@ type Options struct {
 	Sources               []SourceConfig
 	SourcesFile           string
 	SourcesHash           [32]byte
+	HeaderCenter          string
+	HiddenDomains         []string
 	MaxRecords            int
 	MaxBytes              int
 	MaxFrameBytes         int
@@ -41,7 +43,7 @@ type Options struct {
 }
 
 func DefaultOptions() Options {
-	return Options{Mode: "mock", MaxRecords: 65536, MaxBytes: 192 << 20, MaxFrameBytes: 8 << 20, ReadTimeout: 45 * time.Second, ReconnectDelay: time.Second, MaxReconnectWait: 15 * time.Second}
+	return Options{Mode: "mock", MaxRecords: 65536, MaxBytes: 192 << 20, MaxFrameBytes: 8 << 20, ReadTimeout: 45 * time.Second, ReconnectDelay: time.Second, MaxReconnectWait: 15 * time.Second, HiddenDomains: defaultHiddenDomains}
 }
 
 func (o Options) Validate() error {
@@ -304,7 +306,11 @@ func (s *Store) persistSourceLocked(config SourceConfig) error {
 		return errors.New("source_config_changed")
 	}
 	configs := append(append([]SourceConfig(nil), s.options.Sources...), config)
-	data, err := json.MarshalIndent(configs, "", "  ")
+	data, err := json.MarshalIndent(Config{
+		Sources:       configs,
+		HeaderCenter:  s.options.HeaderCenter,
+		HiddenDomains: s.options.HiddenDomains,
+	}, "", "  ")
 	if err != nil || len(data) > 128<<10 {
 		return errors.New("source_config_too_large")
 	}
@@ -565,6 +571,10 @@ func (s *Store) upsert(record Record, event *pb.Event, sourceID string) {
 }
 
 func (s *Store) excludeHTTP(record Record) bool {
+	// Always discard hidden-domain hosts so their traffic is never rendered.
+	if isHiddenHost(valueString(record["host"]), s.options.HiddenDomains) {
+		return true
+	}
 	prefix := s.options.ExcludeHTTPPathPrefix
 	if prefix == "" || record["family"] != "http" {
 		return false

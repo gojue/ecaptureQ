@@ -36,7 +36,7 @@ func Parse(args []string, desktop bool) (Config, error) {
 	flags.StringVar(&c.Options.ExcludeHTTPPathPrefix, "exclude-http-path-prefix", "", "Exclude captured HTTP path prefix and marked UI responses")
 	var endpoints endpointFlags
 	flags.Var(&endpoints, "ecaptureq", "eCapture WebSocket endpoint (repeat for multiple sources)")
-	sourcesFile := flags.String("sources", "", "JSON source manifest; launch metadata is never executed")
+	sourcesFile := flags.String("sources", "", "JSON config file (sources, page header and hidden domains); launch metadata is never executed")
 	flags.IntVar(&c.Options.MaxRecords, "max-records", c.Options.MaxRecords, "Maximum retained live records")
 	memoryMiB := flags.Int("max-memory-mib", c.Options.MaxBytes>>20, "Maximum retained record JSON in MiB (not process RSS)")
 	frameMiB := flags.Int("max-frame-mib", c.Options.MaxFrameBytes>>20, "Maximum inbound WebSocket frame in MiB")
