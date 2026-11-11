@@ -19,6 +19,7 @@ const statusNames = {200:'成功',201:'已创建',204:'无内容',304:'未修改
 const protocolFilters = [{id:'http',label:'HTTP/1 · 2'},{id:'http3',label:'HTTP/3'},{id:'quic',label:'QUIC'},{id:'mysql',label:'MySQL'},{id:'redis',label:'Redis'},{id:'mqtt',label:'MQTT'},{id:'raw',get label() { return t("其他 / 原始"); }}];
 const state = {scope:'all',process:null,protocol:null,domain:null,filter:'all',query:'',selected:null,tab:'request',viewer:'pretty',bodySource:'decoded',wrap:true,bookmarks:new Set(),running:false,mode:'mock',paused:false};
 let workspace, requests = [], seeds = [], timer, toastTimer, sequence = 0, pollTimer, loadController, loadGeneration = 0, revision = null, serverStatus = {}, serviceError = '';
+let changeController, pageClosed = false;
 let pendingUpdate = null;
 let uiConfig = null;
 
@@ -604,7 +605,7 @@ function updateCaptureControls() {
   $('#connection-toggle').title = sources.length ? sources.map(source => `${source.label}: ${t(connectionStates[source.state]) || source.state}`).join('\n') : t("添加第一个 eCapture 数据源");
   $('#connection-toggle').setAttribute('aria-label',snapshot ? t("查看采集快照的数据源") : t("管理数据源：{p0} 个已连接，共 {p1} 个",{p0:connected,p1:sources.length}));
   $('#connection-toggle').dataset.state = snapshot ? 'snapshot' : offline ? 'mock' : serviceError ? 'error' : connected === sources.length && connected > 0 ? 'connected' : connected > 0 ? 'degraded' : 'waiting';
-  $('#live-label').textContent = snapshot ? t("已保存 · 非实时") : live ? state.paused ? t("刷新已暂停 · 后台继续接收") : t("自动刷新 · 1 秒") : state.running ? t("正在生成模拟记录") : t("样例会话");
+  $('#live-label').textContent = snapshot ? t("已保存 · 非实时") : live ? state.paused ? t("刷新已暂停 · 后台继续接收") : t("自动刷新 · 按变化") : state.running ? t("正在生成模拟记录") : t("样例会话");
   $('#live-label').classList.toggle('running',live ? !snapshot && !state.paused && connected > 0 : state.running);
   const dropped = Number(serverStatus.dropped || 0), evicted = Number(serverStatus.evicted || 0);
   $('#status-message').textContent = snapshot ? t("真实采集快照 · {p0} 条记录 · 当前未连接采集器",{p0:requests.length}) : live ? `${state.paused ? t("刷新已暂停") : t("实时数据")} · ${label}${statusSources().length ? t(" · {p0}/{p1} 个数据源",{p0:connected,p1:statusSources().length}) : ''}${dropped ? t(" · {p0} 条未保留",{p0:dropped}) : ''}${evicted ? t(" · {p0} 条超出保留范围",{p0:evicted}) : ''}` : state.running ? t("模拟采集中 · 不发送真实网络请求") : t("演示会话 · 虚构样例");
@@ -759,9 +760,10 @@ function applyWorkspace(next, reset = false, force = false) {
   if (!reset && next.page && next.page.filterKey!==filterKey()) {schedulePage();return;}
   serverStatus = next.status || {};
   serviceError = '';
+  workspaceLoadFailed = false;
   if (state.mode === 'live' && state.paused && !reset && !force) { updateCaptureControls(); return; }
   const previousSelected = JSON.stringify(selected());
-  const changed = reset || next.page?.requestKey!==workspace?.page?.requestKey || revision === null || next.revision == null || revision !== next.revision;
+  const changed = reset || next.session.startedAt!==workspace?.session.startedAt || next.page?.requestKey!==workspace?.page?.requestKey || revision === null || next.revision == null || revision !== next.revision;
   if (!changed) { updateCaptureControls(); return; }
   revision = next.revision ?? null;
   workspace = next;
@@ -783,6 +785,7 @@ function applyWorkspace(next, reset = false, force = false) {
 }
 async function loadWorkspace(mode) {
   const generation = ++loadGeneration;
+  changeController?.abort();
   loadController?.abort();
   loadController = new AbortController();
   const timeout = setTimeout(() => loadController?.abort(),30000);
@@ -819,6 +822,32 @@ async function refreshLive(force = false) {
   } catch {
     if (generation === loadGeneration) { serviceError = "服务暂不可用"; updateCaptureControls(); }
   } finally { clearTimeout(timeout); refreshing = false; }
+}
+async function pollChanges() {
+  if (pageClosed || window.__ECAPTURE_CAPTURE__ || window.__ECAPTURE_MOCK__) return;
+  const generation = loadGeneration, controller = new AbortController();
+  changeController = controller;
+  let delay = 1000; // Coalesce bursts; never refresh faster than the previous UI.
+  try {
+    if (!workspace) { delay = 5000; await loadWorkspace(); return; }
+    const params = new URLSearchParams({session:serverStatus.session || '',revision:String(serverStatus.revision ?? 0)});
+    const response = await fetchWithTimeout('api/changes?'+params,{cache:'no-store',signal:controller.signal},15000);
+    if (!response.ok) throw new Error('changes unavailable');
+    const status = response.status === 204 ? serverStatus : await response.json();
+    if (pageClosed || generation !== loadGeneration) return;
+    serverStatus = status; serviceError = ''; updateCaptureControls();
+    if (state.mode === 'live' && !state.paused &&
+        (status.session !== workspace.status?.session || status.recordsRevision !== workspace.status?.recordsRevision)) {
+      await refreshLive();
+    }
+  } catch {
+    if (!controller.signal.aborted && generation === loadGeneration) {
+      serviceError = "服务暂不可用"; updateCaptureControls();
+      delay = 5000;
+    }
+  } finally {
+    if (!pageClosed) pollTimer = setTimeout(pollChanges,delay);
+  }
 }
 function updateLanguageControls() {
   const language = getLanguage();
@@ -923,8 +952,7 @@ document.addEventListener('click',event => {
   event.preventDefault();
   platform.openExternal(link.href).catch(error => toast(error.message));
 });
-loadWorkspace().catch(() => { workspaceLoadFailed = true; renderWorkspaceError(); });
+loadWorkspace().catch(() => { workspaceLoadFailed = true; renderWorkspaceError(); }).finally(pollChanges);
 runUpdateCheck();
 loadUIConfig();
-pollTimer = setInterval(refreshLive,1000);
-window.addEventListener('beforeunload',() => { clearInterval(timer); clearInterval(pollTimer); clearImagePreview(); clearTimeout(pageTimer); detailController?.abort(); loadController?.abort(); });
+window.addEventListener('beforeunload',() => { pageClosed = true; clearInterval(timer); clearTimeout(pollTimer); changeController?.abort(); clearImagePreview(); clearTimeout(pageTimer); detailController?.abort(); loadController?.abort(); });

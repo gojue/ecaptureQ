@@ -444,8 +444,17 @@ try {
   await click(session,'#capture-toggle');await click(session,'#reset-demo');
   await language(session,'en');
   await click(session,'[data-mode="live"]');await until(session,"document.querySelector('[data-mode=live]').getAttribute('aria-pressed')==='true'");
+  await evaluate(session,`(()=>{const original=globalThis.fetch;globalThis.__workspaceFetches=0;globalThis.fetch=(url,options)=>{if(new URL(url,location.href).pathname.endsWith('/api/workspace'))globalThis.__workspaceFetches++;return original(url,options);};})()`);
+  if(!process.env.SMOKE_REQUIRE_LIVE && !sourceFixture) {
+    await sleep(1200);
+    await evaluate(session,'globalThis.__workspaceFetches=0');
+    await sleep(2200);
+    assert.equal(await evaluate(session,'globalThis.__workspaceFetches'),0,'Idle live page still polls workspace');
+  }
   if(process.env.SMOKE_REQUIRE_LIVE) {
     await until(session,"document.querySelectorAll('.request-row').length>0 && document.querySelector('#connection-toggle').dataset.state==='connected'");
+    const firstLiveID=await evaluate(session,"document.querySelector('.request-row').dataset.request");
+    await until(session,`document.querySelector('.request-row')?.dataset.request!==${JSON.stringify(firstLiveID)}`);
     const livePair=await evaluate(session,`(async()=>{
       const page=await (await fetch('api/workspace?mode=live&view=page')).json();
       for(const row of page.requests.slice(0,20)) {
@@ -476,6 +485,13 @@ try {
   assert.equal(await evaluate(session,"document.querySelector('#capture-toggle').getAttribute('aria-pressed')"),'true','Language change resumed paused live refresh');
   await language(session,'en');
   assert.ok(await evaluate(session,"/resume/i.test(document.querySelector('#capture-toggle').textContent)"));
+  await sleep(1200); // Let any request already in flight at pause finish.
+  await evaluate(session,'globalThis.__workspaceFetches=0');
+  await sleep(2200);
+  assert.equal(await evaluate(session,'globalThis.__workspaceFetches'),0,'Paused page fetched workspace');
+  await click(session,'#capture-toggle');
+  await until(session,'globalThis.__workspaceFetches>0');
+  console.log('PASS changes: idle/paused pages avoid workspace polling; resume fetches current page');
   await click(session,'[data-mode="mock"]');await until(session,"document.querySelectorAll('.request-row').length===60");
 
   // Real pointer/keyboard input, resize, reload and persisted layout behavior.
@@ -600,7 +616,7 @@ try {
   ];
   fixture.status={sources:[{id:'source-1',label:'Synthetic source',endpoint:'ws://127.0.0.1:1',state:'connected'}],logs:[{sourceId:'source-1',message:malicious}],state:'connected'};
   fixture.mode='mock';
-  const script=`{const fixture=${JSON.stringify(fixture)};const originalFetch=globalThis.fetch;globalThis.fetch=(url,options)=>{const path=new URL(url,location.href).pathname;if(path.endsWith('/api/workspace'))return Promise.resolve(new Response(JSON.stringify(fixture)));if(path.endsWith('/api/status'))return Promise.resolve(new Response(JSON.stringify(fixture.status)));return originalFetch(url,options);};}`;
+  const script=`{const fixture=${JSON.stringify(fixture)};const originalFetch=globalThis.fetch;globalThis.fetch=(url,options)=>{const path=new URL(url,location.href).pathname;if(path.endsWith('/api/workspace'))return Promise.resolve(new Response(JSON.stringify(fixture)));if(path.endsWith('/api/status') || path.endsWith('/api/changes'))return Promise.resolve(new Response(JSON.stringify(fixture.status)));return originalFetch(url,options);};}`;
   const blockedRequests=[];
   listeners.set('Network.requestWillBeSent',message=>{if(message.params.request.url.includes('forbidden.invalid'))blockedRequests.push(message.params.request.url);});
   const security=await createPage(script);

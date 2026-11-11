@@ -27,6 +27,7 @@ func New(options app.Options, live *app.Store, staticFiles fs.FS, policy Policy)
 		return nil, fmt.Errorf("embedded mock workspace: %w", err)
 	}
 	staticHandler := http.FileServer(http.FS(staticFiles))
+	changeSlots := make(chan struct{}, 128)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Ecaptureq-UI", "1")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
@@ -50,6 +51,8 @@ func New(options app.Options, live *app.Store, staticFiles fs.FS, policy Policy)
 			return
 		}
 		switch r.URL.Path {
+		case "/api/changes":
+			changes(w, r, live, policy, changeSlots)
 		case "/api/workspace":
 			mode := r.URL.Query().Get("mode")
 			if mode == "" {

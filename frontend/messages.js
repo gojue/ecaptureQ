@@ -483,7 +483,7 @@ export const messages = Object.freeze({
   "管理数据源：{p0} 个已连接，共 {p1} 个": "Manage sources: {p0} connected of {p1}",
   "已保存 · 非实时": "Saved · Not live",
   "刷新已暂停 · 后台继续接收": "Refresh paused · Ingestion continues",
-  "自动刷新 · 1 秒": "Auto-refresh · 1 second",
+  "自动刷新 · 按变化": "Auto-refresh · On change",
   "正在生成模拟记录": "Generating mock records",
   "真实采集快照 · {p0} 条记录 · 当前未连接采集器": "Capture snapshot · {p0} records · No collector connected",
   "刷新已暂停": "Refresh paused",

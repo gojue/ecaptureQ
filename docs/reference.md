@@ -148,6 +148,7 @@ Desktop 通过 Wails 内部资源服务承载同一 UI 和 API，使用保存对
 | GET /api/workspace?mode=live&view=page | 服务端筛选、每页最多 200 条摘要 |
 | GET /api/record?id=... | 按需读取正文，已淘汰返回 404 |
 | GET /api/status、/api/sources | 来源、容量计数与日志 |
+| GET /api/changes?session=...&revision=... | 版本号长轮询；变化时返回最新状态，无变化最多等待 10 秒后返回 204 |
 | GET /api/version | 构建版本 |
 | GET /api/config | 页头富文本与隐藏域名等 UI 配置 |
 | POST /api/sources | 新增并可持久化来源，需要专用 header 和同源检查 |
@@ -157,6 +158,8 @@ Desktop 通过 Wails 内部资源服务承载同一 UI 和 API，使用保存对
 | POST /api/platform/export、clipboard、open-url | 仅桌面；限制大小与 URL，使用同样的写入校验 |
 
 路径均位于选定 base-path 下。完整 workspace API 也可读取全部保留记录；实际前端使用分页摘要和详情接口，不一次传输全部保留正文。这些是新实现的 HTTP API，不兼容旧 Tauri 命令接口。共享源码位于 `internal/app`、`internal/httpapi`、`frontend`；Wails 依赖只在带 desktop tag 的入口，平台 API 可独立测试。
+
+Web 与 Desktop 共用版本号长轮询，不需要 WebSocket 或桌面专用事件。状态中的 `session` 标识服务会话，`revision` 跟踪全部变更，`recordsRevision` 仅在记录新增、更新或淘汰时变化。前端保持一个等待请求，收到记录变更后才重取当前页；仅心跳、日志或连接状态变化不查询工作区。暂停时继续接收状态，恢复、筛选和翻页按需取页。连续变化最多约每秒刷新一次，失败后间隔 5 秒重试；空闲超时无正文，不扫描记录。服务每个 Handler 最多容纳 128 个变更请求，超限返回 503。检查版本与订阅在同一锁内完成，避免漏通知；关闭服务或取消请求会结束等待。
 
 HTTP 图片从捕获字节生成本地 Blob，不重新请求被捕获 URL；SVG 仅作为 img 展示。压缩图片先解压。损坏、截断或能力缺失显示原因。后端 fallback 支持 gzip、zlib、raw deflate、Brotli，输入/输出均有界，每层输出最多 2 MiB，前端总 deadline 5 秒；后端最多 4 个并发解码。
 
