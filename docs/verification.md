@@ -366,7 +366,9 @@ Local macOS arm64 checks passed: all 78 Node tests, JavaScript syntax checks,
 root and prefix browser regression with synthetic source submission, and both
 authenticated browser paths including login/logout. At each path, a sequential
 stress run completed 100 reloads under fourfold CPU throttling followed by the
-full smoke suite and normal exit. An initial concurrent stress run completed
-page assertions but exceeded its cleanup deadline; sequential repeats and
-cleanup diagnostics completed without retained sockets or timers. No production
-app code changed, and native GUI/real probe tests were not run for this fix.
+full smoke suite and normal exit. Initial concurrent stress runs exposed an
+inherited stderr pipe held by Chrome helpers after the main browser exited.
+Cleanup now releases that pipe only after browser process exit; repeating both
+100-reload stress runs concurrently then completed all assertions and exited
+normally. No production app code changed, and native GUI/real probe tests were
+not run for this fix.

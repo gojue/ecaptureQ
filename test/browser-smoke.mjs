@@ -640,6 +640,9 @@ try {
     proc.kill('SIGTERM');
     if(!await waitForBrowserClose(3000)){proc.kill('SIGKILL');await waitForBrowserClose(3000);}
   }
+  // A Chrome helper may inherit stderr after the browser itself has exited.
+  // Release our pipe so that helper cannot keep the Node test process alive.
+  if(proc.exitCode!==null || proc.signalCode!==null)proc.stderr.destroy();
   // Chromium may finish a profile write as it shuts down. Retry only the
   // filesystem's transient removal errors; persistent cleanup failures fail CI.
   await rm(profile,{recursive:true,force:true,maxRetries:10,retryDelay:100});
