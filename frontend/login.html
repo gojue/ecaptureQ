@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>eCaptureQ Web</title>
+  <link rel="icon" href="ecaptureq-logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="login.css">
+  <script type="module" src="login.js"></script>
+</head>
+<body>
+  <main>
+    <img src="ecaptureq-logo.svg" alt="" width="48" height="48">
+    <p class="brand">eCaptureQ <span>WEB</span></p>
+    <h1 data-i18n="登录工作区">Sign in to your workspace</h1>
+    <p class="intro" data-i18n="请输入管理员配置的用户名和密码。">Enter the username and password configured by your administrator.</p>
+    <form id="login-form" method="post" action="api/auth/login">
+      <label><span data-i18n="用户名">Username</span><input id="username" name="username" autocomplete="username" required maxlength="128" autofocus></label>
+      <label><span data-i18n="密码">Password</span><input id="password" name="password" type="password" autocomplete="current-password" required maxlength="1024"></label>
+      <p id="login-error" role="alert" hidden></p>
+      <button id="login-submit" type="submit" data-i18n="登录">Sign in</button>
+    </form>
+  </main>
+</body>
+</html>
