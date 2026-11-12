@@ -178,7 +178,7 @@ def package(kind, target_os, arch, version, binary, output, dmg=False, signing="
         system_title = "macOS" if target_os == "darwin" else target_os
         (stage / "INSTALL.txt").write_text(
             f"{product_title} {version} ({system_title}/{arch})\n\n" +
-            ("Web: run ecaptureq-web --addr 127.0.0.1:28257 and open the address in your browser.\n"
+            ("Web: run ecaptureq-web --listen 127.0.0.1:28257 and open the address in your browser.\n"
              if kind == "server" else "Open eCaptureQ from your applications menu; no separately started server is needed.\n")
             + runtime + "\nSigning status: " + signing + ".\n" + signing_help +
             "The source example contains placeholders. Configure your own remote eCapture endpoint.\n"

@@ -289,3 +289,22 @@ pass; actionlint 1.7.12 accepts the updated workflows. The collection gate
 statically checks the loong64 DEB `Architecture` and RPM `%{ARCH}` labels in CI.
 Not verified locally: running the loong64 package in a clean container, since
 Ubuntu and Fedora provide no loong64 image and there is no hosted loong64 runner.
+
+## CLI flag naming — 2026-11-12
+
+Web now uses `--listen` for its HTTP address. Web and Desktop use repeatable
+`--data-source` for eCapture WebSocket URLs. The former eCaptureQ flags `--addr`
+and `--ecaptureq` are rejected. Upstream collector commands retain `--ecaptureq`;
+the synthetic fixture's own `--addr` flag is unchanged.
+
+Local macOS arm64 checks passed with `GOWORK=off`: CLI tests, `go test -race ./...`,
+`go vet ./...`, the official protocol gate, a CGO-disabled Web build, and a native
+Desktop build with CLI help/flag checks. All 41 Python packaging/tooling tests
+passed, with the sandbox-blocked macOS icon tests rerun outside the sandbox.
+Race integration tests also required local-listener access outside the sandbox.
+
+Web startup using `--listen` and two `--data-source` options passed at both `/`
+and `/ecaptureq-web/`: both synthetic sources connected, at least six records
+arrived, the page and APIs responded, and shutdown completed normally. No real
+probe traffic, browser UI regression, native GUI interaction, other OS runtime,
+container installation, release or deployment was exercised for this CLI change.

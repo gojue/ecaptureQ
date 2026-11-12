@@ -19,6 +19,8 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/gojue/ecaptureq/internal/auth"
+
 	"golang.org/x/net/websocket"
 	"google.golang.org/protobuf/proto"
 
@@ -26,6 +28,7 @@ import (
 )
 
 type Options struct {
+	WebAuth               *auth.Config
 	Mode                  string
 	ExcludeHTTPPathPrefix string
 	Endpoints             []string
@@ -313,6 +316,7 @@ func (s *Store) persistSourceLocked(config SourceConfig) error {
 	}
 	configs := append(append([]SourceConfig(nil), s.options.Sources...), config)
 	data, err := json.MarshalIndent(Config{
+		Auth:          s.options.WebAuth,
 		Sources:       configs,
 		HeaderCenter:  s.options.HeaderCenter,
 		HiddenDomains: s.options.HiddenDomains,

@@ -4,19 +4,21 @@
 
 ## 命令行选项
 
-Web 和 Desktop 共用以下选项，`--addr` 只用于 Web。运行对应程序的 `--help` 可查看当前版本的说明。
+Web 和 Desktop 共用以下选项，`--listen` 只用于 Web。运行对应程序的 `--help` 可查看当前版本的说明。
 
 | 选项 | 默认值 | 作用 |
 | --- | --- | --- |
-| `--addr` | `127.0.0.1:28257` | Web HTTP 监听地址；默认只允许本机访问 |
+| `--listen` | `127.0.0.1:28257` | Web HTTP 监听地址；默认只允许本机访问 |
 | `--base-path` | `/` | UI、资源和 API 的统一路径前缀 |
 | `--mode` | `mock` | 初始界面模式：`mock` 或 `live`；不控制后台接收 |
-| `--ecaptureq` | 未配置 | eCapture WebSocket 地址；可重复提供 |
+| `--data-source` | 未配置 | eCapture WebSocket 地址；可重复提供 |
 | `--sources` | 未配置 | 可读写的 JSON 配置：数据源、页头与隐藏域名 |
 | `--max-records` | `65536` | 保留记录数量上限；允许 `1..100000` |
 | `--max-memory-mib` | `192` | 保留记录 JSON 计量上限；允许 `1..1024` MiB，不是进程 RSS 上限 |
 | `--max-frame-mib` | `8` | 单条 WebSocket 消息上限；允许 `1..64` MiB |
 | `--exclude-http-path-prefix` | 未启用 | 排除分析页面自身流量的路径前缀，并识别 UI 响应标记 |
+
+eCaptureQ 的 `--addr` 已更名为 `--listen`，`--ecaptureq` 已更名为 `--data-source`，旧名称不再接受；已有启动脚本需同步更新。上游采集器 `ecapture` 的 `--ecaptureq` 参数保持原名：它开启数据源监听端口，eCaptureQ 用 `--data-source` 连接该端口。`--sources` 仍用于加载 JSON 配置文件。
 
 默认不提供数据源、不启动采集器，也不执行任何登记命令。接收连接由运行 eCaptureQ 的进程发起：Desktop 是桌面所在电脑，Web 是 HTTP 服务所在主机，而非访问它的浏览器。
 
@@ -44,10 +46,10 @@ ecaptureq --sources ./sources.local.json --mode live
 默认模拟模式不需要采集器。点击顶部「实时 / 模拟」切换；`--mode` 只设置初始展示，只要配置了端点，后台接收始终继续。
 
 ```sh
-./bin/ecaptureq-web --mode live --ecaptureq ws://127.0.0.1:28256/
-# --ecaptureq 可重复，最多 16 个独立来源
+./bin/ecaptureq-web --mode live --data-source ws://127.0.0.1:28256/
+# --data-source 可重复，最多 16 个独立来源
 # macOS 桌面带参数运行：
-./dist/eCaptureQ.app/Contents/MacOS/eCaptureQ --mode live --ecaptureq ws://127.0.0.1:28256/
+./dist/eCaptureQ.app/Contents/MacOS/eCaptureQ --mode live --data-source ws://127.0.0.1:28256/
 ```
 
 此例 UI 监听 28257，采集 WebSocket 使用 28256，避免同机端口冲突。连接远端 Linux 时使用可达的端点或现有 SSH 隧道；本应用不会自动登录主机、启动探针或执行登记的命令。
@@ -62,16 +64,40 @@ cp config/sources.example.json sources.local.json
 ./bin/ecaptureq-web --sources sources.local.json --mode live
 ```
 
-`--sources` 支持最多 128 KiB 的 JSON 对象，包含三个可选字段：`sources`（数据源数组）、`headerCenter`（页头富文本字符串，为空则使用默认文案）与 `hiddenDomains`（不展示的域名后缀列表，为空则使用内置默认值）。新增来源会原子写回配置并保留这三个字段；外部修改冲突或保存失败会显示错误且不新增连接。命令行来源仍由命令行提供；未指定文件时来源仅在本次实例内保存。配置只保存连接、页头、隐藏域名与登记元数据，不保存捕获记录。启动命令仅展示，登记模块/版本不冒充事件提供的事实。
+`--sources` 支持最多 128 KiB 的 JSON 对象，包含 `sources`（数据源数组）、`headerCenter`（页头富文本字符串，为空则使用默认文案）、`hiddenDomains`（不展示的域名后缀列表，为空则使用内置默认值）与 `auth`（仅 Web 使用的登录配置）。新增来源会原子写回并保留这些字段；外部修改冲突或保存失败会显示错误且不新增连接。命令行来源仍由命令行提供；未指定文件时来源仅在本次实例内保存。配置不保存捕获记录。启动命令仅展示，登记模块/版本不冒充事件提供的事实。
 
-可配置：`--addr`（仅 Web）、`--base-path`、`--mode`、`--ecaptureq`、`--sources`、`--max-records`、`--max-memory-mib`、`--max-frame-mib`、`--exclude-http-path-prefix`；运行 `--help` 查看完整说明。
+可配置：`--listen`（仅 Web）、`--base-path`、`--mode`、`--data-source`、`--sources`、`--max-records`、`--max-memory-mib`、`--max-frame-mib`、`--exclude-http-path-prefix`；运行 `--help` 查看完整说明。
+
+## Web 用户名与密码
+
+通过 `--sources sources.local.json` 加载配置时，存在非空 `auth` 对象即启用 Web 登录；省略 `auth` 或设为 `null` 则不启用。Desktop 忽略认证行为，使用同一文件新增来源时仍保留 `auth`。认证仅限制页面/API 访问，不停止无人登录时的后台接收。
+
+`config/sources.example.json` 已配置初始用户名 **`ecapture`**、初始密码 **`ecaptureQ`**，文件保存的是随机盐密码哈希。示例账号是公开的，部署前应替换密码。字段说明：
+
+| 字段 | 语义 |
+| --- | --- |
+| `auth.username` | 登录用户名，1–128 字节 |
+| `auth.passwordHash` | 使用下列命令生成的 PBKDF2-HMAC-SHA256 哈希；不接受明文密码 |
+| `auth.secureCookie` | 默认 `true`，适用于 HTTPS（含反向代理终止 TLS）；本机纯 HTTP 调试可显式设为 `false` |
+
+生成新密码哈希（8–1024 字节，交互输入不回显，不把密码放在命令行参数中）：
+
+```sh
+ecaptureq-web --hash-password
+```
+
+将输出完整复制到 `auth.passwordHash`，修改用户名后重启 Web 服务。工具也支持标准输入；从源码运行可用 `go run ./cmd/server --hash-password`。配置存在但无效时 Web 启动失败，不会退回免密模式。配置文件含密码哈希，应限制文件读取权限。
+
+登录后使用随机会话 Cookie（HttpOnly、SameSite=Strict，Path 为 base-path）；会话固定 12 小时，刷新和长轮询不延长有效期。最多 128 个会话，重启服务全部失效。右上角「退出登录」撤销当前会话并结束其长轮询；其他浏览器的独立会话不受影响。过期返回 401，页面停止刷新并转到登录页。认证信息不会通过配置、状态或工作区接口返回。
+
+登录接口采用实例级限速：最多突发 5 次尝试，每 12 秒恢复一次额度，最多同时执行 2 次密码校验；超限返回 429。部署在 HTTPS 代理后保持 `secureCookie: true`；应用不会信任客户端传入的 `X-Forwarded-Proto` 来改变 Cookie 安全属性。普通共享密码不区分用户权限，登录者可以查看记录和管理来源。
 
 ## 子路径部署
 
 所有资产、fetch、下载和平台 API 使用相对路径。支持根路径及子路径：
 
 ```sh
-./bin/ecaptureq-web --addr 127.0.0.1:28257 \
+./bin/ecaptureq-web --listen 127.0.0.1:28257 \
   --base-path /ecaptureq-web/ --exclude-http-path-prefix /ecaptureq-web/
 ```
 
@@ -120,7 +146,7 @@ MySQL 派发返回值不等于 SQL 执行结果，本工具不提供结果集或
 
 ## 模拟模式与交互
 
-首次访问跟随系统语言（Web 使用浏览器首选语言）：中文使用 **简体中文**，英文或暂不支持的语言使用 **English**。默认跟随系统，不作为菜单选项；自动选择不写入偏好。右上角主题按钮左侧的「文/A」菜单只提供 English 和简体中文，选中标记与悬停提示显示当前实际语言。用户手动选择后，将该语言保存在当前 Web origin 或桌面 WebView 的 `ecaptureq-language` 偏好中，后续访问优先使用这一选择。切换不会重载页面、停止接收或清除筛选、星标、选中记录和表单输入。捕获正文、Headers、URL、SQL、命令、Topic、真实进程信息及原始诊断字段保持原值。Web 和 Desktop 共用 `frontend/messages.js` 文案；原生导出标题使用所选语言，系统保存/取消按钮仍由操作系统语言决定。
+首次访问跟随系统语言（Web 使用浏览器首选语言）：中文使用 **简体中文**，英文或暂不支持的语言使用 **English**。自动选择不写入偏好。点击右上角主题按钮左侧的「文/A」按钮，直接在 English 和简体中文之间切换，不弹出菜单；悬停提示及无障碍标签显示下一次切换的目标语言。用户手动切换后，将该语言保存在当前 Web origin 或桌面 WebView 的 `ecaptureq-language` 偏好中，后续访问优先使用这一选择。切换不会重载页面、停止接收或清除筛选、星标、选中记录和表单输入。捕获正文、Headers、URL、SQL、命令、Topic、真实进程信息及原始诊断字段保持原值。Web 和 Desktop 共用 `frontend/messages.js` 文案；原生导出标题使用所选语言，系统保存/取消按钮仍由操作系统语言决定。
 
 默认左栏保持原宽；中栏按同窗口下旧默认宽度的 60% 计算，右栏使用余量。例如 1440px 窗口的三栏为 218 / 296.4 / 917.6px，另有两个 4px 分隔条。窄窗口优先保持可用性，中栏最低 240px、详情最低 340px；更窄时隐藏筛选侧栏或切换列表/详情单栏。分隔条支持指针及方向键，用户手动宽度保存在 `ecaptureq-layout-v1`，窗口缩放只约束显示，不覆盖偏好。旧实现没有已保存栏宽，因此无需迁移；默认比例不会在刷新时重复应用。
 
@@ -151,6 +177,7 @@ Desktop 通过 Wails 内部资源服务承载同一 UI 和 API，使用保存对
 | GET /api/changes?session=...&revision=... | 版本号长轮询；变化时返回最新状态，无变化最多等待 10 秒后返回 204 |
 | GET /api/version | 构建版本 |
 | GET /api/config | 页头富文本与隐藏域名等 UI 配置 |
+| POST /api/auth/login、/api/auth/logout | 仅启用认证的 Web 入口；登录与撤销当前会话，需要同源和专用 header |
 | POST /api/sources | 新增并可持久化来源，需要专用 header 和同源检查 |
 | GET /api/health | 模式、服务状态 |
 | POST /api/decode-body | 选中捕获字节的解压回退，不抓取 URL |

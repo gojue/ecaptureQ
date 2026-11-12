@@ -1,4 +1,5 @@
 import { t, getLanguage, setLanguage, translateStatic, sourceMessage } from './i18n.js';
+import { apiFetch as fetch } from './api.js';
 import { presentationNote, processName, recordPlaceholderTitle, recordPlaceholderHost } from './presentation.js';
 import { displayConnectionId } from './connection-display.js';
 import { initLayout } from './layout.js';
@@ -31,6 +32,7 @@ async function loadUIConfig() {
   try {
     const response = await fetch('api/config', {cache:'no-store'});
     if (!response.ok) return;
+    $('#logout').hidden = response.headers.get('X-Ecaptureq-Auth') !== 'session';
     uiConfig = await response.json();
     renderHeaderCenter();
   } catch { /* keep the default header */ }
@@ -850,16 +852,9 @@ async function pollChanges() {
   }
 }
 function updateLanguageControls() {
-  const language = getLanguage();
-  const label = t('当前语言：{language}',{language:language === 'en' ? 'English' : '简体中文'});
+  const label = t('切换为{language}',{language:getLanguage() === 'en' ? '简体中文' : 'English'});
   $('#language-toggle').title = label;
-  $('#language-toggle').setAttribute('aria-label',t('切换语言')+' · '+label);
-  $$('[data-language]').forEach(button => button.setAttribute('aria-checked',String(button.dataset.language === language)));
-}
-function closeLanguageMenu(focus = false) {
-  $('#language-menu').hidden = true;
-  $('#language-toggle').setAttribute('aria-expanded','false');
-  if (focus) $('#language-toggle').focus();
+  $('#language-toggle').setAttribute('aria-label',label);
 }
 function changeLanguage(language) {
   const scroll = ['#sidebar','#request-list','#tab-content','#connection-dialog'].map(selector => [selector,$(selector).scrollTop]);
@@ -879,33 +874,7 @@ function changeLanguage(language) {
   if (workspaceLoadFailed) renderWorkspaceError();
   for (const [selector,top] of scroll) $(selector).scrollTop = top;
 }
-$('#language-toggle').addEventListener('click',() => {
-  const opening = $('#language-menu').hidden;
-  $('#language-menu').hidden = !opening;
-  $('#language-toggle').setAttribute('aria-expanded',String(opening));
-  if (opening) $('#language-menu [aria-checked=true]').focus();
-});
-$('#language-menu').addEventListener('click',event => {
-  const option = event.target.closest('[data-language]');
-  if (option) { changeLanguage(option.dataset.language); closeLanguageMenu(true); }
-});
-$('.language-picker').addEventListener('keydown',event => {
-  if (event.key === 'Escape') { event.stopPropagation(); closeLanguageMenu(true); }
-  if (['ArrowDown','ArrowUp','Home','End'].includes(event.key)) {
-    event.preventDefault();
-    $('#language-menu').hidden = false;
-    $('#language-toggle').setAttribute('aria-expanded','true');
-    const options = $$('#language-menu [data-language]'), index = options.indexOf(document.activeElement);
-    const next = event.key === 'Home' ? 0 : event.key === 'End' ? options.length-1 : (index+(event.key === 'ArrowUp' ? -1 : 1)+options.length)%options.length;
-    options[next].focus();
-  }
-});
-document.addEventListener('click',event => { if (!event.target.closest('.language-picker')) closeLanguageMenu(); });
-$('.language-picker').addEventListener('focusout',event => {
-  // WebKit may blur a menu button with no relatedTarget during pointerdown.
-  // Keep the menu mounted until click; outside clicks and Escape close it too.
-  if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) closeLanguageMenu();
-});
+$('#language-toggle').addEventListener('click',() => changeLanguage(getLanguage() === 'en' ? 'zh-CN' : 'en'));
 function validateSourceEndpoint() {
   const input = $('#source-endpoint');
   input.setCustomValidity('');
@@ -955,4 +924,14 @@ document.addEventListener('click',event => {
 loadWorkspace().catch(() => { workspaceLoadFailed = true; renderWorkspaceError(); }).finally(pollChanges);
 runUpdateCheck();
 loadUIConfig();
-window.addEventListener('beforeunload',() => { pageClosed = true; clearInterval(timer); clearTimeout(pollTimer); changeController?.abort(); clearImagePreview(); clearTimeout(pageTimer); detailController?.abort(); loadController?.abort(); });
+function stopRefresh() { pageClosed = true; clearInterval(timer); clearTimeout(pollTimer); changeController?.abort(); clearImagePreview(); clearTimeout(pageTimer); detailController?.abort(); loadController?.abort(); }
+window.addEventListener('beforeunload',stopRefresh);
+window.addEventListener('ecaptureq-auth-expired',stopRefresh);
+window.addEventListener('pageshow',event => { if (event.persisted) location.reload(); });
+$('#logout').addEventListener('click',async () => {
+  try {
+    const response = await fetchWithTimeout('api/auth/logout',{method:'POST',headers:{'X-Ecapture-UI':'1'}});
+    if (!response.ok) throw new Error('logout failed');
+    stopRefresh(); location.replace(new URL('login',location.href).href);
+  } catch { toast(t('退出失败，请重试。')); }
+});

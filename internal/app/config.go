@@ -11,19 +11,22 @@ import (
 	"io"
 	"os"
 	"strings"
+
+	"github.com/gojue/ecaptureq/internal/auth"
 )
 
 // Config is the operator-supplied configuration file. It describes source
-// connections, the page header and the hidden-domain host filter. It is never
+// connections, the page header, hidden-domain filter and optional Web auth. It is never
 // executed and is not an attestation supplied by the eCaptureQ event protocol.
 type Config struct {
+	Auth          *auth.Config   `json:"auth,omitempty"`
 	Sources       []SourceConfig `json:"sources,omitempty"`
 	HeaderCenter  string         `json:"headerCenter,omitempty"`
 	HiddenDomains []string       `json:"hiddenDomains,omitempty"`
 }
 
 // LoadSources reads the operator config file: source connections, the page
-// header and the hidden-domain host filter. Launch metadata is never executed.
+// header, hidden-domain filter and Web auth. Launch metadata is never executed.
 func LoadSources(path string, options *Options) error {
 	file, err := os.Open(path)
 	if err != nil {
@@ -36,11 +39,11 @@ func LoadSources(path string, options *Options) error {
 	}
 	decoder := json.NewDecoder(strings.NewReader(string(data)))
 	decoder.DisallowUnknownFields()
-	var config Config
+	var config *Config
 	if err := decoder.Decode(&config); err != nil {
 		return fmt.Errorf("decode config: %w", err)
 	}
-	if decoder.Decode(new(any)) != io.EOF {
+	if config == nil || decoder.Decode(new(any)) != io.EOF {
 		return errors.New("config must contain one JSON object")
 	}
 	if len(config.Sources) > 16 {
@@ -52,6 +55,7 @@ func LoadSources(path string, options *Options) error {
 		options.HiddenDomains = domains
 	}
 	options.HeaderCenter = strings.TrimSpace(config.HeaderCenter)
+	options.WebAuth = config.Auth
 	for _, source := range config.Sources {
 		options.Endpoints = append(options.Endpoints, source.Endpoint)
 	}

@@ -11,6 +11,8 @@ import path from 'node:path';
 import {gzipSync} from 'node:zlib';
 
 const base = new URL(process.argv[2] || 'http://127.0.0.1:28257/');
+const authUser = process.env.SMOKE_AUTH_USER, authPassword = process.env.SMOKE_AUTH_PASSWORD;
+let authChecked = false;
 if (!base.pathname.endsWith('/')) throw new Error('Use the canonical trailing-slash URL');
 const sourceFixture = process.env.SMOKE_SOURCE_ENDPOINT ? new URL(process.env.SMOKE_SOURCE_ENDPOINT) : null;
 if(sourceFixture) {
@@ -79,11 +81,9 @@ async function selectValue(sessionId,selector,value) {
   await evaluate(sessionId,`(()=>{const input=document.querySelector(${JSON.stringify(selector)});input.value=${JSON.stringify(value)};input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));})()`);
 }
 async function language(sessionId, value) {
-  if (await evaluate(sessionId,"document.querySelector('#language-menu [aria-checked=true]')?.dataset.language") === value) return;
+  if (await evaluate(sessionId,'document.documentElement.lang') === value) return;
   await pointerClick(sessionId,'#language-toggle');
-  await pointerClick(sessionId,`#language-menu [data-language="${value}"]`);
-  await until(sessionId,`document.documentElement.lang===${JSON.stringify(value)} && document.querySelector('#language-menu [data-language="${value}"]').getAttribute('aria-checked')==='true'`);
-  assert.equal(await evaluate(sessionId,`document.querySelector('#language-menu [data-language="${value}"]').getAttribute('aria-checked')`),'true');
+  await until(sessionId,`document.documentElement.lang===${JSON.stringify(value)}`);
 }
 async function theme(sessionId, value) {
   if (await evaluate(sessionId,'document.documentElement.dataset.theme') !== value) await click(sessionId,'#theme-toggle');
@@ -144,6 +144,32 @@ async function createPage(script) {
   await send('Network.setBlockedURLs',{urls:['*forbidden.invalid*']},sessionId);
   if(script)await send('Page.addScriptToEvaluateOnNewDocument',{source:script},sessionId);
   await send('Page.navigate',{url:base.href},sessionId);
+  if(authUser) {
+    await until(sessionId,"!!document.querySelector('#login-form') || (document.querySelector('#loading')?.hidden && document.querySelectorAll('.request-row').length > 0)");
+    if(await evaluate(sessionId,"!!document.querySelector('#login-form')")) {
+      assert.equal(await evaluate(sessionId,"document.querySelector('#login-form').method"),'post','Login fallback must not put credentials in the URL');
+      if(!authChecked) {
+        for(const route of ['api/workspace','api/record?id=missing','api/changes','api/config','api/status']) {
+          const denied = await fetch(new URL(route,base));
+          await denied.text(); // Release Node's HTTP response before browser cleanup.
+          assert.equal(denied.status,401,'Anonymous API access: '+route);
+        }
+        await resize(sessionId,390);
+        assert.ok(await evaluate(sessionId,'document.documentElement.scrollWidth<=innerWidth'),'Login page overflows on mobile');
+        await screenshot(sessionId,'login-mobile');
+        await resize(sessionId,1440);
+        await editText(sessionId,'#username',authUser);
+        await editText(sessionId,'#password','incorrect-synthetic-password');
+        await pointerClick(sessionId,'#login-submit');
+        await until(sessionId,"!document.querySelector('#login-error').hidden && !document.querySelector('#login-submit').disabled");
+        assert.match(await evaluate(sessionId,"document.querySelector('#login-error').textContent"),/错误|Incorrect/);
+        authChecked=true;
+      }
+      await editText(sessionId,'#username',authUser);
+      await editText(sessionId,'#password',authPassword);
+      await pointerClick(sessionId,'#login-submit');
+    }
+  }
   await until(sessionId,"document.querySelector('#loading')?.hidden && document.querySelectorAll('.request-row').length > 0");
   return sessionId;
 }
@@ -172,25 +198,20 @@ try {
   assert.equal(await evaluate(session,'document.documentElement.lang'),'zh-CN','First visit must follow the Chinese system language');
   assert.equal(await evaluate(session,'document.title'),'eCaptureQ — 协议检查器');
   assert.equal(await evaluate(session,"localStorage.getItem('ecaptureq-language')"),null,'Automatic language detection must not save a manual preference');
-  assert.equal(await evaluate(session,"document.querySelector('#language-menu [data-language=\"zh-CN\"]').getAttribute('aria-checked')"),'true');
-  assert.deepEqual(await evaluate(session,"[...document.querySelectorAll('#language-menu [data-language]')].map(option=>option.dataset.language)"),['en','zh-CN']);
+  assert.equal(await evaluate(session,"document.querySelector('#language-menu')"),null);
+  assert.equal(await evaluate(session,"document.querySelector('#language-toggle').getAttribute('aria-haspopup')"),null);
   await screenshot(session,'overview-auto-zh-light');
   const beforeExplicitLanguage=await evaluate(session,uiStateExpression);
   const unrelatedStorage=await evaluate(session,"Object.fromEntries(Object.entries(localStorage).filter(([key])=>key!=='ecaptureq-language'))");
-  await pointerClick(session,'#language-toggle');await screenshot(session,'language-menu-auto-zh-light');
-  // Explicitly click the already checked language: automatic selection must
-  // still become a saved preference even though the rendered locale is unchanged.
-  await pointerClick(session,'#language-menu [data-language="zh-CN"]');
-  assert.equal(await evaluate(session,'document.documentElement.lang'),'zh-CN');
-  assert.equal(await evaluate(session,"localStorage.getItem('ecaptureq-language')"),'zh-CN','Clicking the automatically checked language must save the manual choice');
-  assert.deepEqual(await evaluate(session,uiStateExpression),beforeExplicitLanguage,'Explicitly selecting the current language changed the UI state');
-  assert.deepEqual(await evaluate(session,"Object.fromEntries(Object.entries(localStorage).filter(([key])=>key!=='ecaptureq-language'))"),unrelatedStorage,'Language selection changed unrelated preferences');
-  await language(session,'en');
+  await pointerClick(session,'#language-toggle');
+  assert.equal(await evaluate(session,'document.documentElement.lang'),'en','One click must switch directly to English');
   assert.equal(await evaluate(session,"localStorage.getItem('ecaptureq-language')"),'en');
+  assert.deepEqual(await evaluate(session,uiStateExpression),beforeExplicitLanguage,'Language switching changed the UI state');
+  assert.deepEqual(await evaluate(session,"Object.fromEntries(Object.entries(localStorage).filter(([key])=>key!=='ecaptureq-language'))"),unrelatedStorage,'Language switching changed unrelated preferences');
   await reload(session);
   assert.equal(await evaluate(session,'navigator.language'),'zh-CN');
   assert.equal(await evaluate(session,'document.documentElement.lang'),'en','The saved English preference must override Chinese system language after reload');
-  console.log('PASS initial language: Chinese system detected without saving; explicit current-language selection saves; manual English overrides system after refresh');
+  console.log('PASS initial language: Chinese system detected without saving; one-click toggle saves; manual English overrides system after refresh');
   assert.equal(await evaluate(session,'document.title'),'eCaptureQ — Protocol Inspector');
   assert.equal(await evaluate(session,"document.querySelector('#github-link').href"),'https://github.com/gojue/ecaptureQ');
   assert.equal(await evaluate(session,"document.querySelectorAll('.request-row').length"),60);
@@ -204,72 +225,24 @@ try {
   assert.ok(Math.abs(original.detail-917.6)<1,JSON.stringify(original));
   assert.equal(await evaluate(session,"localStorage.getItem('ecaptureq-layout-v1')"),null,'Default layout must not persist a window-specific size');
   await screenshot(session,'overview-en-light');
-  await pointerClick(session,'#language-toggle');
-  assert.equal(await evaluate(session,"document.querySelector('#language-toggle').getAttribute('aria-expanded')"),'true');
-  await screenshot(session,'language-menu-en-light');
-  await pointerClick(session,'#language-toggle');
-  assert.ok(await evaluate(session,"document.querySelector('#language-menu').hidden"),'A second pointer click must close the language menu');
-  assert.equal(await evaluate(session,"document.querySelector('#language-toggle').getAttribute('aria-expanded')"),'false');
   const beforePointerLanguage=await evaluate(session,uiStateExpression);
   await pointerClick(session,'#language-toggle');
-  // WebKit does not necessarily focus a button on mouse press. Reproduce its
-  // null-relatedTarget focusout before the genuine mouseup/click, without
-  // cancelling mouse defaults or dispatching the option's click ourselves.
-  await evaluate(session,`(()=>{
-    const picker=document.querySelector('.language-picker');
-    const focused=document.activeElement;
-    if(!focused.matches('#language-menu [aria-checked=true]'))throw new Error('Opening the menu did not focus its current option');
-    globalThis.__smokeLanguagePointer={trusted:false,nullFocusout:false};
-    picker.addEventListener('focusout',event=>{
-      globalThis.__smokeLanguagePointer.nullFocusout=event.target===focused && event.relatedTarget===null;
-    },{capture:true,once:true});
-    document.querySelector('#language-menu [data-language="zh-CN"]').addEventListener('mousedown',event=>{
-      globalThis.__smokeLanguagePointer.trusted=event.isTrusted && !event.defaultPrevented;
-      focused.blur();
-    },{capture:true,once:true});
-  })()`);
-  await pointerClick(session,'#language-menu [data-language="zh-CN"]');
-  assert.deepEqual(await evaluate(session,'globalThis.__smokeLanguagePointer'),{trusted:true,nullFocusout:true},'The WebKit focusout sequence was not exercised');
-  assert.equal(await evaluate(session,'document.documentElement.lang'),'zh-CN','Null-relatedTarget focusout must not hide an option before its pointer click selects the language');
-  assert.equal(await evaluate(session,"localStorage.getItem('ecaptureq-language')"),'zh-CN');
-  assert.deepEqual(await evaluate(session,uiStateExpression),beforePointerLanguage,'Pointer language switching changed the current UI state');
-  assert.ok(await evaluate(session,"document.querySelector('#language-menu').hidden && document.activeElement===document.querySelector('#language-toggle')"),'Language selection must close the menu and return focus');
-  await language(session,'en');
-  await pointerClick(session,'#language-toggle');
-  await pointerClick(session,'.brand strong');
-  assert.ok(await evaluate(session,"document.querySelector('#language-menu').hidden"),'An outside pointer click must close the language menu');
-  await pointerClick(session,'#language-toggle');
-  await pressKey(session,'Home',36);
-  assert.equal(await evaluate(session,'document.activeElement.dataset.language'),'en');
-  await pressKey(session,'ArrowDown',40);
-  assert.equal(await evaluate(session,'document.activeElement.dataset.language'),'zh-CN');
-  await pressKey(session,'ArrowDown',40);
-  assert.equal(await evaluate(session,'document.activeElement.dataset.language'),'en','ArrowDown must wrap across both options');
-  await pressKey(session,'ArrowUp',38);
-  assert.equal(await evaluate(session,'document.activeElement.dataset.language'),'zh-CN','ArrowUp must wrap across both options');
-  await pressKey(session,'Home',36);
-  await pressKey(session,'End',35);
-  assert.equal(await evaluate(session,'document.activeElement.dataset.language'),'zh-CN');
-  await evaluate(session,"document.querySelector('#language-menu [data-language=\"zh-CN\"]').addEventListener('click',event=>{globalThis.__smokeKeyboardSelection={trusted:event.isTrusted,detail:event.detail};},{once:true})");
-  await pressKey(session,'Enter',13);
-  await until(session,"document.querySelector('#language-menu').hidden && document.querySelector('#language-menu [aria-checked=true]').dataset.language==='zh-CN'");
-  assert.deepEqual(await evaluate(session,'globalThis.__smokeKeyboardSelection'),{trusted:true,detail:0},'Enter must activate the option through a trusted keyboard click');
   assert.equal(await evaluate(session,'document.documentElement.lang'),'zh-CN');
-  assert.equal(await evaluate(session,"localStorage.getItem('ecaptureq-language')"),'zh-CN');
-  assert.deepEqual(await evaluate(session,uiStateExpression),beforePointerLanguage,'Keyboard language selection changed the current UI state');
-  await language(session,'en');
+  assert.equal(await evaluate(session,"document.querySelector('#language-toggle').title"),'切换为English');
+  assert.deepEqual(await evaluate(session,uiStateExpression),beforePointerLanguage,'Pointer language switching changed the UI state');
   await pointerClick(session,'#language-toggle');
+  assert.equal(await evaluate(session,'document.documentElement.lang'),'en');
+  assert.equal(await evaluate(session,"document.querySelector('#language-toggle').getAttribute('aria-label')"),'Switch to 简体中文');
+  await pressKey(session,'Enter',13);
+  await until(session,"document.documentElement.lang==='zh-CN'");
+  await send('Input.dispatchKeyEvent',{type:'keyDown',key:' ',code:'Space',windowsVirtualKeyCode:32},session);
+  await send('Input.dispatchKeyEvent',{type:'keyUp',key:' ',code:'Space',windowsVirtualKeyCode:32},session);
+  await until(session,"document.documentElement.lang==='en'");
+  assert.equal(await evaluate(session,"localStorage.getItem('ecaptureq-language')"),'en');
+  assert.deepEqual(await evaluate(session,uiStateExpression),beforePointerLanguage,'Keyboard language switching changed the UI state');
   await pressKey(session,'Tab',9);
-  assert.ok(await evaluate(session,"!document.querySelector('#language-menu').hidden && document.activeElement.dataset.language==='zh-CN'"),'Tab inside the menu must retain it');
-  await pressKey(session,'Tab',9);
-  assert.ok(await evaluate(session,"document.querySelector('#language-menu').hidden && document.activeElement.id==='theme-toggle'"),'Tab to an outside control must close the language menu');
-  await pointerClick(session,'#language-toggle');
-  await pressKey(session,'Escape',27);
-  assert.ok(await evaluate(session,"document.querySelector('#language-menu').hidden && document.activeElement.id==='language-toggle'"),'Escape must close the language menu and restore toggle focus');
-  assert.equal(await evaluate(session,'document.documentElement.lang'),'en','Dismissing the menu must not select a language');
-  assert.equal(await evaluate(session,"document.querySelector('#language-menu [aria-checked=true]').dataset.language"),'en','Dismissing the menu must retain the selected language');
-  assert.deepEqual(await evaluate(session,uiStateExpression),beforePointerLanguage,'Menu dismissal changed the current UI state');
-  console.log('PASS language menu: real pointer clicks, null-relatedTarget focusout, two-option keyboard traversal, Enter, toggle, outside click, Tab and Escape');
+  assert.equal(await evaluate(session,'document.activeElement.id'),'theme-toggle');
+  console.log('PASS language toggle: direct Chinese/English clicks, Enter, Space, focus order and preserved UI state');
   await click(session,'[data-process="mqtt-agent"]');
   assert.equal(await evaluate(session,"document.querySelector('#active-filters').hidden"),false);
   assert.deepEqual(await evaluate(session,"[...document.querySelectorAll('[data-protocol]')].map(x=>x.dataset.protocol)"),['mqtt']);
@@ -641,6 +614,17 @@ try {
   assert.deepEqual(blockedRequests,[],'Preview initiated an external request');
   assert.deepEqual(exceptions,[],'Unhandled browser exception');
   console.log('PASS security: escaped fields/logs, inert sandbox HTML, local SVG image, no captured URL requests, logs stay expanded during polling');
+  if(authUser) {
+    assert.equal(await evaluate(session,"document.querySelector('#logout').hidden"),false);
+    assert.ok(await evaluate(session,"!document.cookie.includes('ecaptureq_session_')"),'Session cookie is accessible to JavaScript');
+    await pointerClick(session,'#logout');
+    await until(session,"!!document.querySelector('#login-form')");
+    assert.equal(await evaluate(session,"(async()=>{return (await fetch('api/workspace')).status})()"),401);
+    console.log('PASS auth: protected APIs, wrong-password error, login cookie, mobile login, authenticated workflow and logout');
+  } else {
+    assert.equal(await evaluate(session,"document.querySelector('#logout').hidden"),true,'Unauthenticated mode exposed sign-out control');
+  }
+  assert.deepEqual(exceptions,[],'Unhandled browser exception after auth transitions');
 } finally {
   if(ws?.readyState===WebSocket.OPEN){try{await send('Browser.close');}catch{}ws.close();}
   if(!await waitForBrowserClose(3000)) {

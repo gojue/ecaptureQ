@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="frontend/ecaptureq-logo.svg" alt="eCaptureQ" width="96" />
+  <img src="frontend/ecaptureq-logo.svg" alt="eCaptureQ" width="150" />
 </p>
 
 # eCaptureQ
@@ -92,14 +92,14 @@ Linux 使用 `apt install ./文件名.deb` 或 `dnf install ./文件名.rpm` 安
 
 ```sh
 # Linux 安装后
-ecaptureq-web --addr 127.0.0.1:28257
+ecaptureq-web --listen 127.0.0.1:28257
 # macOS：在解压目录中
-./ecaptureq-web --addr 127.0.0.1:28257
+./ecaptureq-web --listen 127.0.0.1:28257
 ```
 
 ```powershell
 # Windows PowerShell：在解压目录中
-.\ecaptureq-web.exe --addr 127.0.0.1:28257
+.\ecaptureq-web.exe --listen 127.0.0.1:28257
 ```
 
 浏览器访问 **http://127.0.0.1:28257/**。默认只监听回环地址；远程访问与反向代理子路径见[使用参考](docs/reference.md)。Web 与桌面应用可以同时安装，各自维护会话缓存。两种模式都需要另行连接 eCapture 数据源，安装包均不包含采集器。
@@ -154,10 +154,12 @@ ssh -N -L 127.0.0.1:28256:127.0.0.1:28256 user@linux-host
 也可以启动时指定来源。下面以 Linux 安装后的命令为例；macOS ZIP 在解压目录使用 `./ecaptureq-web`：
 
 ```sh
-ecaptureq-web --mode live --ecaptureq ws://127.0.0.1:28256/
+ecaptureq-web --mode live --data-source ws://127.0.0.1:28256/
 ```
 
 需要在重启后保留来源配置时，将示例配置复制为自己的可写文件（ZIP 内为 `config/sources.example.json`，Linux Web 安装后为 `/usr/share/doc/ecaptureq-web/config/sources.example.json`），修改端点后通过 `--sources sources.local.json` 启动。未指定配置文件时，在界面新增的来源只保留在当前实例中。桌面带参数启动、配置格式及错误处理见[使用参考](docs/reference.md)。
+
+示例配置同时启用 **Web 登录**：初始用户名 `ecapture`、密码 `ecaptureQ`，Desktop 不受影响。部署前用 `ecaptureq-web --hash-password` 生成自己的密码哈希并替换配置。示例默认使用 HTTPS 安全 Cookie；本机 HTTP 调试需设 `auth.secureCookie: false`。详见 [Web 认证配置](docs/reference.md#web-用户名与密码)。
 
 ## 日常使用与常见问题
 

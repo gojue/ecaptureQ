@@ -38,7 +38,7 @@ import pb "github.com/gojue/ecapture/v2/protobuf/gen/v1"
 先用内置模拟数据启动：
 
 ```sh
-GOWORK=off go run ./cmd/server --addr 127.0.0.1:28257 --mode mock
+GOWORK=off go run ./cmd/server --listen 127.0.0.1:28257 --mode mock
 # 在安装原生 SDK 的目标主机上运行桌面：
 GOWORK=off go run -tags desktop ./cmd/desktop --mode mock
 ```
@@ -85,8 +85,8 @@ GOWORK=off go mod tidy -diff
 浏览器回归需要运行两个服务，分别验证根路径与反向代理前缀：
 
 ```sh
-./bin/ecaptureq-web --addr 127.0.0.1:28257
-./bin/ecaptureq-web --addr 127.0.0.1:28258 --base-path /ecaptureq-web/
+./bin/ecaptureq-web --listen 127.0.0.1:28257
+./bin/ecaptureq-web --listen 127.0.0.1:28258 --base-path /ecaptureq-web/
 ```
 
 上述服务分别占用终端；在另一个终端运行：

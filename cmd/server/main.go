@@ -16,6 +16,7 @@ import (
 
 	"github.com/gojue/ecaptureq/frontend"
 	"github.com/gojue/ecaptureq/internal/app"
+	"github.com/gojue/ecaptureq/internal/auth"
 	"github.com/gojue/ecaptureq/internal/cli"
 	"github.com/gojue/ecaptureq/internal/httpapi"
 )
@@ -32,6 +33,9 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	if config.HashPassword {
+		return hashPassword()
+	}
 	service, err := app.New(config.Options)
 	if err != nil {
 		return err
@@ -40,6 +44,14 @@ func run() error {
 	handler, err := httpapi.New(config.Options, service.Store(), frontend.Files, httpapi.Policy{})
 	if err != nil {
 		return err
+	}
+	if config.Options.WebAuth != nil {
+		authenticated, err := auth.New(*config.Options.WebAuth, config.BasePath, frontend.Files, handler, (httpapi.Policy{}).ValidOrigin)
+		if err != nil {
+			return err
+		}
+		defer authenticated.Close()
+		handler = authenticated
 	}
 	handler, err = httpapi.Mount(config.BasePath, handler)
 	if err != nil {

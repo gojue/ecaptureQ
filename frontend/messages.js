@@ -40,6 +40,18 @@ export const mockSummaryMessages = {
 };
 
 export const messages = Object.freeze({
+  "切换为{language}": "Switch to {language}",
+  "登录工作区": "Sign in to your workspace",
+  "请输入管理员配置的用户名和密码。": "Enter the username and password configured by your administrator.",
+  "用户名": "Username",
+  "密码": "Password",
+  "登录": "Sign in",
+  "退出登录": "Sign out",
+  "用户名或密码错误。": "Incorrect username or password.",
+  "登录尝试过于频繁，请稍后重试。": "Too many sign-in attempts. Please try again later.",
+  "登录服务暂不可用，请稍后重试。": "Sign-in is temporarily unavailable. Please try again later.",
+  "登录会话未建立，请检查 Cookie 和 HTTPS 配置。": "The sign-in session could not be established. Check cookies and HTTPS settings.",
+  "退出失败，请重试。": "Sign-out failed. Please try again.",
   ...mockNoteMessages,
   ...mockSummaryMessages,
   "不支持的语言选择": "Unsupported language selection.",

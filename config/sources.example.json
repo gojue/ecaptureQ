@@ -1,4 +1,9 @@
 {
+  "auth": {
+    "username": "ecapture",
+    "passwordHash": "$pbkdf2-sha256$600000$WanUCdwGpqNOIR0PT8gqqA$6xdI1bnuD2LVhZDPbAFjq/58rb9f7D6i5CjawMnaaVQ",
+    "secureCookie": true
+  },
   "sources": [
     {
       "endpoint": "ws://127.0.0.1:28256/",
