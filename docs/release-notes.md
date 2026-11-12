@@ -19,7 +19,7 @@ Neither package includes or launches the eCapture collector.
   Apple-authenticated developer identity or notarization. If the first launch is
   blocked, verify the source and checksum, then use System Settings → Privacy &
   Security → Open Anyway for this app. [Apple's instructions](https://support.apple.com/en-us/102445).
-- Web starts with `ecaptureq-web --addr 127.0.0.1:28257`; visit that address in a
+- Web starts with `ecaptureq-web --listen 127.0.0.1:28257`; visit that address in a
   browser. For ZIP downloads run the executable from the extracted directory.
 - The previous Tauri implementation is replaced. Legacy SQL filtering, integrated
   collector launch and Android UI are not included. Android/iOS targets remain

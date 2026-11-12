@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/gojue/ecaptureq/internal/app"
+	"github.com/gojue/ecaptureq/internal/version"
 )
 
 func New(options app.Options, live *app.Store, staticFiles fs.FS, policy Policy) (http.Handler, error) {
@@ -26,6 +27,7 @@ func New(options app.Options, live *app.Store, staticFiles fs.FS, policy Policy)
 		return nil, fmt.Errorf("embedded mock workspace: %w", err)
 	}
 	staticHandler := http.FileServer(http.FS(staticFiles))
+	changeSlots := make(chan struct{}, 128)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Ecaptureq-UI", "1")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
@@ -49,6 +51,8 @@ func New(options app.Options, live *app.Store, staticFiles fs.FS, policy Policy)
 			return
 		}
 		switch r.URL.Path {
+		case "/api/changes":
+			changes(w, r, live, policy, changeSlots)
 		case "/api/workspace":
 			mode := r.URL.Query().Get("mode")
 			if mode == "" {
@@ -89,6 +93,10 @@ func New(options app.Options, live *app.Store, staticFiles fs.FS, policy Policy)
 			writeValue(w, r, live.Status())
 		case "/api/sources":
 			writeValue(w, r, live.Status())
+		case "/api/version":
+			writeValue(w, r, map[string]string{"version": version.Version})
+		case "/api/config":
+			writeValue(w, r, map[string]any{"headerCenter": options.HeaderCenter})
 		case "/api/health":
 			status := live.Status()
 			writeValue(w, r, map[string]any{"status": "ok", "mode": options.Mode, "liveConfigured": len(status.Sources) > 0, "availableModes": []string{"mock", "live"}, "connection": status.State})

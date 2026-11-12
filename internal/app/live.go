@@ -19,6 +19,8 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/gojue/ecaptureq/internal/auth"
+
 	"golang.org/x/net/websocket"
 	"google.golang.org/protobuf/proto"
 
@@ -26,12 +28,15 @@ import (
 )
 
 type Options struct {
+	WebAuth               *auth.Config
 	Mode                  string
 	ExcludeHTTPPathPrefix string
 	Endpoints             []string
 	Sources               []SourceConfig
 	SourcesFile           string
 	SourcesHash           [32]byte
+	HeaderCenter          string
+	HiddenDomains         []string
 	MaxRecords            int
 	MaxBytes              int
 	MaxFrameBytes         int
@@ -41,7 +46,7 @@ type Options struct {
 }
 
 func DefaultOptions() Options {
-	return Options{Mode: "mock", MaxRecords: 65536, MaxBytes: 192 << 20, MaxFrameBytes: 8 << 20, ReadTimeout: 45 * time.Second, ReconnectDelay: time.Second, MaxReconnectWait: 15 * time.Second}
+	return Options{Mode: "mock", MaxRecords: 65536, MaxBytes: 192 << 20, MaxFrameBytes: 8 << 20, ReadTimeout: 45 * time.Second, ReconnectDelay: time.Second, MaxReconnectWait: 15 * time.Second, HiddenDomains: defaultHiddenDomains}
 }
 
 func (o Options) Validate() error {
@@ -136,6 +141,9 @@ type operationalLog struct {
 }
 
 type Status struct {
+	Session               string           `json:"session"`
+	Revision              uint64           `json:"revision"`
+	RecordsRevision       uint64           `json:"recordsRevision"`
 	State                 string           `json:"state"`
 	Sources               []SourceStatus   `json:"sources"`
 	Received              uint64           `json:"received"`
@@ -177,22 +185,24 @@ type Store struct {
 	mu sync.Mutex
 	// Serializes association and retention updates across source connectors, so
 	// another source cannot evict a request between its lookup and upsert.
-	ingestMu sync.Mutex
-	options  Options
-	sources  []SourceStatus
-	records  map[string]storedRecord
-	order    []string
-	logs     []operationalLog
-	bytes    int
-	dropped  uint64
-	filtered uint64
-	evicted  uint64
-	revision uint64
-	host     string
-	started  time.Time
-	wg       sync.WaitGroup
-	ctx      context.Context
-	closing  bool
+	ingestMu        sync.Mutex
+	options         Options
+	sources         []SourceStatus
+	records         map[string]storedRecord
+	order           []string
+	logs            []operationalLog
+	bytes           int
+	dropped         uint64
+	filtered        uint64
+	evicted         uint64
+	revision        uint64
+	recordsRevision uint64
+	changed         chan struct{}
+	host            string
+	started         time.Time
+	wg              sync.WaitGroup
+	ctx             context.Context
+	closing         bool
 }
 
 func NewStore(options Options) (*Store, error) {
@@ -203,7 +213,7 @@ func NewStore(options Options) (*Store, error) {
 	if err != nil || host == "" {
 		host = "采集服务"
 	}
-	s := &Store{options: options, records: make(map[string]storedRecord), sources: []SourceStatus{}, logs: []operationalLog{}, host: host, started: time.Now()}
+	s := &Store{options: options, records: make(map[string]storedRecord), sources: []SourceStatus{}, logs: []operationalLog{}, host: host, started: time.Now(), changed: make(chan struct{})}
 	for index, endpoint := range options.Endpoints {
 		canonical, _ := normalizeEndpoint(endpoint) // Validated above.
 		u, _ := url.Parse(canonical)
@@ -243,6 +253,7 @@ func (s *Store) startSourceLocked(index int) {
 func (s *Store) Wait() {
 	s.mu.Lock()
 	s.closing = true
+	s.notifyLocked()
 	s.mu.Unlock()
 	s.wg.Wait()
 }
@@ -287,7 +298,7 @@ func (s *Store) AddSource(config SourceConfig) (SourceStatus, error) {
 	}
 	source := SourceStatus{ID: fmt.Sprintf("source-%d", len(s.sources)+1), Label: config.Label, Endpoint: endpoint, Capture: config.Capture, State: "connecting"}
 	s.sources = append(s.sources, source)
-	s.revision++
+	s.notifyLocked()
 	if s.ctx != nil {
 		s.startSourceLocked(len(s.sources) - 1)
 	}
@@ -304,7 +315,12 @@ func (s *Store) persistSourceLocked(config SourceConfig) error {
 		return errors.New("source_config_changed")
 	}
 	configs := append(append([]SourceConfig(nil), s.options.Sources...), config)
-	data, err := json.MarshalIndent(configs, "", "  ")
+	data, err := json.MarshalIndent(Config{
+		Auth:          s.options.WebAuth,
+		Sources:       configs,
+		HeaderCenter:  s.options.HeaderCenter,
+		HiddenDomains: s.options.HiddenDomains,
+	}, "", "  ")
 	if err != nil || len(data) > 128<<10 {
 		return errors.New("source_config_too_large")
 	}
@@ -330,7 +346,7 @@ func (s *Store) updateSource(index int, update func(*SourceStatus)) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	update(&s.sources[index])
-	s.revision++
+	s.notifyLocked()
 }
 
 var errNonBinaryFrame = errors.New("eCaptureQ requires binary WebSocket frames")
@@ -431,7 +447,7 @@ func (s *Store) consume(index int, generation uint64, entry *pb.LogEntry, mapper
 	s.mu.Lock()
 	sourceID := s.sources[index].ID
 	s.sources[index].Received++
-	s.revision++
+	s.notifyLocked()
 	s.mu.Unlock()
 	switch entry.LogType {
 	case pb.LogType_LOG_TYPE_HEARTBEAT:
@@ -454,7 +470,7 @@ func (s *Store) consume(index int, generation uint64, entry *pb.LogEntry, mapper
 		if len(s.logs) > 100 {
 			s.logs = append([]operationalLog(nil), s.logs[len(s.logs)-100:]...)
 		}
-		s.revision++
+		s.notifyLocked()
 		s.mu.Unlock()
 	case pb.LogType_LOG_TYPE_EVENT:
 		s.ingestMu.Lock()
@@ -490,7 +506,7 @@ func (s *Store) upsert(record Record, event *pb.Event, sourceID string) {
 	if s.excludeHTTP(record) {
 		s.mu.Lock()
 		s.filtered++
-		s.revision++
+		s.notifyLocked()
 		s.mu.Unlock()
 		return
 	}
@@ -500,7 +516,7 @@ func (s *Store) upsert(record Record, event *pb.Event, sourceID string) {
 	if err != nil || id == "" || processID == "" || len(data) > s.options.MaxBytes {
 		s.mu.Lock()
 		s.dropped++
-		s.revision++
+		s.notifyLocked()
 		s.mu.Unlock()
 		return
 	}
@@ -561,10 +577,15 @@ func (s *Store) upsert(record Record, event *pb.Event, sourceID string) {
 		delete(s.records, oldest)
 		s.evicted++
 	}
-	s.revision++
+	s.recordsRevision++
+	s.notifyLocked()
 }
 
 func (s *Store) excludeHTTP(record Record) bool {
+	// Always discard hidden-domain hosts so their traffic is never rendered.
+	if isHiddenHost(valueString(record["host"]), s.options.HiddenDomains) {
+		return true
+	}
 	prefix := s.options.ExcludeHTTPPathPrefix
 	if prefix == "" || record["family"] != "http" {
 		return false
@@ -586,6 +607,8 @@ func (s *Store) excludeHTTP(record Record) bool {
 
 func (s *Store) statusLocked() Status {
 	status := Status{State: "unconfigured", Sources: append([]SourceStatus{}, s.sources...), Logs: append([]operationalLog{}, s.logs...), Dropped: s.dropped, Evicted: s.evicted, Retained: len(s.records), RetainedBytes: s.bytes, MaxRecords: s.options.MaxRecords, MaxBytes: s.options.MaxBytes}
+	status.Session = s.started.UTC().Format(time.RFC3339Nano)
+	status.Revision, status.RecordsRevision = s.revision, s.recordsRevision
 	status.Filtered, status.ExcludeHTTPPathPrefix = s.filtered, s.options.ExcludeHTTPPathPrefix
 	status.SourcePersistence = "session"
 	if s.options.SourcesFile != "" {

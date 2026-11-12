@@ -1,5 +1,6 @@
 // Copyright 2026 CFC4N. SPDX-License-Identifier: Apache-2.0
 // Decode only the selected HTTP body; captured bytes remain unchanged.
+import {apiFetch as fetch} from './api.js';
 export const maxDecodedBodyBytes = 2 * 1024 * 1024;
 const formats = {gzip:'gzip','x-gzip':'gzip',deflate:'deflate',br:'brotli'};
 

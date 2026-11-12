@@ -28,7 +28,7 @@ import (
 type Record map[string]any
 
 const (
-	maxRecordPayload  = 256 << 10
+	maxRecordPayload  = 256 << 20
 	maxPendingRecords = 256
 	maxPendingBytes   = 8 << 20
 	maxRESPDepth      = 32

@@ -15,9 +15,10 @@ import (
 )
 
 type Config struct {
-	Options  app.Options
-	Addr     string
-	BasePath string
+	Options      app.Options
+	Addr         string
+	BasePath     string
+	HashPassword bool
 }
 
 type endpointFlags []string
@@ -29,14 +30,15 @@ func Parse(args []string, desktop bool) (Config, error) {
 	c := Config{Options: app.DefaultOptions(), Addr: "127.0.0.1:28257", BasePath: "/"}
 	flags := flag.NewFlagSet("eCaptureQ", flag.ContinueOnError)
 	if !desktop {
-		flags.StringVar(&c.Addr, "addr", c.Addr, "HTTP listen address")
+		flags.StringVar(&c.Addr, "listen", c.Addr, "Web HTTP listen address (host:port)")
+		flags.BoolVar(&c.HashPassword, "hash-password", false, "Generate a Web password hash from an interactive prompt or stdin, then exit")
 	}
 	flags.StringVar(&c.BasePath, "base-path", "/", "URL directory, e.g. /ecaptureq-web/")
 	flags.StringVar(&c.Options.Mode, "mode", c.Options.Mode, "Initial UI mode: mock or live")
 	flags.StringVar(&c.Options.ExcludeHTTPPathPrefix, "exclude-http-path-prefix", "", "Exclude captured HTTP path prefix and marked UI responses")
 	var endpoints endpointFlags
-	flags.Var(&endpoints, "ecaptureq", "eCapture WebSocket endpoint (repeat for multiple sources)")
-	sourcesFile := flags.String("sources", "", "JSON source manifest; launch metadata is never executed")
+	flags.Var(&endpoints, "data-source", "eCapture WebSocket data source URL (ws:// or wss://; repeat for multiple sources)")
+	sourcesFile := flags.String("sources", "", "JSON config file (sources, page header, hidden domains and Web auth); launch metadata is never executed")
 	flags.IntVar(&c.Options.MaxRecords, "max-records", c.Options.MaxRecords, "Maximum retained live records")
 	memoryMiB := flags.Int("max-memory-mib", c.Options.MaxBytes>>20, "Maximum retained record JSON in MiB (not process RSS)")
 	frameMiB := flags.Int("max-frame-mib", c.Options.MaxFrameBytes>>20, "Maximum inbound WebSocket frame in MiB")
@@ -61,5 +63,10 @@ func Parse(args []string, desktop bool) (Config, error) {
 		return c, err
 	}
 	c.BasePath = base
+	if !desktop && c.Options.WebAuth != nil {
+		if err := c.Options.WebAuth.Validate(); err != nil {
+			return c, err
+		}
+	}
 	return c, c.Options.Validate()
 }

@@ -72,9 +72,9 @@ jobs:
         shell: bash
         run: |
           mkdir -p artifacts
-          bin/ecaptureq-web --addr 127.0.0.1:28257 > artifacts/server-root.log 2>&1 &
+          bin/ecaptureq-web --listen 127.0.0.1:28257 > artifacts/server-root.log 2>&1 &
           root_pid=$!
-          bin/ecaptureq-web --addr 127.0.0.1:28258 --base-path /ecaptureq-web/ > artifacts/server-prefix.log 2>&1 &
+          bin/ecaptureq-web --listen 127.0.0.1:28258 --base-path /ecaptureq-web/ > artifacts/server-prefix.log 2>&1 &
           prefix_pid=$!
           trap 'kill "$root_pid" "$prefix_pid" 2>/dev/null || true; wait || true' EXIT
           for base in http://127.0.0.1:28257/ http://127.0.0.1:28258/ecaptureq-web/; do

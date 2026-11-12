@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"github.com/gojue/ecaptureq/frontend"
 	"github.com/gojue/ecaptureq/internal/app"
+	"github.com/gojue/ecaptureq/internal/version"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -17,7 +18,7 @@ import (
 
 func TestSourceManifestProvenance(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "sources.json")
-	manifest := `[{"endpoint":"ws://127.0.0.1:28257/","label":"GoTLS validation","capture":{"host":"capture-host","module":"gotls","mode":"text","textSource":"pcapng","command":"sudo ./ecapture gotls --model text --text-source pcapng 'tcp port 8443'","collectorCommit":"test-commit","decryptorVersion":"v1.4.1"}}]`
+	manifest := `{"sources":[{"endpoint":"ws://127.0.0.1:28257/","label":"GoTLS validation","capture":{"host":"capture-host","module":"gotls","mode":"text","textSource":"pcapng","command":"sudo ./ecapture gotls --model text --text-source pcapng 'tcp port 8443'","collectorCommit":"test-commit","decryptorVersion":"v1.4.1"}}]}`
 	if err := os.WriteFile(path, []byte(manifest), 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +45,7 @@ func TestSourceManifestProvenance(t *testing.T) {
 		}
 	}
 	for name, input := range map[string]string{
-		"null": `null`, "trailing": manifest + `{}`, "unknown": `[{"endpoint":"ws://localhost/","typo":true}]`,
+		"null": `null`, "trailing": manifest + `{}`, "unknown": `{"sources":[{"endpoint":"ws://localhost/","typo":true}]}`,
 		"oversized": strings.Repeat(" ", 128<<10) + manifest,
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -95,7 +96,7 @@ func TestReadOnlyRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, path := range []string{"/api/workspace", "/api/health", "/"} {
+	for _, path := range []string{"/api/workspace", "/api/health", "/api/version", "/"} {
 		t.Run("POST "+path, func(t *testing.T) {
 			response := httptest.NewRecorder()
 			handler.ServeHTTP(response, httptest.NewRequest(http.MethodPost, path, nil))
@@ -178,7 +179,7 @@ func TestSourceCreationAPI(t *testing.T) {
 
 func TestSourcePersistenceAndConflictingEdits(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "sources.json")
-	initial := `[{"endpoint":"ws://localhost:28257/","label":"first"}]`
+	initial := `{"sources":[{"endpoint":"ws://localhost:28257/","label":"first"}]}`
 	if err := os.WriteFile(path, []byte(initial), 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -212,6 +213,25 @@ func TestSourcePersistenceAndConflictingEdits(t *testing.T) {
 	data, err := os.ReadFile(path)
 	if err != nil || string(data) != initial {
 		t.Fatal("external edit overwritten")
+	}
+}
+
+func TestVersionRoute(t *testing.T) {
+	handler, err := newHandler()
+	if err != nil {
+		t.Fatal(err)
+	}
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/version", nil))
+	if response.Code != http.StatusOK {
+		t.Fatalf("/api/version returned status %d", response.Code)
+	}
+	var body map[string]string
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatalf("/api/version returned invalid JSON: %v", err)
+	}
+	if body["version"] != version.Version {
+		t.Fatalf("reported version %q, want %q", body["version"], version.Version)
 	}
 }
 

@@ -1,4 +1,5 @@
 import { t, getLanguage, setLanguage, translateStatic, sourceMessage } from './i18n.js';
+import { apiFetch as fetch } from './api.js';
 import { presentationNote, processName, recordPlaceholderTitle, recordPlaceholderHost } from './presentation.js';
 import { displayConnectionId } from './connection-display.js';
 import { initLayout } from './layout.js';
@@ -6,6 +7,7 @@ import { initSourceMetadata } from './source-form.js';
 import { protocolViews } from './protocol-viewers.js';
 import { contentCodings, decodeHTTPBody, serverInflate, maxDecodedBodyBytes } from './http-body.js';
 import { platform, fetchWithTimeout } from './platform.js';
+import { checkForUpdate } from './update-check.js';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -18,6 +20,23 @@ const statusNames = {200:'成功',201:'已创建',204:'无内容',304:'未修改
 const protocolFilters = [{id:'http',label:'HTTP/1 · 2'},{id:'http3',label:'HTTP/3'},{id:'quic',label:'QUIC'},{id:'mysql',label:'MySQL'},{id:'redis',label:'Redis'},{id:'mqtt',label:'MQTT'},{id:'raw',get label() { return t("其他 / 原始"); }}];
 const state = {scope:'all',process:null,protocol:null,domain:null,filter:'all',query:'',selected:null,tab:'request',viewer:'pretty',bodySource:'decoded',wrap:true,bookmarks:new Set(),running:false,mode:'mock',paused:false};
 let workspace, requests = [], seeds = [], timer, toastTimer, sequence = 0, pollTimer, loadController, loadGeneration = 0, revision = null, serverStatus = {}, serviceError = '';
+let changeController, pageClosed = false;
+let pendingUpdate = null;
+let uiConfig = null;
+
+function renderHeaderCenter() {
+  const element = $('.header-center');
+  if (element && uiConfig?.headerCenter) element.innerHTML = uiConfig.headerCenter;
+}
+async function loadUIConfig() {
+  try {
+    const response = await fetch('api/config', {cache:'no-store'});
+    if (!response.ok) return;
+    $('#logout').hidden = response.headers.get('X-Ecaptureq-Auth') !== 'session';
+    uiConfig = await response.json();
+    renderHeaderCenter();
+  } catch { /* keep the default header */ }
+}
 
 let toastMessage;
 function toast(message, params = {}) {
@@ -588,7 +607,7 @@ function updateCaptureControls() {
   $('#connection-toggle').title = sources.length ? sources.map(source => `${source.label}: ${t(connectionStates[source.state]) || source.state}`).join('\n') : t("添加第一个 eCapture 数据源");
   $('#connection-toggle').setAttribute('aria-label',snapshot ? t("查看采集快照的数据源") : t("管理数据源：{p0} 个已连接，共 {p1} 个",{p0:connected,p1:sources.length}));
   $('#connection-toggle').dataset.state = snapshot ? 'snapshot' : offline ? 'mock' : serviceError ? 'error' : connected === sources.length && connected > 0 ? 'connected' : connected > 0 ? 'degraded' : 'waiting';
-  $('#live-label').textContent = snapshot ? t("已保存 · 非实时") : live ? state.paused ? t("刷新已暂停 · 后台继续接收") : t("自动刷新 · 1 秒") : state.running ? t("正在生成模拟记录") : t("样例会话");
+  $('#live-label').textContent = snapshot ? t("已保存 · 非实时") : live ? state.paused ? t("刷新已暂停 · 后台继续接收") : t("自动刷新 · 按变化") : state.running ? t("正在生成模拟记录") : t("样例会话");
   $('#live-label').classList.toggle('running',live ? !snapshot && !state.paused && connected > 0 : state.running);
   const dropped = Number(serverStatus.dropped || 0), evicted = Number(serverStatus.evicted || 0);
   $('#status-message').textContent = snapshot ? t("真实采集快照 · {p0} 条记录 · 当前未连接采集器",{p0:requests.length}) : live ? `${state.paused ? t("刷新已暂停") : t("实时数据")} · ${label}${statusSources().length ? t(" · {p0}/{p1} 个数据源",{p0:connected,p1:statusSources().length}) : ''}${dropped ? t(" · {p0} 条未保留",{p0:dropped}) : ''}${evicted ? t(" · {p0} 条超出保留范围",{p0:evicted}) : ''}` : state.running ? t("模拟采集中 · 不发送真实网络请求") : t("演示会话 · 虚构样例");
@@ -743,9 +762,10 @@ function applyWorkspace(next, reset = false, force = false) {
   if (!reset && next.page && next.page.filterKey!==filterKey()) {schedulePage();return;}
   serverStatus = next.status || {};
   serviceError = '';
+  workspaceLoadFailed = false;
   if (state.mode === 'live' && state.paused && !reset && !force) { updateCaptureControls(); return; }
   const previousSelected = JSON.stringify(selected());
-  const changed = reset || next.page?.requestKey!==workspace?.page?.requestKey || revision === null || next.revision == null || revision !== next.revision;
+  const changed = reset || next.session.startedAt!==workspace?.session.startedAt || next.page?.requestKey!==workspace?.page?.requestKey || revision === null || next.revision == null || revision !== next.revision;
   if (!changed) { updateCaptureControls(); return; }
   revision = next.revision ?? null;
   workspace = next;
@@ -767,6 +787,7 @@ function applyWorkspace(next, reset = false, force = false) {
 }
 async function loadWorkspace(mode) {
   const generation = ++loadGeneration;
+  changeController?.abort();
   loadController?.abort();
   loadController = new AbortController();
   const timeout = setTimeout(() => loadController?.abort(),30000);
@@ -804,17 +825,36 @@ async function refreshLive(force = false) {
     if (generation === loadGeneration) { serviceError = "服务暂不可用"; updateCaptureControls(); }
   } finally { clearTimeout(timeout); refreshing = false; }
 }
-function updateLanguageControls() {
-  const language = getLanguage();
-  const label = t('当前语言：{language}',{language:language === 'en' ? 'English' : '简体中文'});
-  $('#language-toggle').title = label;
-  $('#language-toggle').setAttribute('aria-label',t('切换语言')+' · '+label);
-  $$('[data-language]').forEach(button => button.setAttribute('aria-checked',String(button.dataset.language === language)));
+async function pollChanges() {
+  if (pageClosed || window.__ECAPTURE_CAPTURE__ || window.__ECAPTURE_MOCK__) return;
+  const generation = loadGeneration, controller = new AbortController();
+  changeController = controller;
+  let delay = 1000; // Coalesce bursts; never refresh faster than the previous UI.
+  try {
+    if (!workspace) { delay = 5000; await loadWorkspace(); return; }
+    const params = new URLSearchParams({session:serverStatus.session || '',revision:String(serverStatus.revision ?? 0)});
+    const response = await fetchWithTimeout('api/changes?'+params,{cache:'no-store',signal:controller.signal},15000);
+    if (!response.ok) throw new Error('changes unavailable');
+    const status = response.status === 204 ? serverStatus : await response.json();
+    if (pageClosed || generation !== loadGeneration) return;
+    serverStatus = status; serviceError = ''; updateCaptureControls();
+    if (state.mode === 'live' && !state.paused &&
+        (status.session !== workspace.status?.session || status.recordsRevision !== workspace.status?.recordsRevision)) {
+      await refreshLive();
+    }
+  } catch {
+    if (!controller.signal.aborted && generation === loadGeneration) {
+      serviceError = "服务暂不可用"; updateCaptureControls();
+      delay = 5000;
+    }
+  } finally {
+    if (!pageClosed) pollTimer = setTimeout(pollChanges,delay);
+  }
 }
-function closeLanguageMenu(focus = false) {
-  $('#language-menu').hidden = true;
-  $('#language-toggle').setAttribute('aria-expanded','false');
-  if (focus) $('#language-toggle').focus();
+function updateLanguageControls() {
+  const label = t('切换为{language}',{language:getLanguage() === 'en' ? '简体中文' : 'English'});
+  $('#language-toggle').title = label;
+  $('#language-toggle').setAttribute('aria-label',label);
 }
 function changeLanguage(language) {
   const scroll = ['#sidebar','#request-list','#tab-content','#connection-dialog'].map(selector => [selector,$(selector).scrollTop]);
@@ -823,6 +863,7 @@ function changeLanguage(language) {
   translateStatic();
   updateLanguageControls();
   $('.web-badge').textContent = platform.desktop ? t('桌面') : 'WEB';
+  renderUpdateBadge();
   setTheme(document.documentElement.dataset.theme || 'light');
   if (workspace) { renderSidebar(); renderList(); updateCaptureControls(); }
   $$('#tab-content details').forEach((element,index) => { if (index < disclosures.length) element.open = disclosures[index]; });
@@ -833,33 +874,7 @@ function changeLanguage(language) {
   if (workspaceLoadFailed) renderWorkspaceError();
   for (const [selector,top] of scroll) $(selector).scrollTop = top;
 }
-$('#language-toggle').addEventListener('click',() => {
-  const opening = $('#language-menu').hidden;
-  $('#language-menu').hidden = !opening;
-  $('#language-toggle').setAttribute('aria-expanded',String(opening));
-  if (opening) $('#language-menu [aria-checked=true]').focus();
-});
-$('#language-menu').addEventListener('click',event => {
-  const option = event.target.closest('[data-language]');
-  if (option) { changeLanguage(option.dataset.language); closeLanguageMenu(true); }
-});
-$('.language-picker').addEventListener('keydown',event => {
-  if (event.key === 'Escape') { event.stopPropagation(); closeLanguageMenu(true); }
-  if (['ArrowDown','ArrowUp','Home','End'].includes(event.key)) {
-    event.preventDefault();
-    $('#language-menu').hidden = false;
-    $('#language-toggle').setAttribute('aria-expanded','true');
-    const options = $$('#language-menu [data-language]'), index = options.indexOf(document.activeElement);
-    const next = event.key === 'Home' ? 0 : event.key === 'End' ? options.length-1 : (index+(event.key === 'ArrowUp' ? -1 : 1)+options.length)%options.length;
-    options[next].focus();
-  }
-});
-document.addEventListener('click',event => { if (!event.target.closest('.language-picker')) closeLanguageMenu(); });
-$('.language-picker').addEventListener('focusout',event => {
-  // WebKit may blur a menu button with no relatedTarget during pointerdown.
-  // Keep the menu mounted until click; outside clicks and Escape close it too.
-  if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) closeLanguageMenu();
-});
+$('#language-toggle').addEventListener('click',() => changeLanguage(getLanguage() === 'en' ? 'zh-CN' : 'en'));
 function validateSourceEndpoint() {
   const input = $('#source-endpoint');
   input.setCustomValidity('');
@@ -871,6 +886,25 @@ $('#source-endpoint').addEventListener('input',() => $('#source-endpoint').setCu
 let workspaceLoadFailed = false;
 function renderWorkspaceError() {
   $('#loading').innerHTML = `${icon('alert','large-icon')}<strong>${t("工作区加载失败")}</strong><span>${t("请确认 Go 服务正在运行，然后刷新页面。")}</span>`;
+}
+function renderUpdateBadge() {
+  const badge = $('#update-badge');
+  if (!badge) return;
+  if (!pendingUpdate) { badge.hidden = true; badge.removeAttribute('href'); return; }
+  badge.hidden = false;
+  badge.href = pendingUpdate.url;
+  badge.setAttribute('title', t('发现新版本，点击查看 v{version}', {version: pendingUpdate.version}));
+  badge.setAttribute('aria-label', t('发现新版本，点击查看 v{version}', {version: pendingUpdate.version}));
+  badge.textContent = t('新版本 v{version}', {version: pendingUpdate.version});
+}
+async function runUpdateCheck() {
+  try {
+    const response = await fetchWithTimeout('api/version', {cache:'no-store'});
+    if (!response.ok) return;
+    const data = await response.json();
+    const update = await checkForUpdate(data?.version);
+    if (update) { pendingUpdate = update; renderUpdateBadge(); }
+  } catch { /* best-effort; never affect capture UI */ }
 }
 translateStatic();
 updateLanguageControls();
@@ -887,6 +921,17 @@ document.addEventListener('click',event => {
   event.preventDefault();
   platform.openExternal(link.href).catch(error => toast(error.message));
 });
-loadWorkspace().catch(() => { workspaceLoadFailed = true; renderWorkspaceError(); });
-pollTimer = setInterval(refreshLive,1000);
-window.addEventListener('beforeunload',() => { clearInterval(timer); clearInterval(pollTimer); clearImagePreview(); clearTimeout(pageTimer); detailController?.abort(); loadController?.abort(); });
+loadWorkspace().catch(() => { workspaceLoadFailed = true; renderWorkspaceError(); }).finally(pollChanges);
+runUpdateCheck();
+loadUIConfig();
+function stopRefresh() { pageClosed = true; clearInterval(timer); clearTimeout(pollTimer); changeController?.abort(); clearImagePreview(); clearTimeout(pageTimer); detailController?.abort(); loadController?.abort(); }
+window.addEventListener('beforeunload',stopRefresh);
+window.addEventListener('ecaptureq-auth-expired',stopRefresh);
+window.addEventListener('pageshow',event => { if (event.persisted) location.reload(); });
+$('#logout').addEventListener('click',async () => {
+  try {
+    const response = await fetchWithTimeout('api/auth/logout',{method:'POST',headers:{'X-Ecapture-UI':'1'}});
+    if (!response.ok) throw new Error('logout failed');
+    stopRefresh(); location.replace(new URL('login',location.href).href);
+  } catch { toast(t('退出失败，请重试。')); }
+});

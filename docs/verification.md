@@ -289,3 +289,59 @@ pass; actionlint 1.7.12 accepts the updated workflows. The collection gate
 statically checks the loong64 DEB `Architecture` and RPM `%{ARCH}` labels in CI.
 Not verified locally: running the loong64 package in a clean container, since
 Ubuntu and Fedora provide no loong64 image and there is no hosted loong64 runner.
+
+## CLI flag naming — 2026-11-12
+
+Web now uses `--listen` for its HTTP address. Web and Desktop use repeatable
+`--data-source` for eCapture WebSocket URLs. The former eCaptureQ flags `--addr`
+and `--ecaptureq` are rejected. Upstream collector commands retain `--ecaptureq`;
+the synthetic fixture's own `--addr` flag is unchanged.
+
+Local macOS arm64 checks passed with `GOWORK=off`: CLI tests, `go test -race ./...`,
+`go vet ./...`, the official protocol gate, a CGO-disabled Web build, and a native
+Desktop build with CLI help/flag checks. All 41 Python packaging/tooling tests
+passed, with the sandbox-blocked macOS icon tests rerun outside the sandbox.
+Race integration tests also required local-listener access outside the sandbox.
+
+Web startup using `--listen` and two `--data-source` options passed at both `/`
+and `/ecaptureq-web/`: both synthetic sources connected, at least six records
+arrived, the page and APIs responded, and shutdown completed normally. No real
+probe traffic, browser UI regression, native GUI interaction, other OS runtime,
+container installation, release or deployment was exercised for this CLI change.
+
+## Missing files and main reconciliation — 2026-11-12
+
+Commit `da63c85` referenced Web authentication files that were still untracked.
+The follow-up includes all 11 missing implementation, asset, test and verification
+files. A source-only export of the Git index, without untracked or ignored files,
+passed Go race/vet, module tidy-diff, the official protocol gate, 73 Node tests,
+all JavaScript syntax checks, 41 Python tests, and version/format checks with
+`GOWORK=off` for Go commands. Web and macOS arm64 Desktop builds succeeded;
+Desktop CLI help also ran successfully.
+
+Chrome regression passed at `/` and `/ecaptureq-web/`, each with Web authentication
+enabled and disabled. All four cases used the independently built Web binary and
+synthetic WebSocket fixture; authenticated cases covered anonymous API rejection,
+wrong-password errors, login, session cookies and logout. No native GUI, other OS
+runtime or real probe E2E was executed in this follow-up.
+
+Merging main at `eec46df` required resolving only this verification document after
+the earlier squash merge. Both the LoongArch and CLI verification entries are
+preserved; application source and build configuration match the tested snapshot.
+
+## CI browser startup — 2026-11-12
+
+The [PR #66 server check](https://github.com/gojue/ecaptureQ/actions/runs/43250021484/job/131292958956)
+failed before page tests: Chrome had not exposed DevTools within the former
+ten-second startup wait. The smoke runner now allows up to 60 seconds using a
+monotonic deadline, requires both DevTools port-file lines, and reports process
+exit codes/signals immediately. Page assertions and CDP operation timeouts are
+unchanged; missing readiness still fails the check.
+
+Local macOS arm64 verification deliberately delayed real Chrome startup by 15
+seconds: the old runner failed as expected, while the updated runner completed
+the full root-path regression. The `/ecaptureq-web/` regression also passed.
+A synthetic Chrome process exiting with code 7 failed in under one second with
+the exit code in diagnostics. All 73 Node tests and JavaScript syntax checks
+passed. These checks used only bundled synthetic data; hosted results must be
+confirmed on the resulting PR revision.

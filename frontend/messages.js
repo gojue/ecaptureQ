@@ -40,6 +40,18 @@ export const mockSummaryMessages = {
 };
 
 export const messages = Object.freeze({
+  "切换为{language}": "Switch to {language}",
+  "登录工作区": "Sign in to your workspace",
+  "请输入管理员配置的用户名和密码。": "Enter the username and password configured by your administrator.",
+  "用户名": "Username",
+  "密码": "Password",
+  "登录": "Sign in",
+  "退出登录": "Sign out",
+  "用户名或密码错误。": "Incorrect username or password.",
+  "登录尝试过于频繁，请稍后重试。": "Too many sign-in attempts. Please try again later.",
+  "登录服务暂不可用，请稍后重试。": "Sign-in is temporarily unavailable. Please try again later.",
+  "登录会话未建立，请检查 Cookie 和 HTTPS 配置。": "The sign-in session could not be established. Check cookies and HTTPS settings.",
+  "退出失败，请重试。": "Sign-out failed. Please try again.",
   ...mockNoteMessages,
   ...mockSummaryMessages,
   "不支持的语言选择": "Unsupported language selection.",
@@ -483,7 +495,7 @@ export const messages = Object.freeze({
   "管理数据源：{p0} 个已连接，共 {p1} 个": "Manage sources: {p0} connected of {p1}",
   "已保存 · 非实时": "Saved · Not live",
   "刷新已暂停 · 后台继续接收": "Refresh paused · Ingestion continues",
-  "自动刷新 · 1 秒": "Auto-refresh · 1 second",
+  "自动刷新 · 按变化": "Auto-refresh · On change",
   "正在生成模拟记录": "Generating mock records",
   "真实采集快照 · {p0} 条记录 · 当前未连接采集器": "Capture snapshot · {p0} records · No collector connected",
   "刷新已暂停": "Refresh paused",
@@ -557,4 +569,6 @@ export const messages = Object.freeze({
   "已捕获 {protocol} 事件": "Captured {protocol} event",
   "Redis · 超出显示上限的原始值": "Redis · bounded raw value",
   "Redis · 未解析值": "Redis · unparsed value",
+  "新版本 v{version}": "New version v{version}",
+  "发现新版本，点击查看 v{version}": "A new version is available. Click to view v{version}",
 });

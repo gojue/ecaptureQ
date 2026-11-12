@@ -1,6 +1,7 @@
 // Copyright 2026 CFC4N. SPDX-License-Identifier: Apache-2.0
 // Native facilities are deliberately separate from capture and presentation.
 import {t,getLanguage} from './i18n.js';
+import {apiFetch} from './api.js';
 
 const nativeErrors = {
   export_failed:'无法保存文件，请检查目标目录权限',
@@ -16,7 +17,7 @@ const nativeErrors = {
   origin_rejected:'请求来源校验失败，请在当前 eCaptureQ 窗口重试'
 };
 
-export function createPlatformAdapter({fetch: request = globalThis.fetch, document: doc = globalThis.document,
+export function createPlatformAdapter({fetch: request = apiFetch, document: doc = globalThis.document,
   navigator: nav = globalThis.navigator, URL: urls = globalThis.URL, Blob: BlobType = globalThis.Blob,
   location: loc = globalThis.location, open = (...args) => globalThis.open(...args)} = {}) {
   let capabilities, readiness;
@@ -81,7 +82,7 @@ export function createPlatformAdapter({fetch: request = globalThis.fetch, docume
 }
 
 // AbortSignal.timeout is absent in some supported system WebView versions.
-export async function fetchWithTimeout(url,options = {},timeoutMs = 15000,request = globalThis.fetch) {
+export async function fetchWithTimeout(url,options = {},timeoutMs = 15000,request = apiFetch) {
   const controller = new AbortController(), timer = setTimeout(() => controller.abort(),timeoutMs);
   const cancel = () => controller.abort();
   options.signal?.addEventListener('abort',cancel,{once:true});

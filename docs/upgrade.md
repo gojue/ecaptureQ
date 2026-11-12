@@ -11,7 +11,7 @@ eCaptureQ 沿用原产品名称和 `gojue/ecaptureQ` 仓库，采用全新的 Go
    [上游提交](upstream-status.md)，构建不需要相邻 eCapture 源码或本地 workspace。
 2. 默认模拟模式可独立浏览样例。连接真实数据时，在 Linux 采集主机上另行
    运行支持相应事件字段的 eCapture，再向新版添加它的 WebSocket 地址。
-3. 使用来源面板、`--ecaptureq` 或 `--sources` 重新配置来源。新来源清单的
+3. 使用来源面板、`--data-source` 或 `--sources` 重新配置来源。新来源清单的
    格式见 [示例](../config/sources.example.json)，其中的启动命令仅供展示。
 4. 需要保存来源时选择自己的 JSON 清单文件。未指定清单时新增来源只保留
    在当前实例中；捕获记录和日志始终是有界内存缓存，不作为持久化历史。

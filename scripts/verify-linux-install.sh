@@ -38,7 +38,7 @@ fi
 ecaptureq-web --help >/dev/null
 python3 - <<'PY'
 import json, subprocess, time, urllib.request
-process = subprocess.Popen(['ecaptureq-web', '--mode', 'mock', '--addr', '127.0.0.1:28257'])
+process = subprocess.Popen(['ecaptureq-web', '--mode', 'mock', '--listen', '127.0.0.1:28257'])
 try:
     for attempt in range(100):
         if process.poll() is not None:

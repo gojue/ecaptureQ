@@ -55,7 +55,7 @@ macOS/Linux：
 
 ```sh
 GOWORK=off CGO_ENABLED=0 make server
-./bin/ecaptureq-web --addr 127.0.0.1:28257 --mode mock
+./bin/ecaptureq-web --listen 127.0.0.1:28257 --mode mock
 ```
 
 打开 `http://127.0.0.1:28257/`。Windows PowerShell：
@@ -65,7 +65,7 @@ $env:GOWORK = "off"
 $env:CGO_ENABLED = "0"
 go run ./scripts/check-protocol
 go build -trimpath -o bin/ecaptureq-web.exe ./cmd/server
-.\bin\ecaptureq-web.exe --addr 127.0.0.1:28257 --mode mock
+.\bin\ecaptureq-web.exe --listen 127.0.0.1:28257 --mode mock
 ```
 
 也可直接运行 `go run ./cmd/server --mode mock`。修改嵌入的前端资源后，重新运行或构建程序。

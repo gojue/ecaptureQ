@@ -1,0 +1,24 @@
+/* Copyright 2026 CFC4N. SPDX-License-Identifier: Apache-2.0 */
+:root { color-scheme: light dark; font: 15px/1.6 system-ui, sans-serif; color: #182237; background: #f3f5f8; }
+* { box-sizing: border-box; }
+body { min-height: 100vh; margin: 0; display: grid; place-items: center; padding: 24px; }
+main { width: min(100%,420px); padding: 36px; border: 1px solid #dce3ec; border-radius: 18px; background: #fff; box-shadow: 0 16px 48px #1822370a; }
+.brand { margin: 14px 0 24px; font-weight: 750; font-size: 21px; }
+.brand span { font-size: 11px; color: #526782; margin-left: 8px; letter-spacing: .08em; }
+h1 { margin: 0; font-size: 23px; line-height: 1.4; }
+.intro { margin: 10px 0 24px; color: #526782; }
+label { display: block; margin: 16px 0; font-weight: 550; }
+input { display: block; width: 100%; margin-top: 6px; padding: 11px 12px; border: 1px solid #b9c5d5; border-radius: 8px; font: inherit; background: #fff; color: inherit; }
+input:focus { outline: 2px solid #1767db; outline-offset: 2px; }
+button { width: 100%; padding: 12px; margin-top: 8px; border: 0; border-radius: 8px; background: #1767db; color: #fff; font: inherit; font-weight: 650; cursor: pointer; }
+button:disabled { opacity: .6; cursor: wait; }
+#login-error { color: #ba293b; font-size: 14px; }
+[hidden] { display: none !important; }
+@media (prefers-color-scheme: dark) {
+  :root { background: #101722; color: #e7edf5; }
+  main { background: #192231; border-color: #344359; }
+  .intro,.brand span { color: #a8b6ca; }
+  input { background: #101722; border-color: #53657d; }
+  #login-error { color: #ff9aa7; }
+}
+@media (max-width: 440px) { body { padding: 16px; } main { padding: 24px; } }
