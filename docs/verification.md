@@ -308,3 +308,23 @@ and `/ecaptureq-web/`: both synthetic sources connected, at least six records
 arrived, the page and APIs responded, and shutdown completed normally. No real
 probe traffic, browser UI regression, native GUI interaction, other OS runtime,
 container installation, release or deployment was exercised for this CLI change.
+
+## Missing files and main reconciliation — 2026-11-12
+
+Commit `da63c85` referenced Web authentication files that were still untracked.
+The follow-up includes all 11 missing implementation, asset, test and verification
+files. A source-only export of the Git index, without untracked or ignored files,
+passed Go race/vet, module tidy-diff, the official protocol gate, 73 Node tests,
+all JavaScript syntax checks, 41 Python tests, and version/format checks with
+`GOWORK=off` for Go commands. Web and macOS arm64 Desktop builds succeeded;
+Desktop CLI help also ran successfully.
+
+Chrome regression passed at `/` and `/ecaptureq-web/`, each with Web authentication
+enabled and disabled. All four cases used the independently built Web binary and
+synthetic WebSocket fixture; authenticated cases covered anonymous API rejection,
+wrong-password errors, login, session cookies and logout. No native GUI, other OS
+runtime or real probe E2E was executed in this follow-up.
+
+Merging main at `eec46df` required resolving only this verification document after
+the earlier squash merge. Both the LoongArch and CLI verification entries are
+preserved; application source and build configuration match the tested snapshot.
