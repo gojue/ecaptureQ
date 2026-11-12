@@ -328,3 +328,20 @@ runtime or real probe E2E was executed in this follow-up.
 Merging main at `eec46df` required resolving only this verification document after
 the earlier squash merge. Both the LoongArch and CLI verification entries are
 preserved; application source and build configuration match the tested snapshot.
+
+## CI browser startup — 2026-11-12
+
+The [PR #66 server check](https://github.com/gojue/ecaptureQ/actions/runs/43250021484/job/131292958956)
+failed before page tests: Chrome had not exposed DevTools within the former
+ten-second startup wait. The smoke runner now allows up to 60 seconds using a
+monotonic deadline, requires both DevTools port-file lines, and reports process
+exit codes/signals immediately. Page assertions and CDP operation timeouts are
+unchanged; missing readiness still fails the check.
+
+Local macOS arm64 verification deliberately delayed real Chrome startup by 15
+seconds: the old runner failed as expected, while the updated runner completed
+the full root-path regression. The `/ecaptureq-web/` regression also passed.
+A synthetic Chrome process exiting with code 7 failed in under one second with
+the exit code in diagnostics. All 73 Node tests and JavaScript syntax checks
+passed. These checks used only bundled synthetic data; hosted results must be
+confirmed on the resulting PR revision.

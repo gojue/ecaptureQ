@@ -176,13 +176,20 @@ async function createPage(script) {
 const exceptions=[];
 try {
   let debug;
-  for(let i=0;i<100;i++) {
+  // Cold CI runners can take more than ten seconds to launch Chrome. Keep this
+  // readiness deadline separate from the page assertions and CDP timeouts.
+  const startupTimeout=60000, startupDeadline=performance.now()+startupTimeout;
+  while(performance.now()<startupDeadline) {
     if(launchError)throw launchError;
-    try{debug=(await readFile(path.join(profile,'DevToolsActivePort'),'utf8')).trim().split('\n');break;}catch{}
-    if(proc.exitCode!==null)throw new Error('Chrome exited: '+stderr.slice(-2000));
+    if(proc.exitCode!==null || proc.signalCode!==null)throw new Error(`Chrome exited (code=${proc.exitCode}, signal=${proc.signalCode}): ${stderr.slice(-2000)}`);
+    try {
+      const candidate=(await readFile(path.join(profile,'DevToolsActivePort'),'utf8')).trim().split('\n');
+      // The file can be observed before Chrome finishes writing both lines.
+      if(/^\d+$/.test(candidate[0]) && candidate[1]?.startsWith('/devtools/browser/')){debug=candidate;break;}
+    } catch(error) { if(error.code!=='ENOENT')throw error; }
     await sleep(100);
   }
-  if(!debug)throw new Error('Chrome did not expose DevTools: '+stderr.slice(-2000));
+  if(!debug)throw new Error(`Chrome did not expose DevTools within ${startupTimeout/1000}s (code=${proc.exitCode}, signal=${proc.signalCode}): ${stderr.slice(-2000) || '(no Chrome stderr)'}`);
   ws=new WebSocket(`ws://127.0.0.1:${debug[0]}${debug[1]}`);
   await new Promise((resolve,reject)=>{ws.addEventListener('open',resolve,{once:true});ws.addEventListener('error',reject,{once:true});});
   ws.addEventListener('message',event=>{
