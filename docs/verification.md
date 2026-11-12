@@ -345,30 +345,3 @@ A synthetic Chrome process exiting with code 7 failed in under one second with
 the exit code in diagnostics. All 73 Node tests and JavaScript syntax checks
 passed. These checks used only bundled synthetic data; hosted results must be
 confirmed on the resulting PR revision.
-
-## Browser navigation readiness — 2026-11-13
-
-The [main server check after PR #66](https://github.com/gojue/ecaptureQ/actions/runs/43256339369/job/131315471542)
-failed with `Inspected target navigated or closed` after the long-poll assertions.
-The merged source tree matched the passing PR tree. Repeating the old reload
-helper with fourfold CPU throttling reproduced the same error on reload 23:
-`Runtime.evaluate` raced with replacement of the previous document.
-
-The smoke runner now subscribes before triggering a document navigation and
-waits for `DOMContentLoaded` from the same session/main frame with a new loader
-ID. Reload, initial navigation and successful login/logout use this barrier.
-Existing UI readiness checks and all assertions remain in place. Navigation
-errors, target detachment and a ten-second readiness timeout fail the test;
-listeners and timers are cleaned up on success and failure. CDP errors include
-the command name for diagnosis.
-
-Local macOS arm64 checks passed: all 78 Node tests, JavaScript syntax checks,
-root and prefix browser regression with synthetic source submission, and both
-authenticated browser paths including login/logout. At each path, a sequential
-stress run completed 100 reloads under fourfold CPU throttling followed by the
-full smoke suite and normal exit. Initial concurrent stress runs exposed an
-inherited stderr pipe held by Chrome helpers after the main browser exited.
-Cleanup now releases that pipe only after browser process exit; repeating both
-100-reload stress runs concurrently then completed all assertions and exited
-normally. No production app code changed, and native GUI/real probe tests were
-not run for this fix.
