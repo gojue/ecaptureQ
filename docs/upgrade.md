@@ -13,7 +13,7 @@ eCaptureQ 沿用原产品名称和 `gojue/ecaptureQ` 仓库，采用全新的 Go
    字段，例如 `[]` 改为 `{"sources":[]}`。可按需添加 `headerCenter`、
    `hiddenDomains` 和 Web 专用的 `auth`，字段说明见[使用参考](reference.md)。
 3. 如需 Web 登录，配置 `auth`，并用 `ecaptureq-web --hash-password` 生成密码哈希。
-   未配置 `auth` 时仍免登录；Desktop 不启用此认证。随包示例使用公开账号
+   未配置 `auth` 时仍免登录；Desktop 不启用此认证。仓库的[配置示例](../config/sources.example.json)使用公开账号
    `ecapture` / `ecaptureQ`，部署前必须更换密码。默认安全 Cookie 需要 HTTPS，
    本机纯 HTTP 调试需显式设置 `auth.secureCookie: false`。
 

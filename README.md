@@ -63,7 +63,7 @@ eCaptureQ 将 eCapture 采集到的网络消息，转化为**可搜索、可关�
 
 ### 2. 安装并打开 eCaptureQ
 
-- **macOS**：打开 DMG，将 `eCaptureQ.app` 拖到 Applications 后启动；也可解压 ZIP。构建最低目标为 macOS 12，旧系统实际兼容性见[验证记录](docs/verification.md)。
+- **macOS**：打开 DMG，将 `eCaptureQ.app` 拖到 `Applications` 快捷方式后启动；也可解压 ZIP。构建最低目标为 macOS 12，旧系统实际兼容性见[验证记录](docs/verification.md)。
 - **Windows**：解压 ZIP，运行 `eCaptureQ.exe`。缺少 WebView2 时安装微软的 [WebView2 Runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/)。
 - **Linux**：按发行版安装 DEB 或 RPM，然后从应用菜单打开 **eCaptureQ**，或在图形桌面会话中运行 `ecaptureq`。包管理器会安装 GTK4 / WebKitGTK 6.0 等依赖。DEB 构建基线为 Ubuntu 24.04；RPM 在 Fedora 43 验证，不承诺兼容旧版 RHEL/CentOS。
 
@@ -157,7 +157,7 @@ ssh -N -L 127.0.0.1:28256:127.0.0.1:28256 user@linux-host
 ecaptureq-web --mode live --data-source ws://127.0.0.1:28256/
 ```
 
-需要在重启后保留来源配置时，将示例配置复制为自己的可写文件（ZIP 内为 `config/sources.example.json`，Linux Web 安装后为 `/usr/share/doc/ecaptureq-web/config/sources.example.json`），修改端点后通过 `--sources sources.local.json` 启动。未指定配置文件时，在界面新增的来源只保留在当前实例中。桌面带参数启动、配置格式及错误处理见[使用参考](docs/reference.md)。
+需要在重启后保留来源配置时，从仓库的[示例配置](config/sources.example.json)保存一份自己的可写文件，修改端点后通过 `--sources sources.local.json` 启动。未指定配置文件时，在界面新增的来源只保留在当前实例中。桌面带参数启动、配置格式及错误处理见[使用参考](docs/reference.md)。
 
 示例配置同时启用 **Web 登录**：初始用户名 `ecapture`、密码 `ecaptureQ`，Desktop 不受影响。部署前用 `ecaptureq-web --hash-password` 生成自己的密码哈希并替换配置。示例默认使用 HTTPS 安全 Cookie；本机 HTTP 调试需设 `auth.secureCookie: false`。详见 [Web 认证配置](docs/reference.md#web-用户名与密码)。
 

@@ -46,10 +46,8 @@ def linux_config(stage, kind, arch, version):
     product = "ecaptureq" if kind == "desktop" else "ecaptureq-web"
     executable = "eCaptureQ" if kind == "desktop" else "ecaptureq-web"
     contents = [{"src": str(stage / executable), "dst": f"/usr/bin/{product}", "file_info": {"mode": 0o755}}]
-    for source in sorted(stage.rglob("*")):
-        if source.is_file() and source != stage / executable:
-            contents.append({"src": str(source), "dst": f"/usr/share/doc/{product}/" + source.relative_to(stage).as_posix(),
-                             "file_info": {"mode": 0o644}})
+    contents.append({"src": str(stage / "BUILD-INFO.json"), "dst": f"/usr/share/doc/{product}/BUILD-INFO.json",
+                     "file_info": {"mode": 0o644}})
     for name in ("LICENSE", "NOTICE"):
         contents.append({"src": str(stage / name), "dst": f"/usr/share/licenses/{product}/{name}", "file_info": {"mode": 0o644}})
     config = {"name": product, "arch": arch, "platform": "linux", "version": version,
@@ -92,9 +90,9 @@ def checksum(path):
     path.with_name(path.name + ".sha256").write_text(f"{digest.hexdigest()}  {path.name}\n", encoding="utf-8")
 
 
-def zip_tree(stage, destination):
+def zip_tree(stage, destination, macos_app=False):
     # macOS ditto preserves signatures, stapled tickets, extended attributes and modes.
-    if sys.platform == "darwin":
+    if macos_app and sys.platform == "darwin":
         subprocess.run(["ditto", "-c", "-k", "--sequesterRsrc", "--keepParent", str(stage), str(destination)], check=True)
         return
     with zipfile.ZipFile(destination, "w", zipfile.ZIP_DEFLATED) as archive:
@@ -102,7 +100,22 @@ def zip_tree(stage, destination):
             archive.write(source, source.relative_to(stage.parent).as_posix())
 
 
-def package(kind, target_os, arch, version, binary, output, dmg=False, signing="unsigned", linux_format="archive"):
+def write_resources(stage, kind, target_os, arch, version, signing):
+    """Ship only required license notices and release metadata beside the executable."""
+    for filename in ("LICENSE", "NOTICE"):
+        shutil.copy2(ROOT / filename, stage / filename)
+    try:
+        commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True, stderr=subprocess.DEVNULL).strip()
+    except (OSError, subprocess.CalledProcessError):
+        commit = "unknown"
+    info = {"product": "eCaptureQ", "version": version, "kind": kind, "os": target_os,
+            "arch": arch, "commit": commit, "signing": signing, "notarized": signing == "notarized"}
+    if arch == "universal":
+        info["architectures"] = ["amd64", "arm64"]
+    (stage / "BUILD-INFO.json").write_text(json.dumps(info, indent=2) + "\n", encoding="utf-8")
+
+
+def package(kind, target_os, arch, version, binary, output, dmg=False, signing="unsigned", linux_format="archive", prepare_app=False):
     name = package_name(kind, target_os, arch, version)
     if linux_format not in ("archive", "all", "deb", "rpm"):
         raise ValueError("Unknown Linux package format")
@@ -121,6 +134,17 @@ def package(kind, target_os, arch, version, binary, output, dmg=False, signing="
     if not executable.is_file():
         raise ValueError(f"Built executable is missing: {executable}")
     check_binary(executable, target_os, arch)
+    macos_app = kind == "desktop" and target_os == "darwin"
+    if prepare_app and (not macos_app or dmg):
+        raise ValueError("--prepare-app requires a macOS desktop bundle without --dmg")
+    if prepare_app:
+        # This must happen before signing; notarized status is verified at packaging.
+        resources = binary / "Contents/Resources/Distribution"
+        if resources.exists():
+            shutil.rmtree(resources)
+        resources.mkdir(parents=True)
+        write_resources(resources, kind, target_os, arch, version, signing)
+        return []
     if signing != "unsigned":
         check_macos_signature(binary, signing, arch)
     output.mkdir(parents=True, exist_ok=True)
@@ -129,22 +153,27 @@ def package(kind, target_os, arch, version, binary, output, dmg=False, signing="
     with tempfile.TemporaryDirectory(prefix="ecaptureq-package-") as temp:
         stage = Path(temp) / name
         stage.mkdir()
-        for filename in ("LICENSE", "NOTICE", "README.md"):
-            shutil.copy2(ROOT / filename, stage / filename)
-        # The README shares the official UI logo; do not ship the frontend source tree.
-        (stage / "frontend").mkdir()
-        shutil.copy2(ROOT / "frontend/ecaptureq-logo.svg", stage / "frontend/ecaptureq-logo.svg")
-        (stage / "config").mkdir()
-        shutil.copy2(ROOT / "config/sources.example.json", stage / "config/sources.example.json")
-        # Public documentation screenshots must accompany the README's relative links.
-        shutil.copytree(ROOT / "docs", stage / "docs", ignore=shutil.ignore_patterns("*.log"))
+        resources = Path(temp) / "resources" if macos_app else stage
+        resources.mkdir(exist_ok=True)
+        write_resources(resources, kind, target_os, arch, version, signing)
         if binary.is_dir():
             for entry in binary.rglob("*"):
                 if entry.is_symlink() and not entry.resolve().is_relative_to(binary):
                     raise ValueError("Application bundle contains a link outside the bundle")
             # ditto retains the notarization ticket; copytree does not preserve all macOS metadata.
             subprocess.run(["ditto", str(binary), str(stage / "eCaptureQ.app")], check=True)
-            if signing != "unsigned":
+            bundled_resources = stage / "eCaptureQ.app/Contents/Resources/Distribution"
+            if signing == "unsigned":
+                if bundled_resources.exists():
+                    shutil.rmtree(bundled_resources)
+                shutil.copytree(resources, bundled_resources)
+            else:
+                # Never mutate a signed bundle, including its notarization ticket.
+                expected = {p.relative_to(resources): p.read_bytes() for p in resources.rglob("*") if p.is_file()}
+                actual = {p.relative_to(bundled_resources): p.read_bytes()
+                          for p in bundled_resources.rglob("*") if p.is_file()}
+                if actual != expected:
+                    raise ValueError("Bundle distribution resources differ; run --prepare-app before signing")
                 check_macos_signature(stage / "eCaptureQ.app", signing, arch)
         else:
             suffix = ".exe" if target_os == "windows" else ""
@@ -152,38 +181,6 @@ def package(kind, target_os, arch, version, binary, output, dmg=False, signing="
             shutil.copy2(binary, stage / filename)
             if target_os != "windows":
                 (stage / filename).chmod(0o755)
-        try:
-            commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True, stderr=subprocess.DEVNULL).strip()
-        except (OSError, subprocess.CalledProcessError):
-            commit = "unknown"
-        info = {"product": "eCaptureQ", "version": version, "kind": kind, "os": target_os,
-                "arch": arch, "commit": commit, "signing": signing, "notarized": signing == "notarized"}
-        if arch == "universal":
-            info["architectures"] = ["amd64", "arm64"]
-        (stage / "BUILD-INFO.json").write_text(json.dumps(info, indent=2) + "\n", encoding="utf-8")
-        runtime = {"linux": "Desktop requires GTK4 and WebKitGTK 6.0 runtime libraries.",
-                   "windows": "Desktop requires the Microsoft Edge WebView2 runtime.",
-                   "darwin": "Desktop requires macOS 12 or newer; older versions have not been validated."}[target_os]
-        if kind == "server":
-            runtime = "Web interface: no desktop GUI libraries or separate collector executable are bundled."
-        signing_help = ""
-        if signing == "adhoc":
-            signing_help = (
-                "This app is ad-hoc signed, without an Apple-certified developer identity, "
-                "and has NOT been notarized by Apple.\n"
-                "If macOS blocks the first launch, verify the download source and checksum, then use "
-                "System Settings > Privacy & Security > Open Anyway for this app.\n"
-            )
-        product_title = "eCaptureQ Web" if kind == "server" else "eCaptureQ"
-        system_title = "macOS" if target_os == "darwin" else target_os
-        (stage / "INSTALL.txt").write_text(
-            f"{product_title} {version} ({system_title}/{arch})\n\n" +
-            ("Web: run ecaptureq-web --listen 127.0.0.1:28257 and open the address in your browser.\n"
-             if kind == "server" else "Open eCaptureQ from your applications menu; no separately started server is needed.\n")
-            + runtime + "\nSigning status: " + signing + ".\n" + signing_help +
-            "The source example contains placeholders. Configure your own remote eCapture endpoint.\n"
-            "No collector, captured traffic or private settings are bundled. See README.md and docs/.\n",
-            encoding="utf-8")
         if target_os == "linux" and linux_format != "archive":
             formats = ("deb", "rpm") if linux_format == "all" else (linux_format,)
             results.extend(linux_packages(stage, output, kind, arch, version, formats))
@@ -191,14 +188,14 @@ def package(kind, target_os, arch, version, binary, output, dmg=False, signing="
             extension = ".zip" if target_os in ("windows", "darwin") else ".tar.gz"
             archive = output / (name + extension)
             if extension == ".zip":
-                zip_tree(stage, archive)
+                zip_tree(stage / "eCaptureQ.app" if macos_app else stage, archive, macos_app=macos_app)
             else:
                 with tarfile.open(archive, "w:gz") as bundle:
                     bundle.add(stage, arcname=name, filter=lambda entry: normalized_tar_entry(entry))
             checksum(archive)
             results.append(archive)
         if dmg:
-            # Keep the install shortcut out of the portable ZIP archive.
+            # The install shortcut belongs only in the DMG, never in the ZIP.
             (stage / "Applications").symlink_to("/Applications", target_is_directory=True)
             image = output / (name + ".dmg")
             subprocess.run(["hdiutil", "create", "-volname", f"eCaptureQ {version}", "-srcfolder", str(stage),
@@ -226,6 +223,8 @@ def main():
     parser.add_argument("--output", type=Path, default=ROOT / "dist/packages")
     parser.add_argument("--linux-format", choices=("all", "deb", "rpm", "archive"), default="all")
     parser.add_argument("--dmg", action="store_true")
+    parser.add_argument("--prepare-app", action="store_true",
+                        help="Write macOS app distribution resources before signing; do not create archives")
     parser.add_argument("--signing", choices=("unsigned", "adhoc", "notarized"), default="unsigned")
     args = parser.parse_args()
     if args.binary is None:
@@ -234,7 +233,7 @@ def main():
         else:
             args.binary = ROOT / {"darwin": "dist/eCaptureQ.app", "windows": "dist/eCaptureQ.exe", "linux": "dist/eCaptureQ"}[args.os]
     try:
-        package(args.kind, args.os, args.arch, args.version, args.binary, args.output, args.dmg, args.signing, args.linux_format)
+        package(args.kind, args.os, args.arch, args.version, args.binary, args.output, args.dmg, args.signing, args.linux_format, args.prepare_app)
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
         parser.exit(1, f"Packaging failed: {error}\n")
 

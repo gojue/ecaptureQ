@@ -345,3 +345,34 @@ A synthetic Chrome process exiting with code 7 failed in under one second with
 the exit code in diagnostics. All 73 Node tests and JavaScript syntax checks
 passed. These checks used only bundled synthetic data; hosted results must be
 confirmed on the resulting PR revision.
+
+
+## Minimal distribution contents (2026-11-14)
+
+Packages retain executables, LICENSE/NOTICE and BUILD-INFO.json. Linux desktop
+packages also retain the menu entry and official system icon, without duplicate
+license files under `/usr/share/doc`. macOS desktop ZIP contains only the app;
+DMG adds the Applications shortcut. The app carries license notices and metadata
+under `Contents/Resources/Distribution`, populated before signing. README,
+documentation, source examples, frontend directories and INSTALL.txt are omitted.
+
+Validation on macOS Apple Silicon:
+
+- All 44 Python packaging, signing, release and icon tests passed. Archive tests
+  assert the exact portable file lists; nFPM configuration tests assert the exact
+  desktop/Web install paths. Signed app tests reject missing or stale resources,
+  damaged signatures and invalid notarization tickets.
+- Real native tools packaged synthetic Go x86_64 + arm64 executables into ad-hoc
+  signed app/Web ZIPs and a DMG. Both CPU slices passed metadata/signature checks;
+  extracted app and Web fixtures passed native arm64 startup. The mounted DMG
+  exposed only the app and Applications shortcut (apart from filesystem metadata),
+  retained exactly the three distribution resource files, and passed signature
+  and disk-image checksum verification. Temporary fixtures were removed.
+- Version checks, shell syntax checks, actionlint 1.7.12 and `git diff --check` passed.
+
+The macOS icon and disk-image checks required execution outside the sandbox;
+inside it, iconutil and hdiutil could not complete. No application/runtime code
+changed. This validation did not rebuild or exercise the full desktop GUI,
+Intel native startup, Developer ID notarization, Windows runtime, real probe E2E
+or clean Linux container installation. Docker was not running locally; updated
+Ubuntu/Fedora installation checks remain part of CI on both supported CPUs.

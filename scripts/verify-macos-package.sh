@@ -11,9 +11,18 @@ trap 'rm -rf "$installed"' EXIT
 for product in ecaptureq ecaptureq-web; do
   archive="$product-$version-macos-universal.zip"
   (cd "$packages" && shasum -a 256 -c "$archive.sha256")
+  if [ "$product" = ecaptureq ]; then
+    python3 - "$packages/$archive" <<'PYTHON'
+import sys, zipfile
+with zipfile.ZipFile(sys.argv[1]) as archive:
+    roots = {name.split('/')[0] for name in archive.namelist() if not name.startswith('__MACOSX/')}
+    if roots != {'eCaptureQ.app'}:
+        raise SystemExit('Desktop ZIP must contain only eCaptureQ.app')
+PYTHON
+  fi
   ditto -x -k "$packages/$archive" "$installed"
 done
-app="$installed/ecaptureq-$version-macos-universal/eCaptureQ.app"
+app="$installed/eCaptureQ.app"
 web="$installed/ecaptureq-web-$version-macos-universal/ecaptureq-web"
 # A single architecture per invocation works with older and newer Xcode lipo.
 for cpu in x86_64 arm64; do

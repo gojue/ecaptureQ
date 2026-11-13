@@ -39,9 +39,16 @@ copies only public packages and the aggregate manifest to `release-bundle`.
 A later publication check verifies that manifest again, without regenerating a
 corrupted one. No old alpha.2 asset or tag is renamed or replaced.
 
-Each package contains public documentation, LICENSE/NOTICE, placeholder source
-configuration, `INSTALL.txt` and `BUILD-INFO.json`. Metadata records the source
-commit, internal kind, OS, architecture and signing status. Universal packages
+macOS desktop ZIP packages contain only `eCaptureQ.app`, without an enclosing
+version directory. DMG packages contain the app and an `Applications` shortcut.
+LICENSE, NOTICE and `BUILD-INFO.json` live inside
+`eCaptureQ.app/Contents/Resources/Distribution/`; use Finder's **Show Package
+Contents** to inspect them. Other portable archives contain only the executable,
+LICENSE, NOTICE and `BUILD-INFO.json`. Packages do not include README, docs,
+configuration examples, a frontend directory or `INSTALL.txt`; installation and
+source configuration instructions remain in the repository documentation.
+Metadata records the source commit, internal kind, OS, architecture and signing
+status. Universal packages
 also record `architectures: ["amd64", "arm64"]`; validation extracts both slices
 and checks their Go metadata. Merge inputs must have matching app resources and
 version metadata. Final signing happens **after** `lipo`, and verification covers
@@ -50,8 +57,9 @@ every architecture. The Web executable is also ad-hoc signed after merging.
 Linux packages are produced with **nFPM v2.48.0**, installed using Go **1.26.10**
 as a build tool independently of the application module. They install
 `/usr/bin/ecaptureq` or `/usr/bin/ecaptureq-web`; desktop packages also install the
-application-menu entry and official SVG icon. Documentation and metadata live in
-`/usr/share/doc/ecaptureq` or `/usr/share/doc/ecaptureq-web`. They can coexist;
+application-menu entry and official SVG icon. Build metadata lives in
+`/usr/share/doc/ecaptureq` or `/usr/share/doc/ecaptureq-web`; LICENSE and NOTICE
+are installed once under `/usr/share/licenses/<product>/`. They can coexist;
 there are no install scripts, systemd activation, collector binaries or user
 configuration changes. Uninstall leaves user-owned configuration untouched.
 
@@ -141,8 +149,8 @@ if old or expired secrets remain configured in the repository.
 
 `BUILD-INFO.json` records `signing: "adhoc"` and `notarized: false`. This describes
 signature integrity only: it does not identify an Apple-verified developer or
-make Gatekeeper automatically trust the app. The package's `INSTALL.txt` and
-[README](../README.md) explain first launch. After verifying the repository source
+make Gatekeeper automatically trust the app. The repository's
+[README](../README.md) explains first launch. After verifying the repository source
 and SHA-256 checksum, a user whose first launch is blocked can use System
 Settings → Privacy & Security → Open Anyway for this app, then confirm. Managed
 Macs may disallow this exception. Do not assume that a newer ad-hoc build inherits
@@ -173,6 +181,10 @@ With explicit `developer-id` mode and complete credentials,
 `scripts/sign-macos.sh` uses a temporary private keychain, signs with hardened
 runtime, submits via `notarytool`, waits up to 30 minutes and staples the accepted
 ticket before packaging. The signer and packager verify the signature/ticket.
+Before signing, prepare the app resources with `package-release.py --prepare-app`
+and the intended `--signing` status (`adhoc`, or `notarized` for Developer ID).
+The packaging step requires matching bundled resources and never edits a signed
+app. A successful notarization is still required before packaging `notarized`.
 Successful desktop packages record `signing: "notarized"` and `notarized: true`.
 Missing or invalid credentials, signature errors or notarization errors fail the
 release; this explicit mode never silently falls back to ad-hoc signing.
@@ -208,6 +220,7 @@ that mode; the final GitHub Release API call also needs an authorized tag releas
 ```sh
 # macOS: one SDK creates both architecture slices, then merges them.
 GOWORK=off sh scripts/build-macos-universal.sh
+python3 scripts/package-release.py --kind desktop --os darwin --arch universal --signing adhoc --prepare-app
 bash scripts/sign-macos.sh dist/eCaptureQ.app adhoc
 python3 scripts/package-release.py --kind desktop --os darwin --arch universal --signing adhoc --dmg
 python3 scripts/package-release.py --kind server --os darwin --arch universal --binary bin/ecaptureq-web-macos-universal --signing adhoc

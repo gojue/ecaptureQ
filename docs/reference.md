@@ -40,8 +40,7 @@ ecaptureq --sources ./sources.local.json --mode live
 .\eCaptureQ.exe --sources .\sources.local.json --mode live
 ```
 
-`sources.local.json` 是用户自选的配置文件；可复制包内 `config/sources.example.json`
-后修改（Linux 示例位于 `/usr/share/doc/ecaptureq/config/` 或 `/usr/share/doc/ecaptureq-web/config/`），也可从内容为 `{"sources":[]}` 的文件开始，在界面新增来源。配置文件应保持可写。
+`sources.local.json` 是用户自选的配置文件；可保存仓库中的[配置示例](../config/sources.example.json)后修改，也可从内容为 `{"sources":[]}` 的文件开始，在界面新增来源。配置文件应保持可写。
 
 默认模拟模式不需要采集器。点击顶部「实时 / 模拟」切换；`--mode` 只设置初始展示，只要配置了端点，后台接收始终继续。
 
@@ -59,7 +58,8 @@ ecaptureq --sources ./sources.local.json --mode live
 新增来源时，采集主机默认取 WebSocket 地址的主机部分，不含端口（IPv6 不带方括号）；这是可编辑的登记默认值，代理或隧道场景可改为实际采集主机。采集模块从启动命令中明确的 `ecapture tls/gotls/gnutls` 或官方别名 `openssl/tlsgo/gnu` 识别，支持可执行文件路径及常见 `sudo`、`env` 前缀。仅解析文本，不执行命令；未知参数前缀、复合命令或不完整文本保持“未登记”。自动值随地址或命令变化；手动编辑主机或模块后（包括显式清空）保留该选择，直到成功添加后重置表单。关闭面板、取消或切换语言不丢失草稿。
 
 ```sh
-cp config/sources.example.json sources.local.json
+# 从仓库保存 config/sources.example.json 后，复制为自己的配置文件
+cp sources.example.json sources.local.json
 # 编辑为自己的端点；也可从内容为 {"sources":[]} 的文件开始
 ./bin/ecaptureq-web --sources sources.local.json --mode live
 ```

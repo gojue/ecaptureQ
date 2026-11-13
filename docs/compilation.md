@@ -104,9 +104,10 @@ macOS 应用图标直接复用 `frontend/ecaptureq-logo.svg`：构建时通过�
 `CFBundleLocalizations` 声明前端自行管理的英文与简体中文资源，开发语言为英文。
 Linux 安装包把同一 SVG 安装到系统图标目录；原生应用信息使用对应的透明 PNG。
 
-分发前单独执行默认的免费 ad-hoc 签名：
+分发前先写入许可证和构建元数据，再执行默认的免费 ad-hoc 签名（单架构构建使用实际的 `amd64` 或 `arm64`）：
 
 ```sh
+python3 scripts/package-release.py --kind desktop --os darwin --arch "$(go env GOARCH)" --signing adhoc --prepare-app
 bash scripts/sign-macos.sh dist/eCaptureQ.app adhoc
 ```
 
@@ -140,10 +141,14 @@ make release-check
 
 ```sh
 GOWORK=off sh scripts/build-macos-universal.sh
+python3 scripts/package-release.py --kind desktop --os darwin --arch universal --signing adhoc --prepare-app
 bash scripts/sign-macos.sh dist/eCaptureQ.app adhoc
 python3 scripts/package-release.py --kind desktop --os darwin --arch universal --signing adhoc --dmg
 python3 scripts/package-release.py --kind server --os darwin --arch universal --binary bin/ecaptureq-web-macos-universal --signing adhoc
 ```
+
+macOS 桌面 ZIP 只包含 `eCaptureQ.app`，DMG 额外保留 `Applications` 快捷方式。许可证和构建信息位于应用内部的 `Contents/Resources/Distribution/`，必须在签名前准备，打包时会校验其一致性。
+其他便携包只保留可执行程序、`LICENSE`、`NOTICE` 和 `BUILD-INFO.json`；Linux DEB/RPM 的桌面版还安装菜单入口与系统图标。所有包均不附带 README、文档、配置示例、frontend 目录或 INSTALL.txt，使用说明请查看仓库文档。
 
 打包脚本读取已编译的程序，校验其目标架构，在 `dist/packages/` 生成压缩包与校验和；不会把整个工作目录放入产物。标签触发、版本一致性检查、完整产物清单和发布过程统一维护在 [发布指南](releases.md)。
 
