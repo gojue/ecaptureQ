@@ -14,6 +14,10 @@ Neither package includes or launches the eCapture collector.
   cap from 256 KiB to 256 MiB, while frame and total retention limits still apply.
 - More reliable browser navigation and shutdown in CI smoke tests.
 
+Packages now omit documentation and configuration examples. macOS desktop ZIP
+contains only the app; DMG also includes the Applications shortcut. Other packages
+retain the executable, licenses and build metadata, plus Linux desktop integration.
+
 ## Upgrading from v1.0.0
 
 - Rename eCaptureQ CLI flags: `--addr` → `--listen`, `--ecaptureq` → `--data-source`.
@@ -21,7 +25,7 @@ Neither package includes or launches the eCapture collector.
   is unchanged.
 - Convert the `--sources` JSON array to an object with a `sources` field, e.g.
   `[]` → `{"sources":[]}`. Optional fields are `headerCenter`, `hiddenDomains` and `auth`.
-- Web remains unauthenticated when `auth` is omitted. The bundled example enables
+- Web remains unauthenticated when `auth` is omitted. The [repository example](https://github.com/gojue/ecaptureQ/blob/main/config/sources.example.json) enables
   login with the public account `ecapture` / `ecaptureQ`; replace its password
   before deployment. Secure cookies require HTTPS by default; local HTTP testing
   requires an explicit `auth.secureCookie: false`.
@@ -39,9 +43,9 @@ See the [changelog](https://github.com/gojue/ecaptureQ/blob/main/CHANGELOG.md) a
   Desktop packages target Ubuntu 24.04 / Fedora 43 or compatible newer libraries.
   Web packages do not require a graphical desktop and do not auto-start a service.
 - Windows ZIP contains the executable; the desktop app requires WebView2.
-- Verify files against the single `SHA256SUMS`. `BUILD-INFO.json` records version,
-  source commit, architecture and actual signing status. Linux metadata and docs
-  are installed under `/usr/share/doc/ecaptureq` or `/usr/share/doc/ecaptureq-web`.
+- Verify files against the single `SHA256SUMS`. `BUILD-INFO.json` (inside `eCaptureQ.app/Contents/Resources/Distribution/` on macOS desktop) records version,
+  source commit, architecture and actual signing status. Linux metadata
+  is installed under `/usr/share/doc/ecaptureq` or `/usr/share/doc/ecaptureq-web`.
 - macOS defaults to ad-hoc signing (`signing: adhoc`, `notarized: false`), without
   Apple-authenticated developer identity or notarization. If the first launch is
   blocked, verify the source and checksum, then use System Settings → Privacy &

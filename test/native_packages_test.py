@@ -69,12 +69,21 @@ class NativePackagesTest(unittest.TestCase):
             self.assertNotIn('overrides', web)
             self.assertNotIn('scripts', web)
             self.assertEqual(web['contents'][0]['dst'], '/usr/bin/ecaptureq-web')
+            self.assertEqual({entry['dst'] for entry in web['contents']}, {
+                '/usr/bin/ecaptureq-web', '/usr/share/doc/ecaptureq-web/BUILD-INFO.json',
+                '/usr/share/licenses/ecaptureq-web/LICENSE', '/usr/share/licenses/ecaptureq-web/NOTICE',
+            })
             self.assertTrue(all('/etc/' not in entry['dst'] for entry in web['contents']))
             (stage / 'ecaptureq-web').unlink()
             (stage / 'eCaptureQ').write_text('synthetic')
             app = packager.linux_config(stage, 'desktop', 'arm64', '1.2.3-rc.1')
             self.assertEqual(app['name'], 'ecaptureq')
             self.assertEqual(app['contents'][0]['dst'], '/usr/bin/ecaptureq')
+            self.assertEqual({entry['dst'] for entry in app['contents']}, {
+                '/usr/bin/ecaptureq', '/usr/share/doc/ecaptureq/BUILD-INFO.json',
+                '/usr/share/licenses/ecaptureq/LICENSE', '/usr/share/licenses/ecaptureq/NOTICE',
+                '/usr/share/applications/ecaptureq.desktop', '/usr/share/icons/hicolor/scalable/apps/ecaptureq.svg',
+            })
             self.assertEqual(app['contents'][0]['file_info']['mode'], 0o755)
             self.assertIn('gtk4 >= 4.14', app['overrides']['rpm']['depends'])
             self.assertIn('libgtk-4-1 (>= 4.14)', app['overrides']['deb']['depends'])
@@ -88,7 +97,7 @@ class NativePackagesTest(unittest.TestCase):
             stage.mkdir()
             output = root / 'packages'
             output.mkdir()
-            for name in ('LICENSE', 'NOTICE', 'ecaptureq-web'):
+            for name in ('LICENSE', 'NOTICE', 'BUILD-INFO.json', 'ecaptureq-web'):
                 (stage / name).write_text('synthetic')
             configs = []
             def run(command, **kwargs):

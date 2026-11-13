@@ -158,6 +158,16 @@ jobs:
       - run: python3 scripts/check-version.py
       - name: Build and merge Intel and Apple Silicon applications
         run: sh scripts/build-macos-universal.sh
+      - name: Prepare bundled licenses and metadata before signing
+        env:
+          EXPECTED_MODE: ${{ needs.settings.outputs.macos-signing-mode }}
+        run: |
+          case "$EXPECTED_MODE" in
+            adhoc) signing=adhoc ;;
+            developer-id) signing=notarized ;;
+            *) exit 1 ;;
+          esac
+          python3 scripts/package-release.py --kind desktop --os darwin --arch universal --signing "$signing" --prepare-app
       - name: Sign final universal application without a certificate
         id: sign-adhoc
         if: ${{ needs.settings.outputs.macos-signing-mode == 'adhoc' }}
