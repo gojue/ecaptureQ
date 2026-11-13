@@ -9,6 +9,8 @@ import {mkdtemp,readFile,rm,writeFile,mkdir} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {gzipSync} from 'node:zlib';
+import {EventEmitter} from 'node:events';
+import {navigateDocument} from './browser-navigation.mjs';
 
 const base = new URL(process.argv[2] || 'http://127.0.0.1:28257/');
 const authUser = process.env.SMOKE_AUTH_USER, authPassword = process.env.SMOKE_AUTH_PASSWORD;
@@ -35,12 +37,12 @@ async function waitForBrowserClose(milliseconds) {
     return await Promise.race([browserClosed.then(()=>true),new Promise(resolve=>{timer=setTimeout(()=>resolve(false),milliseconds);})]);
   } finally { clearTimeout(timer); }
 }
-let ws,nextID=0;const pending=new Map(),listeners=new Map();
+let ws,nextID=0;const pending=new Map(),events=new EventEmitter();
 function send(method,params={},sessionId) {
   const id=++nextID;
   return new Promise((resolve,reject)=>{
     const timer=setTimeout(()=>{pending.delete(id);reject(new Error('CDP timeout: '+method));},15000);
-    pending.set(id,{resolve:result=>{clearTimeout(timer);resolve(result);},reject:error=>{clearTimeout(timer);reject(error);}});
+    pending.set(id,{resolve:result=>{clearTimeout(timer);resolve(result);},reject:error=>{clearTimeout(timer);reject(new Error(`CDP ${method}: ${error.message}`,{cause:error}));}});
     ws.send(JSON.stringify({id,method,params,...(sessionId?{sessionId}:{})}));
   });
 }
@@ -131,7 +133,7 @@ async function resize(sessionId,width) {
 }
 async function reload(sessionId) {
   await evaluate(sessionId,'globalThis.__smokeReloadMarker=true');
-  await send('Page.reload',{},sessionId);
+  await navigateDocument({send,events,sessionId,trigger:()=>send('Page.reload',{},sessionId)});
   await until(sessionId,"!globalThis.__smokeReloadMarker && document.querySelector('#loading')?.hidden && document.querySelectorAll('.request-row').length > 0");
 }
 async function createPage(script) {
@@ -143,7 +145,7 @@ async function createPage(script) {
   await send('Page.addScriptToEvaluateOnNewDocument',{source:"Object.defineProperty(navigator,'language',{value:'zh-CN'});Object.defineProperty(navigator,'languages',{value:['zh-CN','zh']});"},sessionId);
   await send('Network.setBlockedURLs',{urls:['*forbidden.invalid*']},sessionId);
   if(script)await send('Page.addScriptToEvaluateOnNewDocument',{source:script},sessionId);
-  await send('Page.navigate',{url:base.href},sessionId);
+  await navigateDocument({send,events,sessionId,trigger:()=>send('Page.navigate',{url:base.href},sessionId)});
   if(authUser) {
     await until(sessionId,"!!document.querySelector('#login-form') || (document.querySelector('#loading')?.hidden && document.querySelectorAll('.request-row').length > 0)");
     if(await evaluate(sessionId,"!!document.querySelector('#login-form')")) {
@@ -167,7 +169,7 @@ async function createPage(script) {
       }
       await editText(sessionId,'#username',authUser);
       await editText(sessionId,'#password',authPassword);
-      await pointerClick(sessionId,'#login-submit');
+      await navigateDocument({send,events,sessionId,trigger:()=>pointerClick(sessionId,'#login-submit')});
     }
   }
   await until(sessionId,"document.querySelector('#loading')?.hidden && document.querySelectorAll('.request-row').length > 0");
@@ -197,7 +199,7 @@ try {
     if(message.id){const item=pending.get(message.id);if(!item)return;pending.delete(message.id);message.error?item.reject(new Error(message.error.message)):item.resolve(message.result);}
     else {
       if(message.method==='Runtime.exceptionThrown')exceptions.push(message.params.exceptionDetails);
-      listeners.get(message.method)?.(message);
+      events.emit(message.method,message);
     }
   });
   const session=await createPage();
@@ -598,7 +600,7 @@ try {
   fixture.mode='mock';
   const script=`{const fixture=${JSON.stringify(fixture)};const originalFetch=globalThis.fetch;globalThis.fetch=(url,options)=>{const path=new URL(url,location.href).pathname;if(path.endsWith('/api/workspace'))return Promise.resolve(new Response(JSON.stringify(fixture)));if(path.endsWith('/api/status') || path.endsWith('/api/changes'))return Promise.resolve(new Response(JSON.stringify(fixture.status)));return originalFetch(url,options);};}`;
   const blockedRequests=[];
-  listeners.set('Network.requestWillBeSent',message=>{if(message.params.request.url.includes('forbidden.invalid'))blockedRequests.push(message.params.request.url);});
+  events.on('Network.requestWillBeSent',message=>{if(message.params.request.url.includes('forbidden.invalid'))blockedRequests.push(message.params.request.url);});
   const security=await createPage(script);
   await click(security,'[data-tab="response"]');
   await until(security,"!!document.querySelector('iframe.preview-frame')");
@@ -624,7 +626,7 @@ try {
   if(authUser) {
     assert.equal(await evaluate(session,"document.querySelector('#logout').hidden"),false);
     assert.ok(await evaluate(session,"!document.cookie.includes('ecaptureq_session_')"),'Session cookie is accessible to JavaScript');
-    await pointerClick(session,'#logout');
+    await navigateDocument({send,events,sessionId:session,trigger:()=>pointerClick(session,'#logout')});
     await until(session,"!!document.querySelector('#login-form')");
     assert.equal(await evaluate(session,"(async()=>{return (await fetch('api/workspace')).status})()"),401);
     console.log('PASS auth: protected APIs, wrong-password error, login cookie, mobile login, authenticated workflow and logout');
@@ -638,6 +640,9 @@ try {
     proc.kill('SIGTERM');
     if(!await waitForBrowserClose(3000)){proc.kill('SIGKILL');await waitForBrowserClose(3000);}
   }
+  // A Chrome helper may inherit stderr after the browser itself has exited.
+  // Release our pipe so that helper cannot keep the Node test process alive.
+  if(proc.exitCode!==null || proc.signalCode!==null)proc.stderr.destroy();
   // Chromium may finish a profile write as it shuts down. Retry only the
   // filesystem's transient removal errors; persistent cleanup failures fail CI.
   await rm(profile,{recursive:true,force:true,maxRetries:10,retryDelay:100});
