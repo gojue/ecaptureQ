@@ -77,38 +77,45 @@ CI artifacts expire after 7 days; published Release assets remain available.
 
 ## Publishing a version
 
-1. Update `VERSION`, `package.json` and `build/desktop/Info.plist` together.
+1. Update `VERSION`, `package.json`, `internal/version/version.go` and
+   `build/desktop/Info.plist` together (use `1.1.0`, without the tag prefix `v`).
    `ECaptureQVersion` is the full semantic version, while
    `CFBundleShortVersionString` is numeric major.minor.patch. Update
-   `CFBundleVersion` when the macOS build number changes.
+   `CFBundleVersion` when the macOS build number changes (v1.1.0 uses build `4`).
+   Update `CHANGELOG.md`, `docs/release-notes.md` and `docs/upgrade.md` with the
+   release changes and migration steps; keep the changelog marked pending until
+   publication and record the actual release date then.
 2. Run `make check`, `make release-check`, native builds and the relevant runtime
    acceptance. Check the branch's hosted CI and downloadable packages.
 3. After deciding to publish, push a `v`-prefixed tag matching `VERSION` on the
-   intended commit. For example, VERSION `1.0.0-alpha.3` requires tag
-   `v1.0.0-alpha.3`. The workflow checks an existing tag and never creates one.
+   intended commit. For example, VERSION `1.1.0` requires tag
+   `v1.1.0`. The workflow checks an existing tag and never creates one.
 4. `Release` runs validation and builds before creating the release. A version
    with a SemVer prerelease suffix is marked prerelease and not latest; a stable
    version is marked latest. Notes combine `docs/release-notes.md` and GitHub's
-   generated changelog. Review that file when the product's release scope changes.
+   generated changelog; `CHANGELOG.md` is the maintained version history and is
+   linked from the release notes. Review both files when the release scope changes.
 
 The repository's default branch is `main`. After the reviewed changes have been
 committed and merged, use a clean checkout of that branch to tag the reviewed
 commit. **Creating a local tag alone does not start GitHub Actions**: the tag must
-be pushed to `origin`. For the current `1.0.0-alpha.3` version:
+be pushed to `origin`. The commands below are for a future, explicitly authorized
+publication of `v1.1.0`; release preparation alone does not authorize tagging or pushing:
 
 ```sh
 git fetch origin main
 git switch main
 git pull --ff-only origin main
 git status --short
-python3 scripts/check-version.py --tag v1.0.0-alpha.3
+python3 scripts/check-version.py --tag v1.1.0
 # Run these two commands only when ready to publish the reviewed version:
-git tag -a v1.0.0-alpha.3 -m "eCaptureQ v1.0.0-alpha.3"
-git push origin refs/tags/v1.0.0-alpha.3
+git tag -a v1.1.0 -m "eCaptureQ v1.1.0"
+git push origin refs/tags/v1.1.0
 ```
 
-The published `v1.0.0-alpha.2` remains unchanged. This branch prepares
-`1.0.0-alpha.3`; no new tag is created by changing version files or opening a PR.
+This branch prepares **v1.1.0 (not yet published)**. Existing releases, including
+`v1.0.0` and the alpha tags, remain unchanged. Updating version files or opening
+a PR does not create a tag or publish a release.
 
 If choosing another version, update all version files before committing and use
 the matching tag instead. Do not reuse or overwrite an existing release tag. On
@@ -181,7 +188,7 @@ even when compilation, signing integrity and packaging pass.
 ## Verify without publishing
 
 ```sh
-python3 scripts/check-version.py --tag v1.0.0-alpha.3
+python3 scripts/check-version.py --tag v1.1.0
 python3 -B -m unittest discover -s test -p '*_test.py'
 go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 -shellcheck=''
 ```

@@ -7,4 +7,4 @@
 package version
 
 // Version is the semantic version of this build without a leading "v".
-var Version = "1.0.0"
+var Version = "1.1.0"
