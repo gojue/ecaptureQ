@@ -1,8 +1,24 @@
 # eCaptureQ 新版使用与升级说明
 
 eCaptureQ 沿用原产品名称和 `gojue/ecaptureQ` 仓库，采用全新的 Go + Wails
-实现。当前准备的预发布版本为 `1.0.0-alpha.3`；可下载状态以 Releases 页面为准。本说明描述新实现的使用
+实现。当前准备的版本为 **v1.1.0（待发布）**；可下载状态以 Releases 页面为准。本说明描述新实现的使用
 边界，不承诺旧 Tauri 客户端的功能或配置兼容。
+
+## 从 v1.0.0 升级到 v1.1.0
+
+1. 更新启动脚本：eCaptureQ 的 `--addr` 改为 `--listen`，`--ecaptureq`
+   改为 `--data-source`，旧名称不再接受。上游采集器 `ecapture` 的
+   `--ecaptureq` 参数保持不变。
+2. 更新 `--sources` 文件：顶层 JSON 数组改为对象，将原数组放入 `sources`
+   字段，例如 `[]` 改为 `{"sources":[]}`。可按需添加 `headerCenter`、
+   `hiddenDomains` 和 Web 专用的 `auth`，字段说明见[使用参考](reference.md)。
+3. 如需 Web 登录，配置 `auth`，并用 `ecaptureq-web --hash-password` 生成密码哈希。
+   未配置 `auth` 时仍免登录；Desktop 不启用此认证。随包示例使用公开账号
+   `ecapture` / `ecaptureQ`，部署前必须更换密码。默认安全 Cookie 需要 HTTPS，
+   本机纯 HTTP 调试需显式设置 `auth.secureCookie: false`。
+
+v1.1.0 新增 loong64 Web DEB/RPM，不提供该架构的桌面包。启动时的更新检查仅
+提示较新的稳定版，不自动下载或安装。完整变化见[更新日志](../CHANGELOG.md)。
 
 ## 首次启动
 
@@ -44,10 +60,10 @@ macOS 新版桌面包默认使用 ad-hoc 签名，未经 Apple 公证。首次�
 不要将旧 Tauri 版本的包与新版 `desktop` / `server` 包混用。维护者审核后推送
 匹配版本的标签，才会触发新版构建和发布，具体流程见 [发布指南](releases.md)。
 
-## alpha.3 安装包变化
+## 从旧安装包迁移
 
 应用包统一以 `ecaptureq-` 开头，浏览器部署包以 `ecaptureq-web-` 开头；
 安装后的 Web 命令改为 `ecaptureq-web`，自行维护的启动脚本需相应修改。
 macOS 使用同一份 universal 包，Linux 改用 DEB/RPM，应用菜单入口为 eCaptureQ。
 Linux 的两个包可以共存，安装不启动采集器或 Web 服务，也不导入旧配置。
-旧 alpha.2 标签和下载文件保持不变，包格式变化不是旧 Tauri 数据的自动迁移。
+历史标签和下载文件保持不变，包格式变化不是旧 Tauri 数据的自动迁移。

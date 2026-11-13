@@ -50,7 +50,7 @@ eCaptureQ 将 eCapture 采集到的网络消息，转化为**可搜索、可关�
 
 ### 1. 选择下载包
 
-从 [Releases](https://github.com/gojue/ecaptureQ/releases) 下载 **eCaptureQ 应用**，安装后直接打开即可。下面的新命名和原生安装包从 `1.0.0-alpha.3` 开始；此前版本的文件名保持不变。尚未发布时，可在成功的 [CI 运行](https://github.com/gojue/ecaptureQ/actions/workflows/ci.yml) 中下载 `release-bundle` 预览包。
+从 [Releases](https://github.com/gojue/ecaptureQ/releases) 下载 **eCaptureQ 应用**，安装后直接打开即可。当前正在准备 **v1.1.0**，变更和升级注意事项见 [更新日志](CHANGELOG.md)；可下载版本以 Releases 页面为准。尚未发布时，可在成功的 [CI 运行](https://github.com/gojue/ecaptureQ/actions/workflows/ci.yml) 中下载 `release-bundle` 预览包。
 
 | 系统 | 推荐下载 | CPU 选择 |
 | --- | --- | --- |
