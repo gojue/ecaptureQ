@@ -16,35 +16,42 @@ import (
 	"testing"
 	"time"
 
-	pb "github.com/gojue/ecapture/v2/protobuf/gen/v1"
+	"github.com/coder/websocket"
+	pb "github.com/gojue/ecapture/v2/protobuf/gen/v2"
 	"github.com/gojue/ecaptureq/frontend"
 	"github.com/gojue/ecaptureq/internal/app"
-	"golang.org/x/net/websocket"
 	"google.golang.org/protobuf/proto"
 )
 
 func TestLiveAndMockHTTPIsolationAndPagedDetails(t *testing.T) {
-	source := httptest.NewServer(websocket.Handler(func(conn *websocket.Conn) {
-		defer conn.Close()
+	source := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{Subprotocols: []string{"ecapture.v2"}, OriginPatterns: []string{"localhost"}})
+		if err != nil {
+			return
+		}
+		defer conn.CloseNow()
+		if conn.Subprotocol() != "ecapture.v2" {
+			t.Error("missing v2 subprotocol")
+			return
+		}
 		for i := 0; i < 451; i++ {
 			body := "captured payload"
 			if i == 1 {
 				body = "DeepBodyToken"
 			}
 			payload := fmt.Sprintf("POST /item/%d HTTP/1.1\r\nHost: example.test\r\nContent-Length: %d\r\n\r\n%s", i, len(body), body)
-			event := &pb.Event{Uuid: fmt.Sprintf("connection-%d", i), Pid: 42, Pname: "fixture", Payload: []byte(payload), CaptureFormat: pb.CaptureFormat_CAPTURE_FORMAT_TEXT}
+			event := &pb.Event{CaptureFormat: pb.CaptureFormat_CAPTURE_FORMAT_TEXT, Content: &pb.Event_Text{Text: &pb.TextEvent{Uuid: fmt.Sprintf("connection-%d", i), Pid: 42, Pname: "fixture", Payload: []byte(payload), Length: uint32(len(payload))}}}
 			entry := &pb.LogEntry{LogType: pb.LogType_LOG_TYPE_EVENT, Payload: &pb.LogEntry_EventPayload{EventPayload: event}}
 			data, err := proto.Marshal(entry)
 			if err != nil {
 				t.Error(err)
 				return
 			}
-			if err = websocket.Message.Send(conn, data); err != nil {
+			if err = conn.Write(r.Context(), websocket.MessageBinary, data); err != nil {
 				return
 			}
 		}
-		var data []byte
-		_ = websocket.Message.Receive(conn, &data)
+		_, _, _ = conn.Read(r.Context())
 	}))
 	defer source.Close()
 	opts := app.DefaultOptions()

@@ -76,3 +76,25 @@ test('fetch timeout works without AbortSignal.timeout',async () => {
     signal.addEventListener('abort',()=>reject(new DOMException('timeout','AbortError')),{once:true});
   })),{name:'AbortError'});
 });
+
+
+test('native artifact saves send only validated session and artifact IDs',async()=>{
+  const calls=[];
+  const platform=createPlatformAdapter({fetch:async(url,options)=>{
+    calls.push({url,options});return json(url==='api/platform'?{desktop:true}:{saved:true});
+  }});
+  const artifact={session:'2026-11-18T01:02:03.123Z',id:'abc012',bytes:999999999,filename:'untrusted.pcapng'};
+  await platform.exportArtifact(artifact);
+  assert.equal(calls[1].url,'api/platform/export-artifact');
+  assert.deepEqual(JSON.parse(calls[1].options.body),{session:artifact.session,id:artifact.id,locale:'en'});
+  assert.equal(calls[1].options.headers['X-Ecapture-UI'],'1');
+  await assert.rejects(platform.exportArtifact({session:'s',id:'../etc/passwd'}));
+});
+test('browser artifact downloads stream from relative authenticated URLs without reading bytes',async()=>{
+  const nodes=[];
+  const document={body:{appendChild(node){nodes.push(node);}},createElement(tag){assert.equal(tag,'a');return {click(){this.clicked=true;},remove(){this.removed=true;}};}};
+  const platform=createPlatformAdapter({fetch:async url=>{assert.equal(url,'api/platform');return json({desktop:false});},document,Blob:class {constructor(){throw new Error('must not buffer native bytes');}}});
+  await platform.exportArtifact({session:'2026-11-18T01:02:03Z',id:'abc012'});
+  assert.equal(nodes[0].href,'api/artifacts/download?session=2026-11-18T01%3A02%3A03Z&id=abc012');
+  assert.ok(nodes[0].clicked&&nodes[0].removed);
+});

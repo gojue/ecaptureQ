@@ -165,6 +165,10 @@ type sessionWriter struct {
 	wrote, rejected bool
 }
 
+// Preserve response controls (including finite streaming download deadlines)
+// through the authentication guard without bypassing its Write methods.
+func (w *sessionWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+
 func (w *sessionWriter) WriteHeader(code int) {
 	if w.wrote {
 		return

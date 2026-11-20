@@ -68,10 +68,8 @@ previews, prevention of evicted-request resurrection, and the product/module/bui
 identity update to eCaptureQ. The protocol viewers, source persistence/validation
 and core mapper regressions are retained from the new implementation.
 
-The official Protobuf package remains the only wire-protocol source. Initial
-integration required an ignored workspace because the required fields were not yet
-public. They are now available in official commit
-`f6c0df58575ca3027ef5baf74c4488c94a263169`, pinned through the downloadable version
-`v2.10.1-0.20261108050605-f6c0df58575c`. Normal builds no longer require that local
-workspace. Dependency provenance is in [upstream-status.md](upstream-status.md);
-current independent-build evidence is in [verification.md](verification.md).
+The official Protobuf package remains the only wire-protocol source. The earlier
+v1 migration replaced its temporary workspace with public commit
+`f6c0df58575ca3027ef5baf74c4488c94a263169`; its historical evidence is in
+[verification.md](verification.md). Current v2 dependency provenance is in
+[upstream-status.md](upstream-status.md).

@@ -5,11 +5,13 @@ package platform
 
 import (
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/gojue/ecaptureq/internal/app"
 	"github.com/gojue/ecaptureq/internal/httpapi"
 )
 
@@ -29,6 +31,72 @@ func (n *fakeNative) SaveFile(filename, content, locale string) (bool, error) {
 }
 func (n *fakeNative) CopyText(text string) error { n.calls++; n.value = text; return n.err }
 func (n *fakeNative) OpenURL(url string) error   { n.calls++; n.value = url; return n.err }
+
+func (n *fakeNative) SaveArtifact(filename string, content io.Reader, locale string) (bool, error) {
+	data, err := io.ReadAll(content)
+	if err != nil {
+		return false, err
+	}
+	return n.SaveFile(filename, string(data), locale)
+}
+
+type fakeArtifactSource struct{ manager *app.ArtifactManager }
+
+func (s fakeArtifactSource) OpenArtifact(session, id string) (*app.ArtifactReader, error) {
+	return s.manager.Open(session, id)
+}
+
+func TestNativeArtifactExportStreamsAuthorizedBytes(t *testing.T) {
+	m, err := app.NewArtifactManager(app.NativeOptions{Dir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer m.Close()
+	a, err := m.Begin("session", "source", "synthetic", "tls", "pcapng", 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Deliberately unfinished binary bytes: exported as .partial, never complete.
+	data := []byte{0x0a, 0x0d, 0x0d, 0x0a, 0x00, 0xff, 0x00}
+	_, _ = a.Write(data)
+	_ = a.Finish(false, "synthetic interruption")
+	info := m.List()[0]
+	for _, saved := range []bool{false, true} {
+		native := &fakeNative{saved: saved}
+		h := Wrap(http.NotFoundHandler(), native, httpapi.Policy{AdditionalOrigins: []string{"wails://localhost"}}, fakeArtifactSource{m})
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, request("/api/platform/export-artifact", `{"session":"session","id":"`+info.ID+`","locale":"zh-CN"}`))
+		if w.Code != 200 || native.calls != 1 || native.value != info.Filename+":"+string(data) || native.locale != "zh-CN" {
+			t.Fatalf("binary export: %d %s %q", w.Code, w.Body, native.value)
+		}
+		if saved && !strings.Contains(w.Body.String(), `"saved":true`) || !saved && !strings.Contains(w.Body.String(), `"cancelled":true`) {
+			t.Fatal(w.Body)
+		}
+	}
+	for _, body := range []string{
+		`{"session":"other","id":"` + info.ID + `"}`,
+		`{"session":"session","id":"../secret"}`,
+		`{"session":"session","id":"` + info.ID + `","path":"/private/file"}`,
+		`{"session":"session","id":"` + info.ID + `","locale":"fr"}`,
+	} {
+		native := &fakeNative{}
+		h := Wrap(http.NotFoundHandler(), native, httpapi.Policy{AdditionalOrigins: []string{"wails://localhost"}}, fakeArtifactSource{m})
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, request("/api/platform/export-artifact", body))
+		if (w.Code != 400 && w.Code != 404) || native.calls != 0 {
+			t.Fatalf("untrusted binary request: %d %s", w.Code, w.Body)
+		}
+	}
+	native := &fakeNative{}
+	h := Wrap(http.NotFoundHandler(), native, httpapi.Policy{AdditionalOrigins: []string{"wails://localhost"}}, fakeArtifactSource{m})
+	r := request("/api/platform/export-artifact", `{"session":"session","id":"`+info.ID+`"}`)
+	r.Header.Set("Origin", "https://foreign.test")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	if w.Code != 403 || native.calls != 0 {
+		t.Fatal("binary save bypassed origin policy")
+	}
+}
 
 func request(path, body string) *http.Request {
 	r := httptest.NewRequest(http.MethodPost, "wails://localhost"+path, strings.NewReader(body))

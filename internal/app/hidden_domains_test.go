@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	pb "github.com/gojue/ecapture/v2/protobuf/gen/v1"
+	pb "github.com/gojue/ecapture/v2/protobuf/gen/v2"
 )
 
 func TestIsHiddenHost(t *testing.T) {
@@ -73,15 +73,14 @@ func TestHiddenDomainExclusionPreservesAssociation(t *testing.T) {
 }
 
 func githubFixtureEvent(uuid, payload string) *pb.LogEntry {
-	event := &pb.Event{
+	event := &pb.TextEvent{
 		Uuid:           uuid,
 		Pid:            42,
 		Pname:          "fixture",
-		CaptureFormat:  pb.CaptureFormat_CAPTURE_FORMAT_TEXT,
 		Payload:        []byte(payload),
 		Length:         uint32(len(payload)),
 		OriginalLength: uint32(len(payload)),
 		Timestamp:      time.Now().Unix(),
 	}
-	return &pb.LogEntry{LogType: pb.LogType_LOG_TYPE_EVENT, Payload: &pb.LogEntry_EventPayload{EventPayload: event}}
+	return &pb.LogEntry{LogType: pb.LogType_LOG_TYPE_EVENT, Payload: &pb.LogEntry_EventPayload{EventPayload: &pb.Event{CaptureFormat: pb.CaptureFormat_CAPTURE_FORMAT_TEXT, Content: &pb.Event_Text{Text: event}}}}
 }

@@ -3,11 +3,11 @@ import { apiFetch as fetch } from './api.js';
 import { presentationNote, processName, recordPlaceholderTitle, recordPlaceholderHost } from './presentation.js';
 import { displayConnectionId } from './connection-display.js';
 import { initLayout } from './layout.js';
-import { initSourceMetadata } from './source-form.js';
+import { formatCollectorCommand } from './source-form.js';
 import { protocolViews } from './protocol-viewers.js';
 import { contentCodings, decodeHTTPBody, serverInflate, maxDecodedBodyBytes } from './http-body.js';
 import { platform, fetchWithTimeout } from './platform.js';
-import { checkForUpdate } from './update-check.js';
+import { checkForUpdate, normalizeVersion } from './update-check.js';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -183,7 +183,7 @@ function renderList({scrollToSelected = false, preserveDetail = false} = {}) {
   $('#request-list').innerHTML = list.length ? list.map((request,index) => {
     const statusClass = isError(request) ? 'error' : ['pending','partial'].includes(request.state) ? 'pending' : !isHTTP(request) || request.status >= 300 ? 'redirect' : '';
     const label = shortStatus(request), op = operation(request), title = recordTitle(request);
-    return `<button class="request-row request-grid ${state.selected === request.id ? 'selected' : ''} ${request.fresh ? 'fresh' : ''}" data-request="${escapeHTML(request.id)}" data-family="${escapeHTML(family(request))}" role="listitem" aria-label="${escapeHTML(request.protocol+' '+op+' '+title+'，'+label)}" aria-current="${state.selected === request.id}"><span class="row-index col-index">${state.bookmarks.has(request.id) ? icon('star') : String((workspace.page?.index || 0)*(workspace.page?.size || 0)+index+1).padStart(2,'0')}</span><span class="status-code ${statusClass}" title="${escapeHTML(label)}">${escapeHTML(label)}</span><span class="row-method ${safeClass(isHTTP(request) ? op : family(request))}" title="${escapeHTML(op)}">${escapeHTML(op)}</span><span class="row-name"><span class="row-path" title="${escapeHTML(title)}">${escapeHTML(title)}</span><span class="row-host"><span class="inline-protocol">${escapeHTML(request.protocol)}</span>${request.real ? ' · '+escapeHTML(sourceFor(request)?.capture?.module || request.sourceId) : ''} · ${escapeHTML(recordPlaceholderHost(request) || request.host || t("主机未提供"))}</span></span><span class="col-duration ${request.durationMs >= 1000 ? 'slow' : ''}">${duration(request.durationMs)}</span><span class="col-size">${bytes(request.sizeBytes)}</span></button>`;
+    return `<button class="request-row request-grid ${state.selected === request.id ? 'selected' : ''} ${request.fresh ? 'fresh' : ''}" data-request="${escapeHTML(request.id)}" data-family="${escapeHTML(family(request))}" role="listitem" aria-label="${escapeHTML(request.protocol+' '+op+' '+title+'，'+label)}" aria-current="${state.selected === request.id}"><span class="row-index col-index">${state.bookmarks.has(request.id) ? icon('star') : String((workspace.page?.index || 0)*(workspace.page?.size || 0)+index+1).padStart(2,'0')}</span><span class="status-code ${statusClass}" title="${escapeHTML(label)}">${escapeHTML(label)}</span><span class="row-method ${safeClass(isHTTP(request) ? op : family(request))}" title="${escapeHTML(op)}">${escapeHTML(op)}</span><span class="row-name"><span class="row-path" title="${escapeHTML(title)}">${escapeHTML(title)}</span><span class="row-host"><span class="inline-protocol">${escapeHTML(request.protocol)}</span>${request.real ? ' · '+escapeHTML(request.metadata?.module || request.sourceId) : ''} · ${escapeHTML(recordPlaceholderHost(request) || request.host || t("主机未提供"))}</span></span><span class="col-duration ${request.durationMs >= 1000 ? 'slow' : ''}">${duration(request.durationMs)}</span><span class="col-size">${bytes(request.sizeBytes)}</span></button>`;
   }).join('') : `<div class="empty-list">${icon(state.mode === 'live' && !(workspace.page?.retained ?? requests.length) ? 'activity' : 'search','large-icon')}<h3>${state.mode === 'live' && !(workspace.page?.retained ?? requests.length) ? t("等待真实采集事件") : state.scope === 'starred' && !state.bookmarks.size ? t("还没有标记的记录") : t("没有匹配的记录")}</h3><p>${state.mode === 'live' && !(workspace.page?.retained ?? requests.length) ? t("连接状态可在右上角查看；采集器连接后，新流量会自动出现。") : state.scope === 'starred' && !state.bookmarks.size ? t("点击详情右上角的星标，留住排查线索") : t("试试其他协议、进程或关键词")}</p><button ${state.mode === 'live' && !(workspace.page?.retained ?? requests.length) ? 'data-open-connection' : 'data-reset-filters'}>${state.mode === 'live' && !(workspace.page?.retained ?? requests.length) ? t("查看数据源") : t("查看全部流量")}</button></div>`;
   const page = isPaged() ? workspace.page : null;
   $('#list-summary').textContent = page ? t("显示 {p0}–{p1} / {p2} 条",{p0:list.length ? page.index*page.size+1 : 0,p1:page.index*page.size+list.length,p2:page.total}) : t("显示 {p0} / {p1} 条记录",{p0:list.length,p1:requests.length});
@@ -437,7 +437,7 @@ function renderProtocolPayload(record) {
     const content = data.length ? `<div class="code-window ${state.wrap ? 'wrap' : ''}"><pre aria-label="${escapeHTML(part.label)}"><code>${lines.map((line,index) => `<span class="code-line"><span class="line-no" aria-hidden="true">${index+1}</span><span class="line-text">${json ? highlightJSON(line) : escapeHTML(line) || ' '}</span></span>`).join('')}</code></pre></div>` : `<div class="empty-body">${icon('code')}<strong>${record.metadata?.kind === 'datagram' ? t("空 DATAGRAM · 0 字节") : t("此事件没有载荷")}</strong><span>${record.metadata?.kind === 'datagram' ? t("空数据报是有效事件，保留数据报边界") : t("仍可在协议详情中检查事件字段")}</span></div>`;
     return `<section class="body-section protocol-payload"><h3 class="section-heading">${escapeHTML(part.label)}<span class="heading-end">${bytes(data.length)}</span></h3>${content}<div class="body-meta"><span>${data.length ? t("{count} 行",{count:lines.length}) : t("0 字节")}</span><span>${part.encoding === 'hex' ? t("二进制 · Hex") : 'UTF-8'}</span></div></section>`;
   }).join('');
-  const note = presentationNote(record) || (record.metadata?.displayTruncated ? t("载荷超过显示上限，当前仅展示捕获内容的前缀。") : family(record) === 'raw' ? t("保留原始事件载荷与元数据；尚未映射为完整的应用消息。") : '');
+  const note = record.metadata?.parseError ? t("载荷解析失败：{error}",{error:record.metadata.parseError}) : presentationNote(record) || (record.metadata?.displayTruncated ? t("载荷超过显示上限，当前仅展示捕获内容的前缀。") : family(record) === 'raw' ? t("保留原始事件载荷与元数据；尚未映射为完整的应用消息。") : '');
   $('#tab-content').innerHTML = `${note ? `<div class="record-note">${icon('info')}<span>${escapeHTML(note)}</span></div>` : ''}<div class="body-toolbar payload-toolbar"><div class="viewer-tabs" aria-label="${t("载荷显示方式")}">${[['pretty',t("格式化")],['raw',t("原文")],['hex','Hex']].map(([id,label]) => `<button data-viewer="${id}" class="${state.viewer === id ? 'active' : ''}" aria-pressed="${state.viewer === id}">${label}</button>`).join('')}</div><div class="body-tools"><button class="icon-button compact ${state.wrap ? 'active' : ''}" data-wrap aria-label="${t("自动换行")}" aria-pressed="${state.wrap}">${icon('wrap')}</button><button class="icon-button compact" data-copy-body aria-label="${t("复制载荷")}" title="${t("复制载荷")}">${icon('copy')}</button></div></div>${panels}`;
 }
 function renderConnection(request,process) {
@@ -446,17 +446,20 @@ function renderConnection(request,process) {
   const source = family(request) === 'mysql' ? t("mysqld hook · SQL 查询事件") : family(request) === 'quic' ? t("解密后的 QUIC 流 / 数据报事件") : family(request) === 'raw' ? t("原始事件") : t("解密后的应用协议消息");
   const quicContext = family(request) === 'quic' || request.protocol === 'HTTP/3' ? `<h3 class="connection-heading">${t("QUIC 上下文")}</h3>${fields([[t("版本"),m.quicVersion ?? m.version],['Connection ID',m.cid],...(m.kind === 'datagram' ? [] : [['Stream ID',request.streamId ?? m.streamId]]),...(isHTTP(request) ? [['ALPN',m.alpn],['QPACK',m.qpack]] : [[t("加密级别"),m.encryptionLevel]])])}` : '';
   const direction = {client_to_server:t("客户端 → 服务端"),server_to_client:t("服务端 → 客户端"),read:t("进程读取"),write:t("进程写入")}[request.direction] || request.direction;
-  const owners = [{...process,...(request.real ? {command:request.processCommand || '',commandTruncated:request.processCommandTruncated} : {})},request.responseProcess].filter(Boolean).filter((item,index,all) => all.findIndex(other => other.id === item.id) === index);
-  const commands = owners.map(item => [owners.length > 1 ? t("进程命令 · {p0}",{p0:processLabel(item)}) : t("进程命令"),item.command ? item.command+(item.commandTruncated ? t("（已截断，最多 256 字节）") : '') : t("未提供")]);
+  const owner = {...process,...(request.real ? {command:request.processCommand || '',commandTruncated:request.processCommandTruncated} : {})};
+  const peer = request.responseProcess?.id !== owner.id && request.responseProcess?.pid > 0 ? request.responseProcess : null;
+  const ownerFields = item => [[t("进程名"),processName(item)],[t("进程 PID"),processLabel(item)],[t("进程命令"),item.command ? item.command+(item.commandTruncated ? t("（已截断，最多 256 字节）") : '') : t("未提供")]];
+  const peerProcess = peer ? `<details class="event-metadata observed-process"><summary>${t("响应事件中的另一采集进程")}</summary><p class="tls-note">${t("此进程也位于采集主机；未获取远端进程信息。")}</p>${fields(ownerFields(peer))}</details>` : '';
   const tls = m.tls && typeof m.tls === 'object' && !Array.isArray(m.tls) ? m.tls : null;
   const tlsValue = key => typeof tls?.[key] === 'string' ? tls[key] : null;
-  const expectsTLS = request.real && ['tls','gotls','gnutls'].includes(sourceFor(request)?.capture?.module);
+  const expectsTLS = request.real && ['tls','gotls','gnutls'].includes(request.metadata?.module);
   const tlsContext = tls ? `<section class="tls-context"><h3 class="connection-heading">${t("TLS 握手")}</h3>${fields([
     [t("TLS 版本"),tlsValue('version')],[t("密码套件"),tlsValue('cipher_suite')],[t("套件编号"),tlsValue('cipher_suite_id')],
     ['SNI',tlsValue('server_name')],[t("客户端 ALPN"),tlsValue('offered_alpn')],[t("协商 ALPN"),tlsValue('alpn')],[t("密钥交换组"),tlsValue('key_exchange_group')],
     [t("签名算法"),tlsValue('signature_algorithm')],[t("JA3 · 客户端"),tlsValue('ja3')],[t("JA4 · 客户端"),tlsValue('ja4')]
   ])}<p class="tls-note">${t("JA3 / JA4 来自客户端首次线上 ClientHello")}${tlsValue('client_hello') === 'initial_outer' ? '（ECH Outer）' : ''}${t("；协商参数来自服务端握手。未提供表示当前事件中没有该字段。")}</p>${tlsValue('ja3_raw') ? `<details class="event-metadata"><summary>${t("JA3 原始指纹")}</summary><pre>${escapeHTML(tls.ja3_raw)}</pre></details>` : ''}</section>` : expectsTLS ? `<section class="tls-context"><h3 class="connection-heading">${t("TLS 握手")}</h3><p class="tls-note">${t("当前事件未提供 TLS 握手信息。JA3、JA4 和协商参数需要由采集器传入，不能从 HTTP 内容推断。")}</p></section>` : '';
-  $('#tab-content').innerHTML = `<div class="connection-content"><div class="connection-process">${avatar(process)}<div><strong>${escapeHTML(processName(process))}</strong><p>${escapeHTML(processLabel(process))} · ${escapeHTML(process.kind || '')}</p></div></div><h3 class="connection-heading">${t("进程归属")}</h3>${fields([[t("数据源"),sourceFor(request)?.label || request.sourceId || workspace.session.host],[t("进程名"),owners.map(processName).join('；')],[t("进程 PID"),owners.map(processLabel).join('；')],...commands,...(!request.real || !(request.processPid > 0) ? [[t("归属来源"),request.real ? t("采集器未提供") : t("模拟数据")]] : []),...(['mysql','quic','raw'].includes(family(request)) ? [[t("事件形态"),source]] : [])])}<h3 class="connection-heading">${t("事件与连接")}</h3>${fields([[t("连接标识"),displayConnectionId(request.connectionId)],[t("消息方向"),direction],[t("传输协议"),[transport || t('未提供'),request.protocol || t('未提供')].join(' · ')],[t("采集时间"),request.startedAt ? new Date(request.startedAt).toLocaleString(getLanguage(),{timeZone:'Asia/Shanghai',hour12:false})+' (UTC+8)' : null]])}${tlsContext}${quicContext}${request.real ? `<h3 class="connection-heading">${t("采集来源 ·")} ${escapeHTML(request.sourceId)}</h3><code class="source-endpoint">${escapeHTML(sourceFor(request)?.endpoint || t("地址未登记"))}</code>${sourceMetadata(sourceFor(request))}` : ''}${request.real ? `<details class="event-metadata"><summary>${t("原始事件元数据")}</summary><pre>${escapeHTML(JSON.stringify({connectionId:request.connectionId,metadata:m},null,2))}</pre></details>` : ''}<div class="connection-explainer">${icon('info')}<span>${request.real ? t("进程名表示捕获事件的进程归属，不据此判断客户端或服务端角色。进程命令是采集时的可读概览，可能已被进程改写；末尾空项已折叠，中间空参数保留，引号用于区分参数。原始 argv 字节保留在导出 JSON 中。方向表示应用消息流向。空缺字段保持未知；耗时不会依据秒级时间戳推算。") : t("虚构的演示会话。进程归属、关联关系和耗时均为模拟字段。")}</span></div></div>`;
+  $('#tab-content').innerHTML = `<div class="connection-content"><div class="connection-process">${avatar(process)}<div><strong>${escapeHTML(processName(process))}</strong><p>${escapeHTML(processLabel(process))} · ${escapeHTML(process.kind || '')}</p></div></div><h3 class="connection-heading">${t("采集进程")}</h3>${fields([[t("数据源"),sourceFor(request)?.label || request.sourceId || workspace.session.host],...ownerFields(owner),...(!request.real || !(request.processPid > 0) ? [[t("归属来源"),request.real ? t("采集器未提供") : t("模拟数据")]] : []),...(['mysql','quic','raw'].includes(family(request)) ? [[t("事件形态"),source]] : [])])}${peerProcess}<h3 class="connection-heading">${t("事件与连接")}</h3>${fields([[t("上游模块"),request.metadata?.module],[t("连接标识"),displayConnectionId(request.connectionId)],[t("消息方向"),direction],[t("传输协议"),[transport || t('未提供'),request.protocol || t('未提供')].join(' · ')],[t("采集时间"),request.startedAt ? new Date(request.startedAt).toLocaleString(getLanguage(),{timeZone:'Asia/Shanghai',hour12:false})+' (UTC+8)' : null]])}${tlsContext}${quicContext}${request.real ? `<h3 class="connection-heading">${t("采集来源 ·")} ${escapeHTML(request.sourceId)}</h3><code class="source-endpoint">${escapeHTML(sourceFor(request)?.endpoint || t("地址未登记"))}</code><section class="connection-source-metadata"></section>` : ''}${request.real ? `<details class="event-metadata"><summary>${t("原始事件元数据")}</summary><pre>${escapeHTML(JSON.stringify({connectionId:request.connectionId,metadata:m},null,2))}</pre></details>` : ''}<div class="connection-explainer">${icon('info')}<span>${request.real ? t("进程信息来自采集主机上的事件归属，不代表远端进程。命令为采集时的 argv 概览；原始字节保留在导出 JSON 中。") : t("虚构的演示会话。进程归属、关联关系和耗时均为模拟字段。")}</span></div></div>`;
+  refreshConnectionSourceMetadata();
 }
 
 function renderAll(options = {}) { if (isPaged() && !options.fromServer && workspace.page.filterKey!==filterKey()) { pageIndex=0;schedulePage();return; } renderSidebar(); renderList(options); }
@@ -583,12 +586,25 @@ try { setTheme(localStorage.getItem('ecaptureq-theme') === 'dark' ? 'dark' : 'li
 
 const connectionStates = {connected:"已连接",connecting:"连接中",reconnecting:"正在重连",disconnected:"已断开",unconfigured:"未配置采集器",stopped:"已停止",partial:"部分连接",degraded:"部分连接",idle:"等待连接"};
 function statusSources() { return Array.isArray(serverStatus.sources) ? serverStatus.sources : []; }
-function sourceFor(record) { return statusSources().find(source => source.id === record.sourceId); }
+function sourceFor(record) {
+  const source = statusSources().find(source => source.id === record.sourceId);
+  return source && record.captureGeneration !== source.generation ? {...source,collector:null} : source;
+}
 function sourceMetadata(source) {
-  const c = source?.capture;
-  if (!c) return `<p class="source-intro">${t("采集主机、模式与启动参数未登记；eCaptureQ 事件本身不提供这些信息。")}</p>`;
-  const fields = [[t("采集主机"),c.host],[t("模块"),c.module],[t("模式 / 数据源"),[c.mode,c.textSource].filter(Boolean).join(' / ')],['eCapture commit',c.collectorCommit],['Decryptor',c.decryptorVersion]];
-  return `<dl class="connection-fields source-fields">${fields.map(([key,value]) => `<dt>${escapeHTML(key)}</dt><dd>${escapeHTML(value || t("未登记"))}</dd>`).join('')}</dl><p class="source-command-label">${t("启动命令 · 服务端登记")}</p><pre class="source-command"><code>${escapeHTML(c.command || t("未登记"))}</code></pre>`;
+  const c = source?.collector;
+  if (!c) return `<p class="source-intro">${t("eCapture 尚未提供运行信息。")}</p>`;
+  const fields = [[t("采集主机"),c.host],[t("模块"),c.module],[t("模式 / 数据源"),[c.mode,c.textSource].filter(Boolean).join(' / ')],['eCapture',c.version],[t("构建时间"),c.buildTime],['eCapture commit',c.commit],['Decryptor',c.decryptorVersion],['--config-listen',c.configListen],['--stream-listen',c.streamListen],['--output',(c.outputs || []).join('\n')+(c.outputsTruncated ? '\n'+t("已截断") : '')]];
+  return `<dl class="connection-fields source-fields">${fields.map(([key,value]) => `<dt>${escapeHTML(key)}</dt><dd>${escapeHTML(value || t("未提供"))}</dd>`).join('')}</dl><p class="source-command-label">${t("eCapture 启动命令")}${c.argvTruncated ? ' · '+t("已截断") : ''}</p><pre class="source-command"><code>${escapeHTML(formatCollectorCommand(c.argv) || t("未提供"))}</code></pre>`;
+}
+function refreshConnectionSourceMetadata() {
+  const panel = $('#tab-content .connection-source-metadata'), record = selected();
+  if (!panel || !record) return;
+  const html = sourceMetadata(sourceFor(record));
+  if (panel.renderedMetadata === html) return;
+  const content = $('#tab-content'), scroll = content.scrollTop;
+  panel.innerHTML = html;
+  panel.renderedMetadata = html;
+  content.scrollTop = scroll;
 }
 function updateCaptureControls() {
   const live = state.mode === 'live', snapshot = live && !!workspace?.snapshot, button = $('#capture-toggle');
@@ -613,62 +629,162 @@ function updateCaptureControls() {
   $('#status-message').textContent = snapshot ? t("真实采集快照 · {p0} 条记录 · 当前未连接采集器",{p0:requests.length}) : live ? `${state.paused ? t("刷新已暂停") : t("实时数据")} · ${label}${statusSources().length ? t(" · {p0}/{p1} 个数据源",{p0:connected,p1:statusSources().length}) : ''}${dropped ? t(" · {p0} 条未保留",{p0:dropped}) : ''}${evicted ? t(" · {p0} 条超出保留范围",{p0:evicted}) : ''}` : state.running ? t("模拟采集中 · 不发送真实网络请求") : t("演示会话 · 虚构样例");
   $('.status-indicator').classList.toggle('status-warning',live && !snapshot && (serviceError || !connected));
   $('.sidebar-caption').textContent = live ? t('实时') : t('模拟');
+  const nativeCount = new Set((serverStatus.artifacts || []).map(a => a.sourceId)).size;
+  $('#native-artifacts').hidden = offline || !nativeCount;
+  $('#native-artifacts span').textContent = t('原生文件 {count}',{count:nativeCount});
+  $('#connection-toggle').classList.toggle('has-native-files',!offline && nativeCount > 0);
+  if (!offline && nativeCount) $('#connection-toggle').setAttribute('aria-label',$('#connection-toggle').getAttribute('aria-label')+' · '+t('原生文件 {count}',{count:nativeCount}));
   $('#add-source-toggle').hidden = offline;
   $('#add-source-toggle').disabled = sources.length >= 16;
-  $('#source-save-hint').textContent = serverStatus.sourcePersistence === 'file' ? t("保存到来源配置，重启后保留") : t("当前服务会话内保留");
+  $('#source-save-hint').textContent = (editingSourceID ? statusSources().find(source => source.id === editingSourceID)?.persistent : serverStatus.sourcePersistence === 'file') ? t("保存到来源配置，重启后保留") : t("当前服务会话内保留");
   if ($('#connection-dialog').open) renderConnectionStatus();
+  refreshConnectionSourceMetadata();
 }
-const sourceErrors = {invalid_endpoint:"请输入 ws:// 或 wss:// 地址，不包含账号、查询参数或片段。",invalid_label:"名称最多 160 个字符。",duplicate_source:"这个地址已添加，请在下方查看连接状态。",source_limit:"最多支持 16 个数据源。",source_save_failed:"无法保存来源配置，请检查服务端文件权限。",source_config_changed:"来源配置已在外部修改，请重新启动服务加载后再添加。",source_config_too_large:"来源配置超过容量上限，请缩短填写内容。",service_stopping:"服务正在停止，请稍后重试。",origin_rejected:"请求来源校验失败，请从当前 eCaptureQ 窗口重新提交。",invalid_source:"数据源信息格式无效。",connection_failed:"连接中断或暂不可达，正在自动重试",frame_too_large:"上游消息超过接收限制",json_required:"请提交 JSON 格式的数据源。"};
+const sourceErrors = {source_not_found:"数据源已移除，请刷新后重试。",invalid_endpoint:"请输入 ws:// 或 wss:// 地址，不包含账号、查询参数或片段。",invalid_label:"名称最多 160 个字符。",duplicate_source:"这个地址已添加，请在下方查看连接状态。",source_limit:"最多支持 16 个数据源。",source_save_failed:"无法保存来源配置，请检查服务端文件权限。",source_config_changed:"来源配置已在外部修改，请重新启动服务加载后再操作。",source_config_too_large:"来源配置超过容量上限，请缩短填写内容。",service_stopping:"服务正在停止，请稍后重试。",origin_rejected:"请求来源校验失败，请从当前 eCaptureQ 窗口重新提交。",invalid_source:"数据源信息格式无效。",connection_failed:"连接中断或暂不可达，正在自动重试",frame_too_large:"上游消息超过接收限制",json_required:"请提交 JSON 格式的数据源。"};
 let renderedSourceLogs = '';
+const exportingArtifacts = new Set(), pendingSources = new Set();
+let editingSourceID = '', addSourceDraft = null;
 function renderConnectionStatus() {
   const sources = statusSources();
-  const expanded = new Set($$('[data-source-details][open]').map(element => element.dataset.sourceDetails));
-  const logs = Array.isArray(serverStatus.logs) ? serverStatus.logs.slice(-8).reverse() : [];
+  const expanded = new Set($$('#connection-status details[open]').map(element => element.dataset.disclosure));
+  const focused = document.activeElement?.dataset.focusKey, scrollTop = $('#connection-dialog').scrollTop;
+  const logs = Array.isArray(serverStatus.logs) ? [...serverStatus.logs].reverse() : [];
   const counts = ['connected','connecting','reconnecting','stopped'].map(state => ({state,count:sources.filter(source=>source.state===state).length})).filter(item=>item.count);
   const summary = `<div class="source-summary">${counts.map(item=>`<span data-state="${item.state}">${escapeHTML(t(connectionStates[item.state]))} <strong>${item.count}</strong></span>`).join('')}<span class="source-summary-total">${t("共 {count} 个数据源",{count:sources.length})}</span></div>`;
-  $('#connection-status').innerHTML = `<p class="source-intro">${workspace?.snapshot ? t("这是合成测试流量经过真实 eBPF 捕获生成的只读快照，当前不连接采集器。可切换到独立的模拟样例。") : state.mode === 'mock' ? t("当前展示模拟会话。已配置的数据源独立连接并持续接收，切换到实时模式即可查看。") : t("各数据源独立接收事件和自动重连，单个来源断开不会影响其他连接。")}</p>${summary}${serverStatus.excludeHTTPPathPrefix ? `<p class="source-intro">${escapeHTML(t("已排除 {prefix} 与工作台响应 · {count} 条事件",{prefix:serverStatus.excludeHTTPPathPrefix,count:Number(serverStatus.filtered || 0)}))}</p>` : ''}${serviceError ? `<div class="source-error">${escapeHTML(t(serviceError))}${t("，下方保留最后一次连接状态。")}</div>` : ''}${sources.length ? sources.map(source => `<div class="source-card" data-source-id="${escapeHTML(source.id)}"><div><strong>${escapeHTML(source.label || source.id)}</strong><span class="source-state" data-state="${safeClass(source.state)}">${escapeHTML(t(connectionStates[source.state]) || source.state)}</span></div><code>${escapeHTML(source.endpoint || '')}</code><p>${escapeHTML(source.capture?.host || t("主机未登记"))} · ${escapeHTML(source.capture?.module || t("模块未登记"))} ${t("· 事件")} ${Number(source.events || 0)}</p><p>${t("重试 {retries} · 已恢复连接 {reconnects}",{retries:Number(source.retries || 0),reconnects:Number(source.reconnects || 0)})}</p>${source.lastError ? `<p class="source-error">${escapeHTML(t(sourceErrors[source.lastError]) || source.lastError)}</p>` : ''}<details data-source-details="${escapeHTML(source.id)}" ${expanded.has(source.id) ? 'open' : ''}><summary>${t("采集信息与启动参数")}</summary>${sourceMetadata(source)}</details></div>`).join('') : `<div class="source-card source-empty"><strong>${t("还没有数据源")}</strong><p>${window.__ECAPTURE_MOCK__ ? t("离线演示不能连接采集器，请使用 Go 服务。") : t("点击「添加数据源」，连接一个或多个 eCapture 采集器。")}</p></div>`}<div class="source-totals"><span>${t("接收事件")} <strong>${Number(serverStatus.events || 0)}</strong></span><span>${t("无效消息")} <strong>${Number(serverStatus.malformed || 0)}</strong></span><span>${t("未映射事件")} <strong>${Number(serverStatus.ignored || 0)}</strong></span></div>`;
+  const artifacts = serverStatus.artifacts || [];
+  const groups = sources.map(source => ({source,files:artifacts.filter(a => a.sourceId === source.id)}));
+  for (const artifact of artifacts) {
+    if (!groups.some(group => group.source.id === artifact.sourceId)) groups.push({source:{id:artifact.sourceId,label:artifact.sourceLabel || artifact.sourceId,state:'removed'},files:artifacts.filter(a => a.sourceId === artifact.sourceId)});
+  }
+  const html = `<p class="source-intro">${workspace?.snapshot ? t("这是合成测试流量经过真实 eBPF 捕获生成的只读快照，当前不连接采集器。可切换到独立的模拟样例。") : state.mode === 'mock' ? t("当前展示模拟会话。已配置的数据源独立连接并持续接收，切换到实时模式即可查看。") : t("各数据源独立接收事件和自动重连，单个来源断开不会影响其他连接。")}</p>${summary}${serverStatus.excludeHTTPPathPrefix ? `<p class="source-intro">${escapeHTML(t("已排除 {prefix} 与工作台响应 · {count} 条事件",{prefix:serverStatus.excludeHTTPPathPrefix,count:Number(serverStatus.filtered || 0)}))}</p>` : ''}${serviceError ? `<div class="source-error">${escapeHTML(t(serviceError))}${t("，下方保留最后一次连接状态。")}</div>` : ''}${groups.length ? groups.map(group => sourceCard(group,expanded)).join('') : `<div class="source-card source-empty"><strong>${t("还没有数据源")}</strong><p>${window.__ECAPTURE_MOCK__ ? t("离线演示不能连接采集器，请使用 Go 服务。") : t("点击「添加数据源」，连接一个或多个 eCapture 采集器。")}</p></div>`}<div class="source-totals"><span>${t("接收事件")} <strong>${Number(serverStatus.events || 0)}</strong></span><span>${t("无效消息")} <strong>${Number(serverStatus.malformed || 0)}</strong></span><span>${t("未映射事件")} <strong>${Number(serverStatus.ignored || 0)}</strong></span></div>`;
+  const panel = $('#connection-status');
+  if (panel.renderedHTML !== html) {
+    panel.innerHTML = html;
+    panel.renderedHTML = html;
+    if (focused) $$('[data-focus-key]',panel).find(element => element.dataset.focusKey === focused)?.focus({preventScroll:true});
+    $('#connection-dialog').scrollTop = scrollTop;
+  }
   // Keep the disclosure and summary mounted while connection status polls.
   // Reuse unchanged log content as well, preserving focus and text selection.
   $('#source-log-details').hidden = logs.length === 0;
-  const logHTML = logs.map(log => `<div><span>${escapeHTML(sources.find(s=>s.id===log.sourceId)?.label || log.sourceId || '')}</span><code>${escapeHTML(log.message || log.text || '')}</code></div>`).join('');
+  $('#source-log-title').textContent = t("运行日志（{count} 条）",{count:logs.length});
+  const logHTML = logs.map(log => `<div><span>${escapeHTML([sources.find(s=>s.id===log.sourceId)?.label || log.sourceId,log.module].filter(Boolean).join(' · '))}</span><code>${escapeHTML(log.message || log.text || '')}</code></div>`).join('');
   if (logHTML !== renderedSourceLogs) {
-    $('#source-log-details .source-logs').innerHTML = logHTML;
+    const panel = $('#source-log-details .source-logs'), scrollTop = panel.scrollTop;
+    panel.innerHTML = logHTML;
+    panel.scrollTop = scrollTop;
     renderedSourceLogs = logHTML;
   }
 }
+const nativeStates = {receiving:'正在接收',complete:'已完成',partial:'部分文件',failed:'失败'};
+function sourceCard({source,files},expanded) {
+  const id = escapeHTML(source.id), removed = source.state === 'removed';
+  const editable = !removed && !window.__ECAPTURE_CAPTURE__ && !window.__ECAPTURE_MOCK__;
+  const disabled = pendingSources.has(source.id) ? 'disabled' : '';
+  const disclosure = (kind) => `data-disclosure="${kind}-${id}" ${expanded.has(kind+'-'+source.id) ? 'open' : ''}`;
+  const sorted = [...files].sort((a,b) => b.generation-a.generation || String(b.startedAt).localeCompare(String(a.startedAt)));
+  return `<article class="source-card" data-source-id="${id}">
+    <div class="source-card-heading"><strong>${escapeHTML(source.label || source.id)}</strong><span class="source-state" data-state="${safeClass(source.state)}">${escapeHTML(removed ? t('已移除') : t(connectionStates[source.state]) || source.state)}</span>
+    ${editable ? `<details class="source-menu" ${disclosure('menu')}><summary aria-label="${escapeHTML(t('管理数据源'))}" data-focus-key="menu-${id}">⋯</summary><div class="source-menu-actions">${[['edit','编辑数据源'],['reconnect','重连'],['remove','移除']].map(([action,label]) => `<button type="button" data-source-action="${action}" data-focus-key="${action}-${id}" ${disabled}>${t(label)}</button>`).join('')}</div></details>` : ''}</div>
+    ${source.lastError ? `<p class="source-error">${escapeHTML(t(sourceErrors[source.lastError]) || source.lastError)}</p>` : ''}
+    ${sorted.length ? `${nativeFile(sorted[0])}${sorted.length > 1 ? `<details class="native-history" ${disclosure('history')}><summary data-focus-key="history-${id}">${t('历史文件（{count}）',{count:sorted.length-1})}</summary>${sorted.slice(1).map(nativeFile).join('')}</details>` : ''}` : ''}
+    ${removed ? `<p>${t('连接已移除，已接收文件仍可导出。')}</p>` : `<details data-source-details="${id}" ${disclosure('details')}><summary data-focus-key="details-${id}"><span class="details-closed">${t('展开详情')}</span><span class="details-open">${t('收起详情')}</span></summary><code>${escapeHTML(source.endpoint || '')}</code><p>${t('接收事件')} ${Number(source.events || 0)} · ${t("重试 {retries} · 已恢复连接 {reconnects}",{retries:Number(source.retries || 0),reconnects:Number(source.reconnects || 0)})}</p>${sourceMetadata(source)}</details>`}
+  </article>`;
+}
+function nativeFile(a) {
+  return `<article class="native-session" data-artifact-id="${escapeHTML(a.id)}" data-state="${safeClass(a.state)}"><div class="native-file-info"><div class="native-session-heading"><strong>${t('原生文件')} · ${escapeHTML(String(a.format || '').toUpperCase())}</strong><span class="source-state" data-state="${safeClass(a.state)}">${escapeHTML(t(nativeStates[a.state]) || a.state)}</span></div><code>${escapeHTML(a.filename || '')}</code><p>${escapeHTML(a.module || t('模块未提供'))} · <span data-native-bytes="${Number(a.bytes || 0)}">${bytes(a.bytes)}</span> · ${t('连接代次')} ${Number(a.generation || 0)}</p>${a.error ? `<p class="source-error">${escapeHTML(a.error)}</p>` : ''}</div><button type="button" class="native-export" data-focus-key="export-${escapeHTML(a.id)}" data-export-artifact="${escapeHTML(a.id)}" ${exportingArtifacts.has(a.id) ? 'disabled' : ''}>${icon('download')}${t(a.state === 'complete' ? '导出原生文件' : '导出部分文件')}</button></article>`;
+}
+$('#connection-status').addEventListener('click',async event => {
+  const button = event.target.closest('[data-export-artifact]');
+  if (!button || button.disabled) return;
+  const artifact = serverStatus.artifacts?.find(a => a.id === button.dataset.exportArtifact);
+  if (!artifact) return;
+  button.disabled = true; exportingArtifacts.add(artifact.id);
+  try {
+    const result = await platform.exportArtifact(artifact);
+    if (!result.cancelled) toast('已开始导出原生文件');
+  } catch (error) { toast(error.message || '原生文件导出失败'); }
+  finally { button.disabled = false; exportingArtifacts.delete(artifact.id); renderConnectionStatus(); }
+});
 function openConnectionStatus() { renderConnectionStatus(); $('#connection-dialog').showModal(); }
-$('#add-source-toggle').addEventListener('click',() => {
+function updateSourceFormLabels() {
+  $('#source-form-title').textContent = t(editingSourceID ? '编辑数据源' : '添加数据源');
+  $('#submit-source').textContent = t($('#submit-source').disabled ? '正在保存…' : editingSourceID ? '保存修改' : '添加并连接');
+}
+function openSourceForm(source) {
+  if ($('#submit-source').disabled) return;
+  if (source) {
+    if (!editingSourceID) addSourceDraft = {label:$('#source-label').value,endpoint:$('#source-endpoint').value};
+    editingSourceID = source.id;
+    $('#source-label').value = source.label; $('#source-endpoint').value = source.endpoint;
+  } else if (editingSourceID) {
+    editingSourceID = '';
+    $('#source-label').value = addSourceDraft?.label || ''; $('#source-endpoint').value = addSourceDraft?.endpoint || '';
+    addSourceDraft = null;
+  }
+  $('#source-endpoint').setCustomValidity('');
   $('#add-source-form').hidden = false;
   $('#source-form-error').hidden = true;
+  updateSourceFormLabels(); updateCaptureControls();
   $('#connection-dialog').scrollTop = 0;
   $('#source-endpoint').focus({preventScroll:true});
-});
+}
+$('#add-source-toggle').addEventListener('click',() => openSourceForm());
 $('#cancel-add-source').addEventListener('click',() => { $('#add-source-form').hidden = true; });
-const syncSourceMetadata = initSourceMetadata($('#add-source-form'));
 $('#add-source-form').addEventListener('input',() => { $('#source-form-error').hidden = true; });
+async function mutateSource(payload, manage = false) {
+  const controller = new AbortController(), timeout = setTimeout(()=>controller.abort(),10000);
+  try {
+    const response = await fetch(manage ? 'api/sources/manage' : 'api/sources',{method:'POST',headers:{'Content-Type':'application/json','X-Ecapture-UI':'1'},body:JSON.stringify(payload),signal:controller.signal});
+    const result = await response.json();
+    if (!response.ok) throw new Error(Object.hasOwn(sourceErrors,result.error) ? sourceErrors[result.error] : '操作失败，请检查服务连接。');
+    serverStatus = result.status; serviceError = ''; updateCaptureControls();
+    return result;
+  } catch (failure) {
+    throw new Error(failure.name === 'AbortError' ? '请求超时，请检查数据源状态后重试。' : failure.message);
+  } finally { clearTimeout(timeout); }
+}
 $('#add-source-form').addEventListener('submit',async event => {
   event.preventDefault();
   if (window.__ECAPTURE_CAPTURE__ || window.__ECAPTURE_MOCK__) return;
   const button = $('#submit-source'), error = $('#source-form-error');
   if (button.disabled) return;
-  syncSourceMetadata();
-  const form = new FormData(event.currentTarget), source = {label:String(form.get('label')).trim(),endpoint:String(form.get('endpoint')).trim()};
-  const host = String(form.get('host')).trim(), module = String(form.get('module')), command = String(form.get('command')).trim();
-  if (host || module || command) source.capture = {host,module,command,mode:module ? 'text' : '',textSource:module ? 'pcapng' : ''};
-  button.disabled = true; button.textContent = t("正在添加…"); error.hidden = true;
-  const controller = new AbortController(), timeout = setTimeout(()=>controller.abort(),10000);
+  const form = new FormData(event.currentTarget), source = {label:String(form.get('label')).trim(),endpoint:String(form.get('endpoint')).trim()}, editing = editingSourceID;
+  button.disabled = true; updateSourceFormLabels(); error.hidden = true;
   try {
-    const response = await fetch('api/sources',{method:'POST',headers:{'Content-Type':'application/json','X-Ecapture-UI':'1'},body:JSON.stringify(source),signal:controller.signal});
-    const result = await response.json();
-    if (!response.ok) throw Object.assign(new Error(Object.hasOwn(sourceErrors,result.error) ? sourceErrors[result.error] : "添加失败，请稍后重试。"),{uiMessage:true});
-    serverStatus = result.status; serviceError = '';
+    const result = await mutateSource(editing ? {...source,id:editing,action:'edit'} : source,!!editing);
     $('#add-source-form').reset(); $('#add-source-form').hidden = true;
-    updateCaptureControls();
-    toast("已添加 {p0}，正在连接",{p0:result.source.label});
+    editingSourceID = ''; addSourceDraft = null;
+    toast(editing ? '数据源已更新' : "已添加 {p0}，正在连接",{p0:result.source.label});
   } catch (failure) {
-    error.dataset.message = failure.name === 'AbortError' ? "请求超时，请先检查下方是否已添加，再重试。" : failure.uiMessage ? failure.message : "添加失败，请检查服务连接。";
-    error.textContent = t(error.dataset.message); error.hidden = false;
-  } finally { clearTimeout(timeout); button.disabled = false; button.textContent = t("添加并连接"); }
+    error.dataset.message = failure.message;
+    error.textContent = t(failure.message); error.hidden = false;
+  } finally { button.disabled = false; updateSourceFormLabels(); }
+});
+$('#connection-status').addEventListener('click',async event => {
+  const button = event.target.closest('[data-source-action]');
+  if (!button || button.disabled) return;
+  const id = button.closest('[data-source-id]').dataset.sourceId, action = button.dataset.sourceAction;
+  const source = statusSources().find(source => source.id === id);
+  button.closest('details').open = false;
+  if (!source || pendingSources.has(id)) return;
+  if (action === 'edit') { openSourceForm(source); return; }
+  if (action === 'remove' && !window.confirm(t('移除数据源“{name}”？已接收的记录和文件仍会保留。',{name:source.label}))) return;
+  pendingSources.add(id); renderConnectionStatus();
+  try { await mutateSource({id,action},true); toast(action === 'remove' ? '数据源已移除' : '已请求重连'); }
+  catch (error) { toast(error.message || '操作失败，请检查服务连接。'); }
+  finally { pendingSources.delete(id); renderConnectionStatus(); }
+});
+$('#connection-dialog').addEventListener('click',event => {
+  $$('.source-menu[open]').forEach(menu => { if (!menu.contains(event.target)) menu.open = false; });
+});
+$('#connection-dialog').addEventListener('keydown',event => {
+  const menu = $('.source-menu[open]');
+  if (event.key === 'Escape' && menu) { event.preventDefault(); event.stopPropagation(); menu.open = false; $('summary',menu).focus(); }
+});
+$('#connection-dialog').addEventListener('cancel',event => {
+  const menu = $('.source-menu[open]');
+  if (menu) { event.preventDefault(); menu.open = false; $('summary',menu).focus(); }
 });
 $('#connection-toggle').addEventListener('click',openConnectionStatus);
 $('#close-connection').addEventListener('click',() => $('#connection-dialog').close());
@@ -868,7 +984,7 @@ function changeLanguage(language) {
   if (workspace) { renderSidebar(); renderList(); updateCaptureControls(); }
   $$('#tab-content details').forEach((element,index) => { if (index < disclosures.length) element.open = disclosures[index]; });
   $('#source-form-error').textContent = t($('#source-form-error').dataset.message || '');
-  $('#submit-source').textContent = t($('#submit-source').disabled ? '正在添加…' : '添加并连接');
+  updateSourceFormLabels();
   if ($('#source-endpoint').validity.customError) validateSourceEndpoint();
   if (!$('#toast').hidden && toastMessage) $('#toast').textContent = toastMessage();
   if (workspaceLoadFailed) renderWorkspaceError();
@@ -902,7 +1018,10 @@ async function runUpdateCheck() {
     const response = await fetchWithTimeout('api/version', {cache:'no-store'});
     if (!response.ok) return;
     const data = await response.json();
-    const update = await checkForUpdate(data?.version);
+    const version = normalizeVersion(data?.version);
+    if (!version) return;
+    $('#app-version').textContent = `eCaptureQ v${version}`;
+    const update = await checkForUpdate(version);
     if (update) { pendingUpdate = update; renderUpdateBadge(); }
   } catch { /* best-effort; never affect capture UI */ }
 }

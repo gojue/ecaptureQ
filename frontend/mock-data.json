@@ -8,7 +8,7 @@
     "startedAt": "2026-11-07T02:24:00.000Z",
     "mode": "mock",
     "brand": "eCaptureQ",
-    "captureInterface": "--ecaptureq"
+    "captureInterface": "--stream-listen"
   },
   "processes": [
     {

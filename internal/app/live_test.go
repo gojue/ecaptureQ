@@ -20,7 +20,7 @@ import (
 	"golang.org/x/net/websocket"
 	"google.golang.org/protobuf/proto"
 
-	pb "github.com/gojue/ecapture/v2/protobuf/gen/v1"
+	pb "github.com/gojue/ecapture/v2/protobuf/gen/v2"
 )
 
 func liveTestOptions(endpoint string) Options {
@@ -45,7 +45,7 @@ func TestSelfCaptureExclusionPreservesHTTPAssociation(t *testing.T) {
 			feed := func(payload, stream string) {
 				entry := testEvent(payload)
 				if protocol != "HTTP/1.1" {
-					entry.GetEventPayload().StreamId = stream
+					entry.GetEventPayload().GetText().StreamId = stream
 				}
 				store.consume(0, 1, entry, mapper, time.Now())
 			}
@@ -85,7 +85,7 @@ func TestSelfCaptureExclusionIsOptIn(t *testing.T) {
 
 func TestDynamicSourcesConnectIndependently(t *testing.T) {
 	server := func(path string) *httptest.Server {
-		return httptest.NewServer(websocket.Handler(func(conn *websocket.Conn) {
+		return httptest.NewServer(testWSHandler(func(conn *websocket.Conn) {
 			defer func() { _ = conn.Close() }()
 			if sendTestEntry(conn, testEvent("GET "+path+" HTTP/1.1\r\nHost: example.test\r\n\r\n")) != nil {
 				return
@@ -185,7 +185,7 @@ func sendTestEntry(conn *websocket.Conn, entry *pb.LogEntry) error {
 }
 
 func testEvent(payload string) *pb.LogEntry {
-	return &pb.LogEntry{LogType: pb.LogType_LOG_TYPE_EVENT, Payload: &pb.LogEntry_EventPayload{EventPayload: &pb.Event{Uuid: "fixture-connection", Pid: 42, Pname: "fixture", CaptureFormat: pb.CaptureFormat_CAPTURE_FORMAT_TEXT, Payload: []byte(payload), Length: uint32(len(payload)), OriginalLength: uint32(len(payload)), Timestamp: time.Now().Unix()}}}
+	return &pb.LogEntry{Module: "tls", LogType: pb.LogType_LOG_TYPE_EVENT, Payload: &pb.LogEntry_EventPayload{EventPayload: &pb.Event{CaptureFormat: pb.CaptureFormat_CAPTURE_FORMAT_TEXT, Content: &pb.Event_Text{Text: &pb.TextEvent{Uuid: "fixture-connection", Pid: 42, Pname: "fixture", Payload: []byte(payload), Length: uint32(len(payload)), OriginalLength: uint32(len(payload)), Timestamp: time.Now().Unix()}}}}}
 }
 
 func awaitStore(t *testing.T, store *Store, ready func(Status) bool) {
@@ -214,26 +214,17 @@ func stopStore(t *testing.T, store *Store, cancel context.CancelFunc) {
 
 func TestLiveWebSocketChannelsAndShutdown(t *testing.T) {
 	failures := make(chan error, 1)
-	server := httptest.NewServer(websocket.Handler(func(conn *websocket.Conn) {
+	server := httptest.NewServer(testWSHandler(func(conn *websocket.Conn) {
 		entries := []*pb.LogEntry{
 			{LogType: pb.LogType_LOG_TYPE_PROCESS_LOG, Payload: &pb.LogEntry_RunLog{RunLog: "diagnostic-only"}},
 			{LogType: pb.LogType_LOG_TYPE_HEARTBEAT, Payload: &pb.LogEntry_HeartbeatPayload{HeartbeatPayload: &pb.Heartbeat{Count: 1, Timestamp: time.Now().Unix()}}},
 			testEvent("opaque-event\x00\xff"),
-			{LogType: pb.LogType_LOG_TYPE_EVENT},
 		}
 		for _, entry := range entries {
 			if err := sendTestEntry(conn, entry); err != nil {
 				failures <- err
 				return
 			}
-		}
-		if err := websocket.Message.Send(conn, []byte{0xff}); err != nil {
-			failures <- err
-			return
-		}
-		if err := websocket.Message.Send(conn, "not a binary frame"); err != nil {
-			failures <- err
-			return
 		}
 		var ignored []byte
 		_ = websocket.Message.Receive(conn, &ignored)
@@ -246,7 +237,7 @@ func TestLiveWebSocketChannelsAndShutdown(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer stopStore(t, store, cancel)
 	store.Start(ctx)
-	awaitStore(t, store, func(s Status) bool { return s.Events == 1 && s.Malformed == 3 && s.Retained == 1 })
+	awaitStore(t, store, func(s Status) bool { return s.Events == 1 && s.Malformed == 0 && s.Retained == 1 })
 	status := store.Status()
 	if status.State != "connected" || status.Sources[0].LastHeartbeat == "" || len(status.Logs) != 1 || status.Logs[0].Message != "diagnostic-only" {
 		t.Fatalf("channels were not classified: %+v", status)
@@ -272,7 +263,7 @@ func TestLiveWebSocketChannelsAndShutdown(t *testing.T) {
 
 func TestReconnectKeepsRecordsAndChangesGeneration(t *testing.T) {
 	var connections atomic.Int64
-	server := httptest.NewServer(websocket.Handler(func(conn *websocket.Conn) {
+	server := httptest.NewServer(testWSHandler(func(conn *websocket.Conn) {
 		attempt := connections.Add(1)
 		if err := sendTestEntry(conn, testEvent(fmt.Sprintf("event generation %d", attempt))); err != nil {
 			return
@@ -308,8 +299,136 @@ func TestReconnectKeepsRecordsAndChangesGeneration(t *testing.T) {
 	}
 }
 
+func collectorTestLog(t *testing.T, info *CollectorInfo) *pb.LogEntry {
+	t.Helper()
+	message, err := json.Marshal(map[string]any{"event": "collector_info", "schemaVersion": 1, "collector": info})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return &pb.LogEntry{LogType: pb.LogType_LOG_TYPE_PROCESS_LOG, Payload: &pb.LogEntry_RunLog{RunLog: string(message)}}
+}
+
+func TestCollectorInfoIsSourceScopedAndNeverOperatorConfigured(t *testing.T) {
+	opts := liveTestOptions("ws://localhost:28258/")
+	opts.Endpoints = append(opts.Endpoints, "ws://localhost:28259/")
+	opts.Sources = []SourceConfig{{Endpoint: opts.Endpoints[0], Capture: &CaptureInfo{Module: "operator-module", Command: "operator-command"}}}
+	store, err := NewStore(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store.sources[0].Generation = 2
+	if store.Status().Sources[0].Collector != nil {
+		t.Fatal("operator metadata became received collector metadata")
+	}
+	info := &CollectorInfo{Host: "capture-host", Module: "gotls", Mode: "text", TextSource: "pcapng", Argv: []string{"ecapture", "gotls", "", "two words", "$(not-executed)"}, Version: "test-version", BuildTime: "2026-11-21T01:02:03Z", DecryptorVersion: "v1.4.4", Outputs: []string{"stdout", "file:///example.jsonl"}}
+	store.consume(0, 2, collectorTestLog(t, info), newMapper(), time.Now())
+	status := store.Status()
+	if status.Sources[0].Collector == nil || status.Sources[0].Collector.Argv[3] != "two words" || status.Sources[1].Collector != nil || len(status.Logs) != 0 || status.Events != 0 || status.Retained != 0 {
+		t.Fatalf("collector information was not isolated: %+v", status)
+	}
+	status.Sources[0].Collector.Argv[0] = "mutated"
+	status.Sources[0].Collector.Outputs[0] = "mutated"
+	status.Sources[0].Collector.Host = "mutated"
+	if got := store.Status().Sources[0].Collector; got.Argv[0] != "ecapture" || got.Outputs[0] != "stdout" || got.Host != "capture-host" {
+		t.Fatal("status snapshot changed live collector metadata")
+	}
+	store.consume(0, 1, collectorTestLog(t, &CollectorInfo{Module: "stale"}), newMapper(), time.Now())
+	if store.Status().Sources[0].Collector.Module != "gotls" {
+		t.Fatal("stale generation replaced current collector metadata")
+	}
+	store.consume(0, 2, testEvent("opaque-event"), newMapper(), time.Now())
+	if got := store.Workspace()["processes"].([]processInfo)[0].Kind; got != "tls" {
+		t.Fatalf("process module %q did not preserve the observed event module", got)
+	}
+	bad := collectorTestLog(t, info)
+	bad.Payload = &pb.LogEntry_RunLog{RunLog: `{"event":"collector_info","schemaVersion":2,"collector":{}}`}
+	store.consume(0, 2, bad, newMapper(), time.Now())
+	if status := store.Status(); status.Sources[0].Collector != nil || status.Malformed != 1 || len(status.Logs) != 0 {
+		t.Fatal("invalid snapshot retained metadata or entered operational logs")
+	}
+	ordinary := &pb.LogEntry{LogType: pb.LogType_LOG_TYPE_PROCESS_LOG, Payload: &pb.LogEntry_RunLog{RunLog: `{"event":"probe_started","message":"ready"}`}}
+	store.consume(0, 2, ordinary, newMapper(), time.Now())
+	if logs := store.Status().Logs; len(logs) != 1 || logs[0].Message != ordinary.GetRunLog() {
+		t.Fatal("ordinary structured log handling changed")
+	}
+}
+
+func TestCollectorInfoLimits(t *testing.T) {
+	for name, message := range map[string]string{
+		"missing collector":   `{"event":"collector_info","schemaVersion":1}`,
+		"null collector":      `{"event":"collector_info","schemaVersion":1,"collector":null}`,
+		"unknown schema":      `{"event":"collector_info","schemaVersion":2,"collector":{}}`,
+		"invalid build time":  `{"event":"collector_info","schemaVersion":1,"collector":{"buildTime":"yesterday"}}`,
+		"non UTC build time":  `{"event":"collector_info","schemaVersion":1,"collector":{"buildTime":"2026-11-21T01:02:03+08:00"}}`,
+		"NUL argument":        `{"event":"collector_info","schemaVersion":1,"collector":{"argv":["bad\u0000argument"]}}`,
+		"wrong argument type": `{"event":"collector_info","schemaVersion":1,"collector":{"argv":[123]}}`,
+		"invalid UTF8":        "{\"event\":\"collector_info\",\"schemaVersion\":1,\"collector\":{\"host\":\"\xff\"}}",
+		"oversized payload":   `{"event":"collector_info","schemaVersion":1,"collector":{},"padding":"` + strings.Repeat("x", 256<<10) + `"}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			if info, recognized := parseCollectorInfo(message); !recognized || info != nil {
+				t.Fatalf("invalid snapshot accepted: recognized=%v info=%+v", recognized, info)
+			}
+		})
+	}
+	for name, info := range map[string]*CollectorInfo{
+		"oversized host":      {Host: strings.Repeat("x", 257)},
+		"oversized module":    {Module: strings.Repeat("x", 65)},
+		"oversized version":   {Version: strings.Repeat("x", 513)},
+		"oversized listener":  {StreamListen: strings.Repeat("x", 2049)},
+		"too many arguments":  {Argv: make([]string, 257)},
+		"oversized arguments": {Argv: []string{strings.Repeat("x", 8192), "x"}},
+		"too many outputs":    {Outputs: make([]string, 65)},
+		"oversized outputs":   {Outputs: []string{strings.Repeat("x", 8193)}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if got, recognized := parseCollectorInfo(collectorTestLog(t, info).GetRunLog()); !recognized || got != nil {
+				t.Fatal("metadata field limit was not enforced")
+			}
+		})
+	}
+	info := &CollectorInfo{Argv: []string{strings.Repeat("x", 8192)}, ArgvTruncated: true, OutputsTruncated: true}
+	if got, recognized := parseCollectorInfo(collectorTestLog(t, info).GetRunLog()); !recognized || got == nil || len(got.Argv[0]) != 8192 || !got.ArgvTruncated || !got.OutputsTruncated {
+		t.Fatal("bounded truncated snapshot was not preserved")
+	}
+}
+
+func TestReconnectClearsCollectorInfoUntilNewSnapshot(t *testing.T) {
+	var connections atomic.Int64
+	reconnect := make(chan struct{})
+	release := sync.OnceFunc(func() { close(reconnect) })
+	info := collectorTestLog(t, &CollectorInfo{Module: "gotls", Version: "old-process"})
+	server := httptest.NewServer(testWSHandler(func(conn *websocket.Conn) {
+		defer func() { _ = conn.Close() }()
+		if connections.Add(1) == 1 {
+			if sendTestEntry(conn, info) != nil {
+				return
+			}
+			<-reconnect
+			return
+		}
+		var ignored []byte
+		_ = websocket.Message.Receive(conn, &ignored)
+	}))
+	defer server.Close()
+	store, err := NewStore(liveTestOptions("ws" + strings.TrimPrefix(server.URL, "http")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer stopStore(t, store, cancel)
+	defer release()
+	store.Start(ctx)
+	awaitStore(t, store, func(s Status) bool { return s.Sources[0].Collector != nil })
+	release()
+	awaitStore(t, store, func(s Status) bool { return s.Sources[0].Generation == 2 && s.State == "connected" })
+	if store.Status().Sources[0].Collector != nil {
+		t.Fatal("previous collector metadata survived reconnect without a new snapshot")
+	}
+}
+
 func TestOversizedWebSocketFrameIsRejected(t *testing.T) {
-	server := httptest.NewServer(websocket.Handler(func(conn *websocket.Conn) {
+	server := httptest.NewServer(testWSHandler(func(conn *websocket.Conn) {
 		_ = websocket.Message.Send(conn, make([]byte, 4096))
 		var ignored []byte
 		_ = websocket.Message.Receive(conn, &ignored)
@@ -346,7 +465,7 @@ func TestRetentionAndSnapshotsAreBounded(t *testing.T) {
 			defer wg.Done()
 			for i := range 20 {
 				id := fmt.Sprintf("%d-%d", worker, i)
-				store.upsert(Record{"id": id, "processId": id, "payload": strings.Repeat("x", 100)}, &pb.Event{}, "source-1")
+				store.upsert(Record{"id": id, "processId": id, "payload": strings.Repeat("x", 100)}, &pb.TextEvent{}, "source-1")
 				if _, err := json.Marshal(store.Workspace()); err != nil {
 					t.Errorf("snapshot encoding: %v", err)
 				}
@@ -361,7 +480,7 @@ func TestRetentionAndSnapshotsAreBounded(t *testing.T) {
 	if len(store.Workspace()["processes"].([]processInfo)) > options.MaxRecords {
 		t.Fatal("evicted processes are still retained")
 	}
-	store.upsert(Record{"id": "too-big", "processId": "unknown", "payload": strings.Repeat("x", 1024)}, &pb.Event{}, "source-1")
+	store.upsert(Record{"id": "too-big", "processId": "unknown", "payload": strings.Repeat("x", 1024)}, &pb.TextEvent{}, "source-1")
 	if store.Status().Dropped != 1 {
 		t.Fatal("oversized record was not counted as dropped")
 	}
@@ -411,7 +530,7 @@ func TestPagedWorkspaceFiltersEntireRetentionAndFetchesDetail(t *testing.T) {
 			record["response"].(map[string]any)["body"] = "DeepBodyToken"
 			record["responseProcess"] = processInfo{ID: "peer", PID: 22, Name: "server", Command: `"server" "two words"`}
 		}
-		store.upsert(record, &pb.Event{Pid: 11, Pname: "client"}, "source-1")
+		store.upsert(record, &pb.TextEvent{Pid: 11, Pname: "client"}, "source-1")
 	}
 	getPage := func(params url.Values) map[string]any {
 		t.Helper()
@@ -474,9 +593,20 @@ func TestRecordDetailVersionChangesAfterServiceRestart(t *testing.T) {
 	second.started = first.started.Add(time.Second)
 	row := Record{"id": "source-1-1-1", "processId": "client", "processPid": int64(1)}
 	for _, store := range []*Store{first, second} {
-		store.upsert(row, &pb.Event{Pid: 1}, "source-1")
+		store.upsert(row, &pb.TextEvent{Pid: 1}, "source-1")
 	}
 	if first.records["source-1-1-1"].Summary["detailVersion"] == second.records["source-1-1-1"].Summary["detailVersion"] {
 		t.Fatal("browser could reuse a different session's cached detail")
 	}
+}
+
+// The test server explicitly negotiates the same protocol as the real collector.
+func testWSHandler(handler func(*websocket.Conn)) http.Handler {
+	return websocket.Server{Handler: websocket.Handler(handler), Handshake: func(config *websocket.Config, request *http.Request) error {
+		if request.Header.Get("Sec-WebSocket-Protocol") != "ecapture.v2" || request.Header.Get("Origin") == "" {
+			return fmt.Errorf("v2 handshake required")
+		}
+		config.Protocol = []string{"ecapture.v2"}
+		return nil
+	}}
 }

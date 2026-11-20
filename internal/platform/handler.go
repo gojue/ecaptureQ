@@ -16,6 +16,7 @@ import (
 	"sync"
 	"unicode"
 
+	"github.com/gojue/ecaptureq/internal/app"
 	"github.com/gojue/ecaptureq/internal/httpapi"
 )
 
@@ -32,17 +33,32 @@ type Native interface {
 	OpenURL(url string) error
 }
 
+// BinaryNative streams an already-authorized artifact through a save dialog.
+// It receives neither a server path nor an unbounded frontend string.
+type BinaryNative interface {
+	SaveArtifact(filename string, content io.Reader, locale string) (bool, error)
+}
+
+type ArtifactSource interface {
+	OpenArtifact(session, id string) (*app.ArtifactReader, error)
+}
+
 type handler struct {
-	next     http.Handler
-	native   Native
-	policy   httpapi.Policy
-	exportMu sync.Mutex
+	next      http.Handler
+	native    Native
+	policy    httpapi.Policy
+	exportMu  sync.Mutex
+	artifacts ArtifactSource
 }
 
 // Wrap adds native capabilities to a shared handler. Mount it beneath the same
 // base path as the UI, before handing it to Wails' internal asset server.
-func Wrap(next http.Handler, native Native, policy httpapi.Policy) http.Handler {
-	return &handler{next: next, native: native, policy: policy}
+func Wrap(next http.Handler, native Native, policy httpapi.Policy, artifacts ...ArtifactSource) http.Handler {
+	h := &handler{next: next, native: native, policy: policy}
+	if len(artifacts) > 0 {
+		h.artifacts = artifacts[0]
+	}
+	return h
 }
 
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -59,7 +75,8 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			respond(w, r, http.StatusMethodNotAllowed, map[string]any{"error": "method_not_allowed"})
 			return
 		}
-		respond(w, r, http.StatusOK, map[string]any{"desktop": true, "export": true, "clipboard": true, "openURL": true})
+		_, binary := h.native.(BinaryNative)
+		respond(w, r, http.StatusOK, map[string]any{"desktop": true, "export": true, "exportArtifact": binary && h.artifacts != nil, "clipboard": true, "openURL": true})
 		return
 	}
 	var limit int64
@@ -71,6 +88,8 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		limit = 6*MaxClipboardBytes + 1024
 	case "/api/platform/open-url":
 		limit = 16 << 10
+	case "/api/platform/export-artifact":
+		limit = 4096
 	default:
 		respond(w, r, http.StatusNotFound, map[string]any{"error": "not_found"})
 		return
@@ -107,6 +126,44 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return true
 	}
 	switch r.URL.Path {
+	case "/api/platform/export-artifact":
+		var request struct {
+			Session string `json:"session"`
+			ID      string `json:"id"`
+			Locale  string `json:"locale"`
+		}
+		if !decode(&request) {
+			return
+		}
+		if request.Locale == "" {
+			request.Locale = "en"
+		}
+		if request.Locale != "en" && request.Locale != "zh-CN" {
+			respond(w, r, http.StatusBadRequest, map[string]any{"error": "invalid_locale"})
+			return
+		}
+		binary, ok := h.native.(BinaryNative)
+		if !ok || h.artifacts == nil {
+			respond(w, r, http.StatusNotImplemented, map[string]any{"error": "native_export_unavailable"})
+			return
+		}
+		file, err := h.artifacts.OpenArtifact(request.Session, request.ID)
+		if err != nil {
+			respond(w, r, http.StatusNotFound, map[string]any{"error": "artifact_not_found"})
+			return
+		}
+		defer file.Close()
+		if !h.exportMu.TryLock() {
+			respond(w, r, http.StatusConflict, map[string]any{"error": "export_dialog_already_open"})
+			return
+		}
+		defer h.exportMu.Unlock()
+		saved, err := binary.SaveArtifact(file.Info.Filename, file, request.Locale)
+		if err != nil {
+			respond(w, r, http.StatusInternalServerError, map[string]any{"error": "export_failed"})
+			return
+		}
+		respond(w, r, http.StatusOK, map[string]any{"saved": saved, "cancelled": !saved})
 	case "/api/platform/export":
 		var request struct {
 			Filename string `json:"filename"`

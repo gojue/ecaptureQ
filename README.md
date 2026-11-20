@@ -10,7 +10,7 @@ eCaptureQ 将 eCapture 采集到的网络消息，转化为**可搜索、可关�
 
 ## eCapture 与 eCaptureQ 的关系
 
-[eCapture](https://github.com/gojue/ecapture) 在采集主机上运行，负责探针、流量采集、TLS 解密和应用消息输出。**eCaptureQ 是它的图形化分析界面**：连接数据源，关联请求与响应，管理有界缓存，并提供筛选、搜索和消息详情。两者独立运行，eCaptureQ 通过 eCapture 的 `--ecaptureq` WebSocket 接口接收应用消息。
+[eCapture](https://github.com/gojue/ecapture) 在采集主机上运行，负责探针、流量采集、TLS 解密和应用消息输出。**eCaptureQ 是它的图形化分析界面**：连接数据源，关联请求与响应，管理有界缓存，并提供筛选、搜索和消息详情。两者独立运行，eCaptureQ 通过 eCapture 的 `--stream-listen` WebSocket 接口（Protobuf v2）接收应用消息。
 
 ![从终端到图形界面的概念示意：左侧 eCapture 采集与解密，右侧 eCaptureQ 关联并展示应用消息和捕获的图片内容](docs/images/terminal-to-interface-fine.webp)
 
@@ -116,16 +116,16 @@ ecaptureq-web --listen 127.0.0.1:28257
 
 ### 1. 在 Linux 采集主机启动 eCapture
 
-下载适用于该主机的 [eCapture](https://github.com/gojue/ecapture/releases)，使用支持 `--ecaptureq` 和 `--text-source pcapng` 的版本。以 OpenSSL/TLS 流量为例，在 eCapture 所在目录运行：
+从 [eCapture Releases](https://github.com/gojue/ecapture/releases) 下载并安装支持 Protobuf v2、`--stream-listen` 和 `--text-source pcapng` 的新版采集器。以 OpenSSL/TLS 流量为例，在 eCapture 所在目录运行：
 
 ```sh
 sudo ./ecapture tls -m text --text-source pcapng -i eth0 \
-  --ecaptureq ws://127.0.0.1:28256/
+  --stream-listen ws://127.0.0.1:28256/
 ```
 
 将 `eth0` 换成实际流量经过的接口；本机 loopback 流量通常使用 `lo`。Go TLS 程序应选择 `gotls` 并指定 `--elfpath`，GnuTLS 应选择 `gnutls`，详见 [eCapture 使用说明](https://github.com/gojue/ecapture#readme)及[本项目协议参考](docs/reference.md)。需要完整进程命令和 TLS 详情时，请使用包含对应字段的新版采集器，见[兼容性说明](docs/upstream-status.md)。
 
-`--ecaptureq` 让 **eCapture 开启事件监听端口**；eCaptureQ 连接它。不要用 `--eventaddr` 的原始输出地址代替这个接口。
+`--stream-listen` 在 **eCapture 提供订阅入口**；eCaptureQ 用完整 URL 连接，并强制协商 `ecapture.v2`，不回退旧协议。默认使用与 eCapture 一致的根路径 `/`。如在采集器显式配置了自定义路径，客户端须使用相同的完整 URL。`--config-listen` 用于 HTTP 配置更新，重复 `--output` 用于主动输出；它们与订阅入口用途不同。客户端地址不能填 `0.0.0.0`。
 
 ### 2. 连接远端主机时建立 SSH 隧道
 
@@ -143,13 +143,13 @@ ssh -N -L 127.0.0.1:28256:127.0.0.1:28256 user@linux-host
 2. 输入名称和 `ws://127.0.0.1:28256/`，点击「添加并连接」。
 3. 切换到「实时」，在目标程序中产生流量，查看记录与详情。
 
-右上角显示「已连接数 / 总来源数」，面板中可查看每个来源的状态、重连和运行日志。可以重复添加多个数据源，单个来源断线不会停止其他来源。
+右上角显示「已连接数 / 总来源数」，面板中可分别查看来源状态、原生文件会话和运行日志。TEXT 按消息展示；KEYLOG/PCAPNG 显示上游 module、字节数、连接代次与完成状态，并可导出原字节文件。可以重复添加多个数据源，单个来源断线不会停止其他来源。
 
 **Web 模式的连接由 `ecaptureq-web` 发起，不是由浏览器发起。** 地址中的 `127.0.0.1` 指运行服务的机器，SSH 隧道也应建在那台机器上。桌面模式则由桌面应用所在机器连接。
 
-![数据源表单：主机和采集模块自动填写](docs/images/sources.png)
+![数据源连接表单](docs/images/sources.png)
 
-*表单演示使用本地合成来源：主机由 WebSocket 地址填写，模块从启动命令识别，均可手动修改。实际使用时替换为自己的 eCapture 地址。*
+*图中为合成来源；采集信息由 eCapture 自动发送。*
 
 也可以启动时指定来源。下面以 Linux 安装后的命令为例；macOS ZIP 在解压目录使用 `./ecaptureq-web`：
 
@@ -167,6 +167,7 @@ ecaptureq-web --mode live --data-source ws://127.0.0.1:28256/
 - **「未配对」是什么意思？** 当前记录尚未关联到另一侧消息；不等于请求仍在服务端执行。采集开始前、断线期间或已经被淘汰的消息无法补造。
 - **暂停后是否停止采集？** 「暂停刷新」仅停止页面记录更新，后台仍继续接收。
 - **记录能保存多久？** 默认保留最多 65,536 条记录、192 MiB 计量缓存，先达到任一上限就淘汰最旧记录。192 MiB 不是整个进程的内存上限；退出后实时缓存和日志会丢失，需要保留时及时导出 JSON。
+- **原生文件何时完整？** 只有正常 Close 1000、写入及格式校验成功才标记完成；异常中断、限额或写盘错误保留 `.partial`。晚订阅只包含之后的数据和秘密，旧 TLS 连接可能无法解密。临时原生文件独立受磁盘和会话配额限制，退出清理；请及时导出需要保留的副本，详见[原生会话参考](docs/reference.md#原生-keylog--pcapng-会话)。
 - **星标会永久保存吗？** 星标只保留在当前页面会话，不阻止缓存淘汰；刷新页面或切换数据模式会清空。
 - **旧版可以直接升级吗？** 新版采用全新实现，旧配置与会话不会自动导入；当前不提供 SQL 过滤或集成探针启动。请先阅读[升级说明](docs/upgrade.md)。
 

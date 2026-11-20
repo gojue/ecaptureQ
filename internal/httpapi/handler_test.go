@@ -243,3 +243,42 @@ func newHandler() (http.Handler, error) {
 	}
 	return New(options, store, frontend.Files, Policy{})
 }
+
+func TestSourceManagementAPI(t *testing.T) {
+	opts := app.DefaultOptions()
+	store, err := app.NewStore(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Wait()
+	source, err := store.AddSource(app.SourceConfig{Endpoint: "ws://localhost:9000/"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler, err := New(opts, store, frontend.Files, Policy{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, action := range []string{"edit", "reconnect", "remove"} {
+		body := `{"id":"` + source.ID + `","action":"` + action + `","endpoint":"ws://localhost:9001/","label":"edited"}`
+		for _, tc := range []struct {
+			origin, header string
+			status         int
+		}{
+			{"https://untrusted.test", "1", 403}, {"http://localhost", "", 403}, {"null", "1", 403}, {"http://localhost", "1", 200},
+		} {
+			r := httptest.NewRequest(http.MethodPost, "http://localhost/api/sources/manage", strings.NewReader(body))
+			r.Header.Set("Origin", tc.origin)
+			r.Header.Set("X-Ecapture-UI", tc.header)
+			r.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			handler.ServeHTTP(w, r)
+			if w.Code != tc.status {
+				t.Fatalf("%s status %d: %s", action, w.Code, w.Body.String())
+			}
+		}
+	}
+	if len(store.Status().Sources) != 0 {
+		t.Fatal("source was not removed")
+	}
+}

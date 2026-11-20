@@ -42,6 +42,9 @@ func Parse(args []string, desktop bool) (Config, error) {
 	flags.IntVar(&c.Options.MaxRecords, "max-records", c.Options.MaxRecords, "Maximum retained live records")
 	memoryMiB := flags.Int("max-memory-mib", c.Options.MaxBytes>>20, "Maximum retained record JSON in MiB (not process RSS)")
 	frameMiB := flags.Int("max-frame-mib", c.Options.MaxFrameBytes>>20, "Maximum inbound WebSocket frame in MiB")
+	flags.StringVar(&c.Options.Native.Dir, "native-directory", "", "Parent for private temporary native files; exported copies are never cleaned up")
+	nativeMiB := flags.Int64("max-native-mib", app.DefaultNativeBytes>>20, "Maximum temporary KEYLOG/PCAPNG bytes in MiB, independently of record JSON")
+	flags.IntVar(&c.Options.Native.MaxSessions, "max-native-sessions", app.DefaultNativeSessions, "Maximum temporary native sessions; oldest finished files are evicted first")
 	if err := flags.Parse(args); err != nil {
 		return c, err
 	}
@@ -52,6 +55,13 @@ func Parse(args []string, desktop bool) (Config, error) {
 		return c, errors.New("memory must be 1..1024 MiB and frame limit 1..64 MiB")
 	}
 	c.Options.MaxBytes, c.Options.MaxFrameBytes = *memoryMiB<<20, *frameMiB<<20
+	if *nativeMiB < 1 || *nativeMiB > 1<<20 {
+		return c, errors.New("native storage must be 1..1048576 MiB")
+	}
+	if c.Options.Native.MaxSessions < 1 || c.Options.Native.MaxSessions > 1024 {
+		return c, errors.New("native sessions must be 1..1024")
+	}
+	c.Options.Native.MaxBytes = *nativeMiB << 20
 	c.Options.Endpoints = endpoints
 	if *sourcesFile != "" {
 		if err := app.LoadSources(*sourcesFile, &c.Options); err != nil {

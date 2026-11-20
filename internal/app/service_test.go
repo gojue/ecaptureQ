@@ -18,7 +18,7 @@ import (
 
 func TestServiceCloseJoinsConnectedAndRetryingSources(t *testing.T) {
 	closed := make(chan struct{})
-	server := httptest.NewServer(websocket.Handler(func(conn *websocket.Conn) {
+	server := httptest.NewServer(testWSHandler(func(conn *websocket.Conn) {
 		defer close(closed)
 		defer conn.Close()
 		var frame []byte
@@ -85,7 +85,7 @@ func TestEvictedRequestIsNotResurrectedByLateResponse(t *testing.T) {
 			mapper := newMapper()
 			feed := func(payload, stream string) {
 				e := testEvent(payload)
-				e.GetEventPayload().StreamId = stream
+				e.GetEventPayload().GetText().StreamId = stream
 				store.consume(0, 1, e, mapper, time.Now())
 			}
 			feed("GET /evicted "+protocol+"\r\nHost: test.example\r\n\r\n", "1")
