@@ -2,34 +2,16 @@ Download **eCaptureQ** to open the application directly. Choose **eCaptureQ Web*
 only when you want to host the interface and use it through a browser.
 Neither package includes or launches the eCapture collector.
 
-## What's new in v1.1.0
+## What's new in v1.2.0
 
-- Optional Web sign-in, logout, expiring sessions and login rate limiting; generate
-  password hashes with `ecaptureq-web --hash-password`. Desktop does not use Web auth.
-- Startup notifications for newer stable GitHub releases, with no automatic installation.
-- Configurable page header and hidden-domain filtering; change-driven long polling
-  reduces idle requests and unnecessary workspace refreshes.
-- Linux LoongArch (`loong64`) DEB/RPM downloads for eCaptureQ Web only.
-- Refreshed branding and one-click language switching; increased per-record payload
-  cap from 256 KiB to 256 MiB, while frame and total retention limits still apply.
-- More reliable browser navigation and shutdown in CI smoke tests.
+- Live sources now use the official Protobuf v2 protocol. When upgrading from
+  v1.1.0, start the eCapture v2.12.0 collector with `--stream-listen` and
+  connect eCaptureQ to its WebSocket URL.
+- KEYLOG and PCAPNG streams can now be exported in their native formats.
 
 Packages now omit documentation and configuration examples. macOS desktop ZIP
 contains only the app; DMG also includes the Applications shortcut. Other packages
 retain the executable, licenses and build metadata, plus Linux desktop integration.
-
-## Upgrading from v1.0.0
-
-- Rename eCaptureQ CLI flags: `--addr` → `--listen`, `--ecaptureq` → `--data-source`.
-  The old names are no longer accepted. These historical release notes retain the
-  original collector interface; the current Protobuf v2 development branch requires
-  `--stream-listen` instead (see [dependency status](upstream-status.md)).
-- Convert the `--sources` JSON array to an object with a `sources` field, e.g.
-  `[]` → `{"sources":[]}`. Optional fields are `headerCenter`, `hiddenDomains` and `auth`.
-- Web remains unauthenticated when `auth` is omitted. The [repository example](https://github.com/gojue/ecaptureQ/blob/main/config/sources.example.json) enables
-  login with the public account `ecapture` / `ecaptureQ`; replace its password
-  before deployment. Secure cookies require HTTPS by default; local HTTP testing
-  requires an explicit `auth.secureCookie: false`.
 
 See the [changelog](https://github.com/gojue/ecaptureQ/blob/main/CHANGELOG.md) and
 [upgrade guide](https://github.com/gojue/ecaptureQ/blob/main/docs/upgrade.md) for details.

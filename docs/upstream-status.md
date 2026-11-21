@@ -1,21 +1,19 @@
 # Official protocol dependency
 
-Updated 2026-11-21. Official Protobuf v2 and the new collector parameters are
-public on eCapture master through [PR #1094](https://github.com/gojue/ecapture/pull/1094).
+Updated 2026-11-21. The official Protobuf v2 packages and the `--stream-listen`
+collector option are available in [eCapture v2.12.0](https://github.com/gojue/ecapture/releases/tag/v2.12.0).
 
 | Item | Current integration baseline |
 | --- | --- |
-| Official upstream commit | `0a792c68941559c86cfc40735cd651fbb9d8c238` |
 | Module | `github.com/gojue/ecapture/v2` |
-| Published pin in go.mod | `v2.11.1-0.20261120160025-0a792c689415` |
+| Release tag in go.mod | `v2.12.0` |
 | Generated package | `github.com/gojue/ecapture/v2/protobuf/gen/v2` |
 | Official validation helper | `github.com/gojue/ecapture/v2/protobuf/v2` |
 | WebSocket subprotocol | `ecapture.v2` (required; no v1 fallback) |
 
-Go resolved the public commit to this pseudo-version; go.sum records its verified
-checksums. Normal builds need no adjacent checkout, private workspace or local
-replace. Only official protocol types and validation helpers are imported;
-collector runtime code stays outside eCaptureQ.
+`go.sum` records the release checksums. Normal builds need no adjacent checkout,
+private workspace or local replace. eCaptureQ imports only the official protocol
+types and validation helpers.
 
 Run independent checks on the designated validation VM:
 

@@ -5,9 +5,9 @@ go 1.26.0
 require (
 	github.com/andybalholm/brotli v1.1.1
 	github.com/coder/websocket v1.8.14
-	github.com/gojue/ecapture/v2 v2.11.1-0.20261120160025-0a792c689415
+	github.com/gojue/ecapture/v2 v2.12.0
 	github.com/wailsapp/wails/v3 v3.1.0
-	golang.org/x/net v0.61.0
+	golang.org/x/net v0.62.0
 	golang.org/x/term v0.47.0
 	google.golang.org/protobuf v1.36.12
 )

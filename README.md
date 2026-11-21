@@ -50,7 +50,7 @@ eCaptureQ 将 eCapture 采集到的网络消息，转化为**可搜索、可关�
 
 ### 1. 选择下载包
 
-从 [Releases](https://github.com/gojue/ecaptureQ/releases) 下载 **eCaptureQ 应用**，安装后直接打开即可。当前正在准备 **v1.1.0**，变更和升级注意事项见 [更新日志](CHANGELOG.md)；可下载版本以 Releases 页面为准。尚未发布时，可在成功的 [CI 运行](https://github.com/gojue/ecaptureQ/actions/workflows/ci.yml) 中下载 `release-bundle` 预览包。
+从 [Releases](https://github.com/gojue/ecaptureQ/releases) 下载 **eCaptureQ 应用**，安装后直接打开即可。当前正在准备 **v1.2.0**，变更和升级注意事项见 [更新日志](CHANGELOG.md)；可下载版本以 Releases 页面为准。尚未发布时，可在成功的 [CI 运行](https://github.com/gojue/ecaptureQ/actions/workflows/ci.yml) 中下载 `release-bundle` 预览包。
 
 | 系统 | 推荐下载 | CPU 选择 |
 | --- | --- | --- |
@@ -116,7 +116,7 @@ ecaptureq-web --listen 127.0.0.1:28257
 
 ### 1. 在 Linux 采集主机启动 eCapture
 
-从 [eCapture Releases](https://github.com/gojue/ecapture/releases) 下载并安装支持 Protobuf v2、`--stream-listen` 和 `--text-source pcapng` 的新版采集器。以 OpenSSL/TLS 流量为例，在 eCapture 所在目录运行：
+下载并安装 [eCapture v2.12.0](https://github.com/gojue/ecapture/releases/tag/v2.12.0)，该版本支持 Protobuf v2、`--stream-listen` 和 `--text-source pcapng`。以 OpenSSL/TLS 流量为例，在 eCapture 所在目录运行：
 
 ```sh
 sudo ./ecapture tls -m text --text-source pcapng -i eth0 \

@@ -1,14 +1,18 @@
 # eCaptureQ 新版使用与升级说明
 
 eCaptureQ 沿用原产品名称和 `gojue/ecaptureQ` 仓库，采用全新的 Go + Wails
-实现。当前准备的版本为 **v1.1.0（待发布）**；可下载状态以 Releases 页面为准。本说明描述新实现的使用
+实现。当前准备的版本为 **v1.2.0（待发布）**；可下载状态以 Releases 页面为准。本说明描述新实现的使用
 边界，不承诺旧 Tauri 客户端的功能或配置兼容。
+
+## 从 v1.1.0 升级到 v1.2.0
+
+实时数据源需要支持 `ecapture.v2` 握手。将采集器升级至 eCapture v2.12.0，
+用 `--stream-listen` 开启订阅，再用 eCaptureQ 连接该 WebSocket 地址。见[连接示例](../README.md#连接-ecapture)。
 
 ## 从 v1.0.0 升级到 v1.1.0
 
 1. 更新启动脚本：eCaptureQ 的 `--addr` 改为 `--listen`，`--ecaptureq`
-   改为 `--data-source`，旧名称不再接受。本开发分支连接上游采集器时
-   要求新的 `--stream-listen` 和 `ecapture.v2` 握手，不保留 v1 回退。
+   改为 `--data-source`，旧名称不再接受。
 2. 更新 `--sources` 文件：顶层 JSON 数组改为对象，将原数组放入 `sources`
    字段，例如 `[]` 改为 `{"sources":[]}`。可按需添加 `headerCenter`、
    `hiddenDomains` 和 Web 专用的 `auth`，字段说明见[使用参考](reference.md)。
