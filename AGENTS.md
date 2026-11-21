@@ -23,18 +23,22 @@ Keep public names, import paths, app identifiers, artifact names and docs aligne
 
 ## Protocol is owned upstream
 
-Import only `github.com/gojue/ecapture/v2/protobuf/gen/v1`. Do not copy `.proto`,
+Import official `github.com/gojue/ecapture/v2/protobuf/gen/v2` and optionally
+`github.com/gojue/ecapture/v2/protobuf/v2` validation helpers. Do not copy `.proto`,
 generated `.pb.go`, wire descriptors or create a compatible private protocol.
-Record and API DTOs are presentation models. Require official Event fields 18
-(`process_args`), 19 (`process_args_truncated`), and 20 (`tls`) without inventing
-missing values. The published dependency is pinned to
-`v2.10.1-0.20261108050605-f6c0df58575c`; see `docs/upstream-status.md` for provenance.
+Record and API DTOs are presentation models. Require `ecapture.v2`, both oneofs,
+LogEntry.module=5, all three content formats and TextEvent fields 18–20.
 
-Use real downloadable versions and maintain `go.sum`. Normal builds must work
-without an adjacent eCapture checkout. Optional upstream development may use an
-ignored `go.work`. Release/CI must set `GOWORK=off` and pass the protocol gate;
-never turn that gate into a skip or represent local integration as standalone.
+The official v2 dependency is public and pinned in go.mod/go.sum; see
+`docs/upstream-status.md`. Use real downloadable versions and checksums, with
+`GOWORK=off` for independent builds and mandatory CI/release checks. Do not use
+local replace directives or represent workspace validation as standalone.
 Do not publish upstream or push/commit without explicit user authorization.
+
+For this migration, all builds, tests involving compiled code, fixture servers,
+browsers and real capture E2E run only on the designated validation VM.
+Local editing and static checks are allowed. Keep machine paths and addresses
+outside public files; document portable commands and sanitized results.
 
 ## Rewrite scope and repository operations
 

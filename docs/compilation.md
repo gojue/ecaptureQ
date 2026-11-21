@@ -37,9 +37,12 @@ git clone https://github.com/gojue/ecaptureQ.git
 cd ecaptureQ
 ```
 
-Go 模块路径为 `github.com/gojue/ecaptureq`。协议直接导入官方 `github.com/gojue/ecapture/v2/protobuf/gen/v1`，当前依赖固定到公开提交 `f6c0df58575c` 对应的 `v2.10.1-0.20261108050605-f6c0df58575c`。它包含进程参数与 TLS 所需的 Event 字段 18–20，详见 [依赖核验](upstream-status.md)。
+Go 模块路径为 `github.com/gojue/ecaptureq`，协议直接导入官方
+`github.com/gojue/ecapture/v2/protobuf/gen/v2`。公开依赖由 `go.mod` / `go.sum`
+固定，来源见[依赖核验](upstream-status.md)。
 
-正常构建无须相邻 eCapture checkout、`replace` 或 `go.work`，也无须自行生成 Protobuf：
+本次迁移的构建、编译型测试、fixture、浏览器与真实 E2E 仅在指定验证 VM 执行；
+本机只做编辑与静态检查。在验证 VM 的 eCaptureQ checkout 中检查公开依赖：
 
 ```sh
 GOWORK=off go mod download
@@ -68,7 +71,7 @@ go build -trimpath -o bin/ecaptureq-web.exe ./cmd/server
 .\bin\ecaptureq-web.exe --listen 127.0.0.1:28257 --mode mock
 ```
 
-也可直接运行 `go run ./cmd/server --mode mock`。修改嵌入的前端资源后，重新运行或构建程序。
+也可直接运行 `GOWORK=off go run ./cmd/server --mode mock`。修改嵌入的前端资源后，重新运行或构建程序。
 
 ## 编译 Desktop
 
@@ -92,7 +95,7 @@ Windows 在 Git Bash 中运行上述脚本。脚本使用固定的 Wails **v3.1.
 首次构建需要下载工具依赖。生成的 ICO 和 `.syso` 都是临时产物，成功或失败后均会清理。
 直接使用 `go build` 或 `go run` 适用于开发，但不会嵌入 Windows 文件图标。
 
-开发运行使用 `go run -tags desktop ./cmd/desktop --mode mock`。桌面直接嵌入共享 UI 和 Handler，无须另启动 Web 服务，也不默认额外监听 TCP 端口。
+开发运行使用 `GOWORK=off go run -tags desktop ./cmd/desktop --mode mock`。桌面直接嵌入共享 UI 和 Handler，无须另启动 Web 服务，也不默认额外监听 TCP 端口。
 
 macOS 编译脚本先在隐藏的临时目录完成整个应用包，再替换 `dist/eCaptureQ.app`，
 并更新包的修改时间，让 Finder 读取完整的图标和元数据；编译失败时保留上次的构建。

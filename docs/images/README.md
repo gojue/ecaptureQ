@@ -3,7 +3,7 @@
 ## Application screenshots
 
 These are unedited 1440 × 980 screenshots of the running eCaptureQ Web UI,
-refreshed on 2026-11-08 for the eCaptureQ logo update based on `65795e1`.
+originally refreshed on 2026-11-08 for the eCaptureQ logo update based on `65795e1`.
 The original shared UI screenshots were captured on the same date based on
 `34e4d7d`; these fresh captures include the new transparent eCaptureQ logo.
 Web and Desktop share this interface; these images show the browser edition,
@@ -12,11 +12,11 @@ not a native desktop window.
 - `overview.png`: bundled mock session, HTTP/3 request, English, light theme.
 - `protocol-details.png`: bundled mock session, MQTT PUBLISH fields, English,
   dark theme.
-- `sources.png`: editable source defaults inferred from a local synthetic
-  WebSocket address and an inert example launch command. The subsequent smoke
-  test submits to a local `scripts/ws-fixture` instance, never a real collector.
+- `sources.png`: refreshed on 2026-11-21 from the mock Web UI on the validation
+  VM. Only a name and synthetic WebSocket endpoint are entered; collector
+  metadata is received automatically and is read-only.
 
-The images come from `test/browser-smoke.mjs` with `SMOKE_ARTIFACT_DIR` enabled;
+The original images come from `test/browser-smoke.mjs` with `SMOKE_ARTIFACT_DIR` enabled;
 see [UI verification](../ui-verification.md) for test coverage. All visible
 records are mock or generated test data. They are not real captured traffic and
 do not establish real-probe protocol coverage. No credentials, private

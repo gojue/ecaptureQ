@@ -12,13 +12,13 @@ import (
 	"testing"
 	"time"
 
-	pb "github.com/gojue/ecapture/v2/protobuf/gen/v1"
+	pb "github.com/gojue/ecapture/v2/protobuf/gen/v2"
 )
 
-func mapperEvent(data string) *pb.Event {
-	return &pb.Event{Timestamp: 1700000000, Uuid: "connection-a", SrcIp: "192.0.2.1", SrcPort: 54321, DstIp: "192.0.2.2", DstPort: 443, Pid: 42, Pname: "demo-client", Direction: "request", CaptureFormat: pb.CaptureFormat_CAPTURE_FORMAT_TEXT, Payload: []byte(data), Length: uint32(len(data)), OriginalLength: uint32(len(data))}
+func mapperEvent(data string) *pb.TextEvent {
+	return &pb.TextEvent{Timestamp: 1700000000, Uuid: "connection-a", SrcIp: "192.0.2.1", SrcPort: 54321, DstIp: "192.0.2.2", DstPort: 443, Pid: 42, Pname: "demo-client", Direction: "request", Payload: []byte(data), Length: uint32(len(data)), OriginalLength: uint32(len(data))}
 }
-func mapOne(t *testing.T, m *eventMapper, source string, generation uint64, e *pb.Event) Record {
+func mapOne(t *testing.T, m *eventMapper, source string, generation uint64, e *pb.TextEvent) Record {
 	t.Helper()
 	rows := m.Map(source, generation, e, time.Unix(1700000001, 123))
 	if len(rows) != 1 {
@@ -26,7 +26,7 @@ func mapOne(t *testing.T, m *eventMapper, source string, generation uint64, e *p
 	}
 	return rows[0]
 }
-func structuredEvent(protocol, direction string, metadata map[string]any, data []byte) *pb.Event {
+func structuredEvent(protocol, direction string, metadata map[string]any, data []byte) *pb.TextEvent {
 	encoded, _ := json.Marshal(metadata)
 	payload := fmt.Sprintf("[2026-11-07T00:00:00.123456789Z] %s %s 192.0.2.1:54321 -> 192.0.2.2:443 connection=\"connection-a\" kind=%v length=%d encoding=hex metadata=%s\n%s\n\n", protocol, direction, metadata["kind"], len(data), encoded, hex.EncodeToString(data))
 	e := mapperEvent(payload)
@@ -37,7 +37,7 @@ func structuredEvent(protocol, direction string, metadata map[string]any, data [
 }
 
 func TestMapperHTTPAssociationAndIsolation(t *testing.T) {
-	for _, protocol := range []string{"HTTP/1.1", "HTTP/2.0", "HTTP/3.0"} {
+	for _, protocol := range []string{"HTTP/2.0", "HTTP/3.0"} {
 		t.Run(protocol, func(t *testing.T) {
 			m := newMapper()
 			request := mapperEvent("GET /first " + protocol + "\r\nHost: demo.test\r\n\r\n")
@@ -342,11 +342,6 @@ func TestMapperBoundsAndUnknownFields(t *testing.T) {
 	if len(r["payload"].(string)) != maxRecordPayload || r["sizeBytes"] != maxRecordPayload+1 || r["state"] != "partial" || r["processId"] != "s:unknown" {
 		t.Fatal("bounded display or unknown attribution failed")
 	}
-	e = mapperEvent("secret")
-	e.CaptureFormat = pb.CaptureFormat_CAPTURE_FORMAT_KEYLOG
-	if r = mapOne(t, m, "s", 1, e); r["family"] != "raw" || r["protocol"] != "KEYLOG" {
-		t.Fatal("keylog parsed as application data")
-	}
 	if got := m.Map("s", 1, nil, time.Now()); len(got) != 0 {
 		t.Fatal("nil event should be ignored")
 	}
@@ -381,24 +376,25 @@ func TestMapperPendingByteBudgetAndExactMetadata(t *testing.T) {
 	}
 }
 
-func TestMapperTruncationSurvivesAssociation(t *testing.T) {
+func TestMapperOriginalLengthDoesNotInferTruncation(t *testing.T) {
 	m := newMapper()
 	req := mapperEvent("GET / HTTP/1.1\r\n\r\n")
-	mapOne(t, m, "s", 1, req)
+	request := mapOne(t, m, "s", 1, req)
 	resp := mapperEvent("HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")
 	resp.Direction = "response"
 	resp.OriginalLength += 10
 	r := mapOne(t, m, "s", 1, resp)
-	if r["state"] != "partial" || r["metadata"].(map[string]any)["captureTruncated"] != true {
-		t.Fatal("HTTP response truncation lost during merge")
+	if r["id"] != request["id"] || r["state"] != "complete" || r["metadata"].(map[string]any)["captureTruncated"] != nil {
+		t.Fatal("different text representations inferred capture truncation")
 	}
-	redisReq := structuredEvent("redis", "client_to_server", map[string]any{"kind": "request", "request_id": 1, "command": "PING"}, []byte("*1\r\n$4\r\nPING\r\n"))
-	redisReq.OriginalLength += 1
-	request := mapOne(t, m, "s", 1, redisReq)
-	redisResp := structuredEvent("redis", "server_to_client", map[string]any{"kind": "response", "request_id": 1, "command": "PING"}, []byte("+PONG\r\n"))
-	r = mapOne(t, m, "s", 1, redisResp)
-	if r["id"] != request["id"] || r["state"] != "partial" || r["metadata"].(map[string]any)["captureTruncated"] != true {
-		t.Fatal("Redis request truncation lost during merge")
+	if !bytes.Equal(r["responseRawPayload"].([]byte), resp.Payload) {
+		t.Fatal("paired response lost original formatted payload")
+	}
+	partial := mapperEvent("POST /partial HTTP/1.1\r\nContent-Length: 20\r\n\r\nshort")
+	request = mapOne(t, m, "s", 2, partial)
+	r = mapOne(t, m, "s", 2, resp)
+	if r["id"] != request["id"] || r["state"] != "partial" {
+		t.Fatal("HTTP body truncation lost during association")
 	}
 }
 
@@ -479,5 +475,144 @@ func TestCapturedProcessArguments(t *testing.T) {
 	merged := mapOne(t, m, "source", 1, e)
 	if merged["id"] != first["id"] || merged["processCommand"] != `same-process` || merged["responseProcess"] != nil {
 		t.Fatal("late command metadata split an existing process or failed to enrich its record")
+	}
+}
+
+func sdkEvent(protocol, direction string, data []byte) *pb.TextEvent {
+	payload := []byte(fmt.Sprintf("[2026-11-18T01:02:03.123456789Z] %s %s 192.0.2.1:54321 -> 192.0.2.2:443 host=%q domain_source=%q connection=%q stream=7\n", protocol, direction, "demo.test", "Host", "connection-a"))
+	payload = append(payload, data...)
+	if len(data) == 0 || data[len(data)-1] != '\n' {
+		payload = append(payload, '\n')
+	}
+	payload = append(payload, '\n')
+	e := mapperEvent(string(payload))
+	e.Direction, e.OriginalLength = direction, uint32(len(data))
+	return e
+}
+
+func TestMapperSDKFormattingPreservesExactBody(t *testing.T) {
+	for _, body := range [][]byte{nil, []byte("hello"), []byte(" \t\n"), []byte("\n\n"), {0, 255, 10}, []byte("encoding=hex\n\n")} {
+		t.Run(hex.EncodeToString(body), func(t *testing.T) {
+			message := []byte(fmt.Sprintf("POST /sdk HTTP/1.1\r\nHost: demo.test\r\nContent-Length: %d\r\n\r\n", len(body)))
+			message = append(message, body...)
+			e := sdkEvent("HTTP/1.1", "request", message)
+			rows := newMapper().Map("source", 8, e, time.Now(), "future-module")
+			r := rows[0]
+			meta := r["metadata"].(map[string]any)
+			if r["family"] != "http" || r["path"] != "/sdk" || r["streamId"] != "7" || r["module"] != "future-module" || meta["module"] != "future-module" {
+				t.Fatalf("formatted message not mapped: %v", r)
+			}
+			if r["startedAt"] != "2026-11-18T01:02:03.123456789Z" || meta["captureTimestamp"] != e.Timestamp || meta["length"] != e.Length || meta["originalLength"] != e.OriginalLength || meta["captureTruncated"] != nil {
+				t.Fatal("wire lengths or timestamps lost")
+			}
+			if e.Length <= e.OriginalLength || !bytes.Equal(r["rawPayload"].([]byte), e.Payload) {
+				t.Fatal("formatted payload was not retained")
+			}
+			request := r["request"].(map[string]any)
+			got := []byte(request["body"].(string))
+			if request["bodyEncoding"] == "hex" {
+				var err error
+				got, err = hex.DecodeString(string(got))
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			if !bytes.Equal(got, body) {
+				t.Fatalf("body bytes changed: %x != %x", got, body)
+			}
+		})
+	}
+}
+
+func TestMapperSDKEmptyAndMalformedFormatting(t *testing.T) {
+	empty := sdkEvent("RAW", "request", nil)
+	r := mapOne(t, newMapper(), "s", 1, empty)
+	if r["payload"] != "" || r["sizeBytes"] != 0 || r["metadata"].(map[string]any)["parseError"] != nil {
+		t.Fatal("empty SDK data was not preserved")
+	}
+	for name, change := range map[string]func(*pb.TextEvent){
+		"timestamp": func(e *pb.TextEvent) {
+			e.Payload = bytes.Replace(e.Payload, []byte("2026-11-18T01:02:03.123456789Z"), []byte("invalid-time"), 1)
+		},
+		"missing-separator": func(e *pb.TextEvent) { e.Payload = bytes.ReplaceAll(e.Payload, []byte("\n"), nil) },
+		"body-short":        func(e *pb.TextEvent) { e.OriginalLength += 100 },
+		"body-extra":        func(e *pb.TextEvent) { e.Payload = append(e.Payload, 'x') },
+		"quoted-field": func(e *pb.TextEvent) {
+			e.Payload = bytes.Replace(e.Payload, []byte(`host="demo.test"`), []byte(`host="\q"`), 1)
+		},
+		"header-limit": func(e *pb.TextEvent) {
+			e.Payload = append([]byte("["+strings.Repeat("x", maxSDKHeader+1)), e.Payload...)
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			e := sdkEvent("HTTP/1.1", "request", []byte("GET / HTTP/1.1\r\n\r\n"))
+			change(e)
+			e.Length = uint32(len(e.Payload))
+			r := mapOne(t, newMapper(), "s", 1, e)
+			if r["family"] != "raw" || r["payload"] != string(e.Payload) || !bytes.Equal(r["rawPayload"].([]byte), e.Payload) || r["metadata"].(map[string]any)["parseError"] == nil {
+				t.Fatal("malformed SDK data was discarded or classified as HTTP")
+			}
+		})
+	}
+}
+
+func TestMapperTextMetadataPreserved(t *testing.T) {
+	e := mapperEvent("")
+	e.Pid, e.ProcessArgs, e.ProcessArgsTruncated = 0, []byte{255, 0, 0, 'x'}, true
+	e.Tls = map[string]string{"version": "TLS 1.3", "cipher_suite": "AES", "cipher_suite_id": "4865", "server_name": "tls.test", "offered_alpn": "h2,http/1.1", "alpn": "h2", "key_exchange_group": "X25519", "signature_algorithm": "rsa_pss", "ja3": "a", "ja3_raw": "b", "ja4": "c", "client_hello": "initial_outer", "future_field": "preserved"}
+	r := newMapper().Map("s", 1, e, time.Now(), "")[0]
+	if !bytes.Equal(r["processArgs"].([]byte), e.ProcessArgs) || r["processCommandTruncated"] != true || r["processCommand"] != nil {
+		t.Fatal("uninterpreted argv bytes/truncation lost or command invented")
+	}
+	meta := r["metadata"].(map[string]any)
+	if r["module"] != "" || meta["module"] != "" || r["payload"] != "" {
+		t.Fatal("empty metadata values replaced")
+	}
+	for key, value := range e.Tls {
+		if meta["tls"].(map[string]any)[key] != value {
+			t.Fatalf("TLS field %s lost", key)
+		}
+	}
+	structured := structuredEvent("http/1.1", "client_to_server", map[string]any{"kind": "message", "module": "forged", "tls": map[string]any{"server_name": "other", "extra": "observed"}}, []byte("GET / HTTP/1.1\r\n\r\n"))
+	structured.Tls = e.Tls
+	r = newMapper().Map("s", 1, structured, time.Now(), "tls")[0]
+	meta = r["metadata"].(map[string]any)
+	if meta["module"] != "tls" || meta["tls"].(map[string]any)["server_name"] != "tls.test" || meta["tls"].(map[string]any)["extra"] != "observed" {
+		t.Fatal("formatting metadata overwrote official wire fields")
+	}
+}
+
+func TestMapperHTTP1StreamMetadataDoesNotChangeFIFO(t *testing.T) {
+	m := newMapper()
+	a := mapperEvent("GET /first HTTP/1.1\r\n\r\n")
+	a.StreamId = "7"
+	first := mapOne(t, m, "s", 1, a)
+	b := mapperEvent("GET /second HTTP/1.1\r\n\r\n")
+	b.StreamId = "9"
+	second := mapOne(t, m, "s", 1, b)
+	response := mapperEvent("HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")
+	response.StreamId = "9"
+	if got := mapOne(t, m, "s", 1, response); got["id"] != first["id"] {
+		t.Fatal("HTTP/1 did not use FIFO")
+	}
+	response.StreamId = "7"
+	if got := mapOne(t, m, "s", 1, response); got["id"] != second["id"] {
+		t.Fatal("HTTP/1 FIFO order changed by stream metadata")
+	}
+}
+
+func TestMapperFormattedFieldsCannotOverrideWireStream(t *testing.T) {
+	e := structuredEvent("http/2", "client_to_server", map[string]any{"kind": "message", "stream_id": 9}, []byte("GET /wire-stream HTTP/2.0\r\n\r\n"))
+	e.StreamId = "7"
+	r := mapOne(t, newMapper(), "s", 1, e)
+	if r["streamId"] != "7" || r["metadata"].(map[string]any)["upstream"].(map[string]any)["stream_id"] == nil {
+		t.Fatal("structured metadata overrode the official stream identity")
+	}
+	e = sdkEvent("http/1.1", "request", []byte("GET /host HTTP/1.1\r\n\r\n"))
+	e.Payload = bytes.Replace(e.Payload, []byte(`host="demo.test"`), []byte(`host="a encoding=hex b"`), 1)
+	e.Length = uint32(len(e.Payload))
+	r = mapOne(t, newMapper(), "s", 1, e)
+	if r["family"] != "http" || r["host"] != "a encoding=hex b" {
+		t.Fatal("quoted host content changed formatted event classification")
 	}
 }

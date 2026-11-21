@@ -9,6 +9,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -17,17 +19,18 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"unicode/utf8"
 
 	"github.com/gojue/ecaptureq/internal/auth"
 
-	"golang.org/x/net/websocket"
+	"github.com/coder/websocket"
 	"google.golang.org/protobuf/proto"
 
-	pb "github.com/gojue/ecapture/v2/protobuf/gen/v1"
+	pb "github.com/gojue/ecapture/v2/protobuf/gen/v2"
+	protocol "github.com/gojue/ecapture/v2/protobuf/v2"
 )
 
 type Options struct {
+	Native                NativeOptions
 	WebAuth               *auth.Config
 	Mode                  string
 	ExcludeHTTPPathPrefix string
@@ -50,6 +53,9 @@ func DefaultOptions() Options {
 }
 
 func (o Options) Validate() error {
+	if err := o.Native.validate(); err != nil {
+		return err
+	}
 	if o.Mode != "mock" && o.Mode != "live" {
 		return errors.New("mode must be mock or live")
 	}
@@ -82,6 +88,9 @@ func (o Options) Validate() error {
 func normalizeEndpoint(endpoint string) (string, error) {
 	u, err := url.Parse(strings.TrimSpace(endpoint))
 	if err != nil || len(endpoint) > 2048 || u.Hostname() == "" || (u.Scheme != "ws" && u.Scheme != "wss") || u.User != nil || u.Fragment != "" || u.RawQuery != "" || u.ForceQuery || u.Opaque != "" {
+		return "", errors.New("invalid_endpoint")
+	}
+	if ip := net.ParseIP(u.Hostname()); ip != nil && ip.IsUnspecified() {
 		return "", errors.New("invalid_endpoint")
 	}
 	u.Host = strings.ToLower(u.Host)
@@ -117,30 +126,34 @@ type SourceConfig struct {
 }
 
 type SourceStatus struct {
-	ID            string       `json:"id"`
-	Label         string       `json:"label"`
-	Endpoint      string       `json:"endpoint"`
-	Capture       *CaptureInfo `json:"capture,omitempty"`
-	State         string       `json:"state"`
-	Generation    uint64       `json:"generation"`
-	Received      uint64       `json:"received"`
-	Events        uint64       `json:"events"`
-	Malformed     uint64       `json:"malformed"`
-	Ignored       uint64       `json:"ignored"`
-	Reconnects    uint64       `json:"reconnects"`
-	Retries       uint64       `json:"retries"`
-	LastEventAt   string       `json:"lastEventAt,omitempty"`
-	LastHeartbeat string       `json:"lastHeartbeatAt,omitempty"`
-	LastError     string       `json:"lastError,omitempty"`
+	ID            string         `json:"id"`
+	Persistent    bool           `json:"persistent"`
+	Label         string         `json:"label"`
+	Endpoint      string         `json:"endpoint"`
+	Capture       *CaptureInfo   `json:"capture,omitempty"`
+	Collector     *CollectorInfo `json:"collector,omitempty"`
+	State         string         `json:"state"`
+	Generation    uint64         `json:"generation"`
+	Received      uint64         `json:"received"`
+	Events        uint64         `json:"events"`
+	Malformed     uint64         `json:"malformed"`
+	Ignored       uint64         `json:"ignored"`
+	Reconnects    uint64         `json:"reconnects"`
+	Retries       uint64         `json:"retries"`
+	LastEventAt   string         `json:"lastEventAt,omitempty"`
+	LastHeartbeat string         `json:"lastHeartbeatAt,omitempty"`
+	LastError     string         `json:"lastError,omitempty"`
 }
 
 type operationalLog struct {
+	Module     string `json:"module"`
 	SourceID   string `json:"sourceId"`
 	ReceivedAt string `json:"receivedAt"`
 	Message    string `json:"message"`
 }
 
 type Status struct {
+	Artifacts             []ArtifactInfo   `json:"artifacts"`
 	Session               string           `json:"session"`
 	Revision              uint64           `json:"revision"`
 	RecordsRevision       uint64           `json:"recordsRevision"`
@@ -182,7 +195,11 @@ type storedRecord struct {
 }
 
 type Store struct {
-	mu sync.Mutex
+	artifacts    *ArtifactManager
+	mu           sync.Mutex
+	sourceMu     sync.Mutex // Serializes source lifecycle changes, including stop/join.
+	sourceRuns   [16]sourceRun
+	nextSourceID uint64
 	// Serializes association and retention updates across source connectors, so
 	// another source cannot evict a request between its lookup and upsert.
 	ingestMu        sync.Mutex
@@ -213,13 +230,18 @@ func NewStore(options Options) (*Store, error) {
 	if err != nil || host == "" {
 		host = "采集服务"
 	}
-	s := &Store{options: options, records: make(map[string]storedRecord), sources: []SourceStatus{}, logs: []operationalLog{}, host: host, started: time.Now(), changed: make(chan struct{})}
+	artifacts, err := NewArtifactManager(options.Native)
+	if err != nil {
+		return nil, err
+	}
+	s := &Store{artifacts: artifacts, options: options, records: make(map[string]storedRecord), sources: []SourceStatus{}, logs: []operationalLog{}, host: host, started: time.Now(), changed: make(chan struct{})}
 	for index, endpoint := range options.Endpoints {
 		canonical, _ := normalizeEndpoint(endpoint) // Validated above.
 		u, _ := url.Parse(canonical)
 		source := SourceStatus{ID: fmt.Sprintf("source-%d", index+1), Label: u.Host, Endpoint: canonical, State: "connecting"}
 		for _, configured := range options.Sources {
 			if configured.Endpoint == endpoint {
+				source.Persistent = options.SourcesFile != ""
 				if configured.Label != "" {
 					source.Label = configured.Label
 				}
@@ -228,12 +250,15 @@ func NewStore(options Options) (*Store, error) {
 		}
 		s.sources = append(s.sources, source)
 	}
+	s.nextSourceID = uint64(len(s.sources))
 	return s, nil
 }
 
 // Start is called once. Every connector owns its mapper; reconnecting starts a
 // new generation so requests across a capture gap are never paired together.
 func (s *Store) Start(ctx context.Context) {
+	s.sourceMu.Lock()
+	defer s.sourceMu.Unlock()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.ctx != nil || s.closing {
@@ -241,71 +266,77 @@ func (s *Store) Start(ctx context.Context) {
 	}
 	s.ctx = ctx
 	for index := range s.sources {
-		s.startSourceLocked(index)
+		if s.sources[index].ID != "" {
+			s.startSourceLocked(index)
+		}
 	}
 }
 
 func (s *Store) startSourceLocked(index int) {
+	ctx, cancel := context.WithCancel(s.ctx)
+	done := make(chan struct{})
+	s.sourceRuns[index] = sourceRun{cancel: cancel, done: done}
 	s.wg.Add(1)
-	go func() { defer s.wg.Done(); s.connect(s.ctx, index) }()
+	go func() { defer s.wg.Done(); defer close(done); s.connect(ctx, index) }()
 }
 
 func (s *Store) Wait() {
+	s.sourceMu.Lock()
 	s.mu.Lock()
 	s.closing = true
 	s.notifyLocked()
 	s.mu.Unlock()
+	s.sourceMu.Unlock()
 	s.wg.Wait()
+	_ = s.artifacts.Close()
 }
 
 // AddSource publishes the new source only after any configured persistence
 // succeeds. Existing connectors and their correlation generations stay intact.
 func (s *Store) AddSource(config SourceConfig) (SourceStatus, error) {
-	endpoint, err := normalizeEndpoint(config.Endpoint)
+	config, err := normalizeSource(config)
 	if err != nil {
 		return SourceStatus{}, err
 	}
-	config.Endpoint = endpoint
-	config.Label = strings.TrimSpace(config.Label)
-	if utf8.RuneCountInString(config.Label) > 160 {
-		return SourceStatus{}, errors.New("invalid_label")
-	}
-	if config.Label == "" {
-		u, _ := url.Parse(endpoint)
-		config.Label = u.Host
-	}
-	if config.Capture != nil {
-		c := *config.Capture
-		config.Capture = &c
-	}
+	s.sourceMu.Lock()
+	defer s.sourceMu.Unlock()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.closing || (s.ctx != nil && s.ctx.Err() != nil) {
 		return SourceStatus{}, errors.New("service_stopping")
 	}
 	for _, source := range s.sources {
-		if source.Endpoint == endpoint {
+		if source.ID != "" && source.Endpoint == config.Endpoint {
 			return SourceStatus{}, errors.New("duplicate_source")
 		}
 	}
-	if len(s.sources) >= 16 {
+	if s.activeSourceCountLocked() >= 16 {
 		return SourceStatus{}, errors.New("source_limit")
 	}
 	if s.options.SourcesFile != "" {
-		if err := s.persistSourceLocked(config); err != nil {
+		if err := s.persistSourcesLocked(append(append([]SourceConfig(nil), s.options.Sources...), config)); err != nil {
 			return SourceStatus{}, err
 		}
 	}
-	source := SourceStatus{ID: fmt.Sprintf("source-%d", len(s.sources)+1), Label: config.Label, Endpoint: endpoint, Capture: config.Capture, State: "connecting"}
-	s.sources = append(s.sources, source)
+	s.nextSourceID++
+	source := SourceStatus{ID: fmt.Sprintf("source-%d", s.nextSourceID), Persistent: s.options.SourcesFile != "", Label: config.Label, Endpoint: config.Endpoint, Capture: config.Capture, State: "connecting"}
+	index := 0
+	for index < len(s.sources) && s.sources[index].ID != "" {
+		index++
+	}
+	if index == len(s.sources) {
+		s.sources = append(s.sources, source)
+	} else {
+		s.sources[index] = source
+	}
 	s.notifyLocked()
 	if s.ctx != nil {
-		s.startSourceLocked(len(s.sources) - 1)
+		s.startSourceLocked(index)
 	}
 	return source, nil
 }
 
-func (s *Store) persistSourceLocked(config SourceConfig) error {
+func (s *Store) persistSourcesLocked(configs []SourceConfig) error {
 	path := s.options.SourcesFile
 	current, err := os.ReadFile(path)
 	if err != nil {
@@ -314,9 +345,9 @@ func (s *Store) persistSourceLocked(config SourceConfig) error {
 	if sha256.Sum256(current) != s.options.SourcesHash {
 		return errors.New("source_config_changed")
 	}
-	configs := append(append([]SourceConfig(nil), s.options.Sources...), config)
 	data, err := json.MarshalIndent(Config{
 		Auth:          s.options.WebAuth,
+		Native:        s.options.Native,
 		Sources:       configs,
 		HeaderCenter:  s.options.HeaderCenter,
 		HiddenDomains: s.options.HiddenDomains,
@@ -349,19 +380,20 @@ func (s *Store) updateSource(index int, update func(*SourceStatus)) {
 	s.notifyLocked()
 }
 
-var errNonBinaryFrame = errors.New("eCaptureQ requires binary WebSocket frames")
-
-var binaryFrames = websocket.Codec{Unmarshal: func(data []byte, payloadType byte, target any) error {
-	if payloadType != websocket.BinaryFrame {
-		return errNonBinaryFrame
+// Module names are open-ended, but metadata retained outside record JSON must
+// remain bounded just like operational log messages.
+func validateEntry(entry *pb.LogEntry) error {
+	if err := protocol.ValidateLogEntry(entry); err != nil {
+		return err
 	}
-	out, ok := target.(*[]byte)
-	if !ok {
-		return errors.New("invalid binary frame destination")
+	if len(entry.Module) > 256 {
+		return errors.New("module exceeds 256 bytes")
 	}
-	*out = data
 	return nil
-}}
+}
+
+var errNonBinaryFrame = errors.New("protocol_error: expected binary WebSocket message")
+var errSubprotocol = errors.New("protocol_error: ecapture.v2 subprotocol required")
 
 func (s *Store) connect(ctx context.Context, index int) {
 	delay := s.options.ReconnectDelay
@@ -370,29 +402,34 @@ func (s *Store) connect(ctx context.Context, index int) {
 		s.mu.Lock()
 		endpoint := s.sources[index].Endpoint
 		s.mu.Unlock()
-		config, err := websocket.NewConfig(endpoint, "http://localhost/")
-		if err != nil { // URL validation makes this an unrecoverable configuration error.
-			s.updateSource(index, func(source *SourceStatus) { source.LastError = "invalid_endpoint" })
-			return
-		}
 		dialCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		conn, err := config.DialContext(dialCtx)
+		conn, response, err := websocket.Dial(dialCtx, endpoint, &websocket.DialOptions{
+			Subprotocols: []string{protocol.Subprotocol}, HTTPHeader: http.Header{"Origin": {"http://localhost"}},
+		})
 		cancel()
+		if err != nil && response != nil && response.StatusCode >= 400 {
+			err = fmt.Errorf("protocol_handshake_failed: HTTP %d: %w", response.StatusCode, err)
+		}
+		if err == nil && conn.Subprotocol() != protocol.Subprotocol {
+			_ = conn.CloseNow()
+			err = errSubprotocol
+		}
 		if err == nil {
-			conn.MaxPayloadBytes = s.options.MaxFrameBytes
+			conn.SetReadLimit(int64(s.options.MaxFrameBytes))
 			var generation uint64
 			s.updateSource(index, func(source *SourceStatus) {
 				if source.Generation > 0 {
 					source.Reconnects++
 				}
 				source.Generation++
+				source.Collector = nil
 				generation = source.Generation
 				source.State = "connected"
 				source.LastError = ""
 			})
 			connectedAt := time.Now()
 			err = s.receive(ctx, index, generation, conn)
-			_ = conn.Close()
+			_ = conn.CloseNow()
 			if time.Since(connectedAt) >= 15*time.Second {
 				delay = s.options.ReconnectDelay
 			}
@@ -401,11 +438,18 @@ func (s *Store) connect(ctx context.Context, index int) {
 			return
 		}
 		code := "connection_failed"
-		if errors.Is(err, websocket.ErrFrameTooLarge) {
-			code = "frame_too_large"
-			s.updateSource(index, func(source *SourceStatus) { source.Malformed++ })
+		if err != nil {
+			code = err.Error()
 		}
-		s.updateSource(index, func(source *SourceStatus) { source.State = "reconnecting"; source.LastError = code; source.Retries++ })
+		if len(code) > 512 {
+			code = code[:512]
+		}
+		s.updateSource(index, func(source *SourceStatus) {
+			source.State = "reconnecting"
+			source.Collector = nil
+			source.LastError = code
+			source.Retries++
+		})
 		timer := time.NewTimer(delay)
 		select {
 		case <-ctx.Done():
@@ -417,29 +461,90 @@ func (s *Store) connect(ctx context.Context, index int) {
 	}
 }
 
-func (s *Store) receive(ctx context.Context, index int, generation uint64, conn *websocket.Conn) error {
+func (s *Store) receive(ctx context.Context, index int, generation uint64, conn *websocket.Conn) (result error) {
 	mapper := newMapper()
-	stopClose := context.AfterFunc(ctx, func() { _ = conn.Close() })
-	defer stopClose()
-	for {
-		if err := conn.SetReadDeadline(time.Now().Add(s.options.ReadTimeout)); err != nil {
-			return err
+	var artifact *ArtifactWriter
+	var format pb.CaptureFormat
+	s.mu.Lock()
+	source := s.sources[index]
+	session := s.started.UTC().Format(time.RFC3339Nano)
+	s.mu.Unlock()
+	defer func() {
+		if artifact != nil {
+			normal := ctx.Err() == nil && websocket.CloseStatus(result) == websocket.StatusNormalClosure
+			reason := ""
+			if !normal && result != nil {
+				reason = result.Error()
+			}
+			if err := artifact.Finish(normal, reason); err != nil {
+				result = err
+			}
+			s.updateSource(index, func(*SourceStatus) {})
 		}
-		var frame []byte
-		if err := binaryFrames.Receive(conn, &frame); err != nil {
-			if errors.Is(err, errNonBinaryFrame) {
-				s.updateSource(index, func(source *SourceStatus) { source.Received++; source.Malformed++ })
-				continue
+	}()
+	reject := func(err error) error {
+		s.updateSource(index, func(source *SourceStatus) { source.Malformed++ })
+		return err
+	}
+	for {
+		readCtx, cancel := context.WithTimeout(ctx, s.options.ReadTimeout)
+		kind, frame, err := conn.Read(readCtx)
+		cancel()
+		if err != nil {
+			if websocket.CloseStatus(err) == websocket.StatusMessageTooBig || strings.Contains(err.Error(), "read limited") {
+				return reject(errors.New("frame_too_large"))
 			}
 			return err
 		}
-		now := time.Now()
+		if kind != websocket.MessageBinary {
+			s.updateSource(index, func(source *SourceStatus) { source.Received++ })
+			return reject(errNonBinaryFrame)
+		}
 		var entry pb.LogEntry
 		if err := proto.Unmarshal(frame, &entry); err != nil {
-			s.updateSource(index, func(source *SourceStatus) { source.Received++; source.Malformed++ })
-			continue
+			s.updateSource(index, func(source *SourceStatus) { source.Received++ })
+			return reject(fmt.Errorf("protocol_error: malformed protobuf: %w", err))
 		}
-		s.consume(index, generation, &entry, mapper, now)
+		if err := validateEntry(&entry); err != nil {
+			s.updateSource(index, func(source *SourceStatus) { source.Received++ })
+			return reject(fmt.Errorf("protocol_error: %w", err))
+		}
+		event := entry.GetEventPayload()
+		if event != nil {
+			if format != pb.CaptureFormat_CAPTURE_FORMAT_UNSPECIFIED && format != event.CaptureFormat {
+				s.updateSource(index, func(source *SourceStatus) { source.Received++ })
+				return reject(errors.New("protocol_error: capture format changed within connection"))
+			}
+			format = event.CaptureFormat
+			if format != pb.CaptureFormat_CAPTURE_FORMAT_TEXT {
+				if artifact == nil {
+					name := "keylog"
+					if format == pb.CaptureFormat_CAPTURE_FORMAT_PCAPNG {
+						name = "pcapng"
+					}
+					artifact, err = s.artifacts.Begin(session, source.ID, source.Label, entry.Module, name, generation)
+					if err != nil {
+						return err
+					}
+				}
+				var data []byte
+				if format == pb.CaptureFormat_CAPTURE_FORMAT_KEYLOG {
+					data = event.GetKeylog().Data
+				} else {
+					data = event.GetPcapng().Data
+				}
+				if _, err := artifact.Write(data); err != nil {
+					return err
+				}
+				s.updateSource(index, func(source *SourceStatus) {
+					source.Received++
+					source.Events++
+					source.LastEventAt = time.Now().UTC().Format(time.RFC3339Nano)
+				})
+				continue
+			}
+		}
+		s.consume(index, generation, &entry, mapper, time.Now())
 	}
 }
 
@@ -449,6 +554,10 @@ func (s *Store) consume(index int, generation uint64, entry *pb.LogEntry, mapper
 	s.sources[index].Received++
 	s.notifyLocked()
 	s.mu.Unlock()
+	if err := validateEntry(entry); err != nil {
+		s.updateSource(index, func(source *SourceStatus) { source.Malformed++ })
+		return
+	}
 	switch entry.LogType {
 	case pb.LogType_LOG_TYPE_HEARTBEAT:
 		if entry.GetHeartbeatPayload() == nil {
@@ -462,11 +571,23 @@ func (s *Store) consume(index int, generation uint64, entry *pb.LogEntry, mapper
 			return
 		}
 		message := entry.GetRunLog()
+		if collector, recognized := parseCollectorInfo(message); recognized {
+			s.mu.Lock()
+			if source := &s.sources[index]; source.Generation == generation {
+				source.Collector = collector
+				if collector == nil {
+					source.Malformed++
+				}
+				s.notifyLocked()
+			}
+			s.mu.Unlock()
+			return
+		}
 		if len(message) > 4096 {
 			message = strings.ToValidUTF8(message[:4096], "�") + "…"
 		}
 		s.mu.Lock()
-		s.logs = append(s.logs, operationalLog{SourceID: sourceID, ReceivedAt: now.UTC().Format(time.RFC3339Nano), Message: message})
+		s.logs = append(s.logs, operationalLog{Module: entry.Module, SourceID: sourceID, ReceivedAt: now.UTC().Format(time.RFC3339Nano), Message: message})
 		if len(s.logs) > 100 {
 			s.logs = append([]operationalLog(nil), s.logs[len(s.logs)-100:]...)
 		}
@@ -475,7 +596,7 @@ func (s *Store) consume(index int, generation uint64, entry *pb.LogEntry, mapper
 	case pb.LogType_LOG_TYPE_EVENT:
 		s.ingestMu.Lock()
 		defer s.ingestMu.Unlock()
-		event := entry.GetEventPayload()
+		event := entry.GetEventPayload().GetText()
 		if event == nil {
 			s.updateSource(index, func(source *SourceStatus) { source.Malformed++ })
 			return
@@ -492,7 +613,7 @@ func (s *Store) consume(index int, generation uint64, entry *pb.LogEntry, mapper
 			_, ok := s.records[valueString(record["id"])]
 			return ok
 		}
-		for _, record := range mapper.Map(sourceID, generation, event, now) {
+		for _, record := range mapper.Map(sourceID, generation, event, now, entry.Module) {
 			s.upsert(record, event, sourceID)
 		}
 	default:
@@ -500,7 +621,7 @@ func (s *Store) consume(index int, generation uint64, entry *pb.LogEntry, mapper
 	}
 }
 
-func (s *Store) upsert(record Record, event *pb.Event, sourceID string) {
+func (s *Store) upsert(record Record, event *pb.TextEvent, sourceID string) {
 	// Map before filtering so excluded requests still occupy their correct place
 	// in the HTTP/1 queue and HTTP/2 or HTTP/3 stream association.
 	if s.excludeHTTP(record) {
@@ -531,13 +652,16 @@ func (s *Store) upsert(record Record, event *pb.Event, sourceID string) {
 	if pid == nil && event.Pid > 0 {
 		pid = event.Pid
 	}
-	process := processInfo{ID: processID, PID: pid, Name: name, Kind: "eCaptureQ", Source: sourceID, Command: valueString(record["processCommand"]), CommandTruncated: record["processCommandTruncated"] == true}
+	process := processInfo{ID: processID, PID: pid, Name: name, Kind: valueString(record["module"]), Source: sourceID, Command: valueString(record["processCommand"]), CommandTruncated: record["processCommandTruncated"] == true}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, source := range s.sources {
-		if source.ID == sourceID && source.Capture != nil && source.Capture.Module != "" {
-			process.Kind = source.Capture.Module
+		if process.Kind == "" && source.ID == sourceID && source.Collector != nil {
+			process.Kind = source.Collector.Module
 		}
+	}
+	if process.Kind == "" {
+		process.Kind = "eCaptureQ"
 	}
 	if old, exists := s.records[id]; exists {
 		s.bytes -= len(old.JSON)
@@ -550,7 +674,7 @@ func (s *Store) upsert(record Record, event *pb.Event, sourceID string) {
 		responseProcess = &peer
 	}
 	summary := copyRecord(record)
-	for _, key := range []string{"request", "response", "payload", "processArgs", "responseProcessArgs"} {
+	for _, key := range []string{"request", "response", "payload", "rawPayload", "responseRawPayload", "processArgs", "responseProcessArgs"} {
 		delete(summary, key)
 	}
 	// Include the service lifetime because record IDs and revisions restart at zero.
@@ -606,7 +730,14 @@ func (s *Store) excludeHTTP(record Record) bool {
 }
 
 func (s *Store) statusLocked() Status {
-	status := Status{State: "unconfigured", Sources: append([]SourceStatus{}, s.sources...), Logs: append([]operationalLog{}, s.logs...), Dropped: s.dropped, Evicted: s.evicted, Retained: len(s.records), RetainedBytes: s.bytes, MaxRecords: s.options.MaxRecords, MaxBytes: s.options.MaxBytes}
+	status := Status{Artifacts: s.artifacts.List(), State: "unconfigured", Sources: []SourceStatus{}, Logs: append([]operationalLog{}, s.logs...), Dropped: s.dropped, Evicted: s.evicted, Retained: len(s.records), RetainedBytes: s.bytes, MaxRecords: s.options.MaxRecords, MaxBytes: s.options.MaxBytes}
+	for _, source := range s.sources {
+		if source.ID == "" {
+			continue
+		}
+		source.Collector = source.Collector.clone()
+		status.Sources = append(status.Sources, source)
+	}
 	status.Session = s.started.UTC().Format(time.RFC3339Nano)
 	status.Revision, status.RecordsRevision = s.revision, s.recordsRevision
 	status.Filtered, status.ExcludeHTTPPathPrefix = s.filtered, s.options.ExcludeHTTPPathPrefix
@@ -631,10 +762,10 @@ func (s *Store) statusLocked() Status {
 		}
 	}
 	switch {
-	case len(s.sources) == 0:
-	case stopped == len(s.sources):
+	case len(status.Sources) == 0:
+	case stopped == len(status.Sources):
 		status.State = "stopped"
-	case connected == len(s.sources):
+	case connected == len(status.Sources):
 		status.State = "connected"
 	case connected > 0:
 		status.State = "degraded"

@@ -21,8 +21,9 @@ retain the executable, licenses and build metadata, plus Linux desktop integrati
 ## Upgrading from v1.0.0
 
 - Rename eCaptureQ CLI flags: `--addr` → `--listen`, `--ecaptureq` → `--data-source`.
-  The old names are no longer accepted. The upstream `ecapture --ecaptureq` flag
-  is unchanged.
+  The old names are no longer accepted. These historical release notes retain the
+  original collector interface; the current Protobuf v2 development branch requires
+  `--stream-listen` instead (see [dependency status](upstream-status.md)).
 - Convert the `--sources` JSON array to an object with a `sources` field, e.g.
   `[]` → `{"sources":[]}`. Optional fields are `headerCenter`, `hiddenDomains` and `auth`.
 - Web remains unauthenticated when `auth` is omitted. The [repository example](https://github.com/gojue/ecaptureQ/blob/main/config/sources.example.json) enables

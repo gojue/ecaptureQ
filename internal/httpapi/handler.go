@@ -38,19 +38,27 @@ func New(options app.Options, live *app.Store, staticFiles fs.FS, policy Policy)
 			}
 			return
 		}
-		if r.URL.Path == "/api/sources" && r.Method == http.MethodPost {
+		if (r.URL.Path == "/api/sources" || r.URL.Path == "/api/sources/manage") && r.Method == http.MethodPost {
 			addSource(w, r, live, policy)
 			return
 		}
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			w.Header().Set("Allow", "GET, HEAD")
-			if r.URL.Path == "/api/sources" || r.URL.Path == "/api/decode-body" {
+			if r.URL.Path == "/api/sources" || r.URL.Path == "/api/sources/manage" || r.URL.Path == "/api/decode-body" {
 				w.Header().Set("Allow", "GET, HEAD, POST")
 			}
 			writeJSON(w, r, http.StatusMethodNotAllowed, []byte(`{"error":"method_not_allowed"}`))
 			return
 		}
 		switch r.URL.Path {
+		case "/api/artifacts/download":
+			artifactDownload(w, r, live, policy)
+		case "/api/artifacts":
+			if !policy.ValidOrigin(r) || r.Header.Get("Sec-Fetch-Site") == "cross-site" {
+				writeJSON(w, r, http.StatusForbidden, []byte(`{"error":"origin_rejected"}`))
+				return
+			}
+			writeValue(w, r, live.Artifacts())
 		case "/api/changes":
 			changes(w, r, live, policy, changeSlots)
 		case "/api/workspace":
@@ -121,18 +129,34 @@ func addSource(w http.ResponseWriter, r *http.Request, live *app.Store, policy P
 	}
 	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 128<<10))
 	decoder.DisallowUnknownFields()
-	var config app.SourceConfig
-	if decoder.Decode(&config) != nil || decoder.Decode(new(any)) != io.EOF {
+	var request struct {
+		app.SourceConfig
+		ID     string `json:"id"`
+		Action string `json:"action"`
+	}
+	if decoder.Decode(&request) != nil || decoder.Decode(new(any)) != io.EOF {
 		writeJSON(w, r, http.StatusBadRequest, []byte(`{"error":"invalid_source"}`))
 		return
 	}
-	source, err := live.AddSource(config)
+	var source app.SourceStatus
+	statusCode := http.StatusCreated
+	if r.URL.Path == "/api/sources/manage" {
+		statusCode = http.StatusOK
+		source, err = live.ManageSource(request.ID, request.Action, request.SourceConfig)
+	} else if request.ID != "" || request.Action != "" {
+		writeJSON(w, r, http.StatusBadRequest, []byte(`{"error":"invalid_source"}`))
+		return
+	} else {
+		source, err = live.AddSource(request.SourceConfig)
+	}
 	if err != nil {
 		code := err.Error()
 		status := http.StatusBadRequest
 		switch code {
 		case "duplicate_source", "source_limit", "source_config_changed":
 			status = http.StatusConflict
+		case "source_not_found":
+			status = http.StatusNotFound
 		case "source_save_failed":
 			status = http.StatusInternalServerError
 		case "service_stopping":
@@ -147,7 +171,7 @@ func addSource(w http.ResponseWriter, r *http.Request, live *app.Store, policy P
 		writeJSON(w, r, http.StatusInternalServerError, []byte(`{"error":"encoding_failed"}`))
 		return
 	}
-	writeJSON(w, r, http.StatusCreated, body)
+	writeJSON(w, r, statusCode, body)
 }
 
 func writeValue(w http.ResponseWriter, r *http.Request, value any) {

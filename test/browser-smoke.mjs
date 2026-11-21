@@ -2,7 +2,7 @@
 // Dependency-free smoke test against a running eCaptureQ HTTP server.
 // Usage: CHROME_BIN=/path/to/chrome node test/browser-smoke.mjs http://127.0.0.1:28257/
 // SMOKE_SOURCE_ENDPOINT may name an unconfigured loopback ws-fixture to exercise
-// real source creation; addresses used only for form inference are never submitted.
+// real source creation; other addresses used for validation are never submitted.
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
 import {mkdtemp,readFile,rm,writeFile,mkdir} from 'node:fs/promises';
@@ -25,6 +25,10 @@ if(sourceFixture) {
 const chrome = process.env.CHROME_BIN || (process.platform === 'darwin' ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' : 'google-chrome');
 const profile = await mkdtemp(path.join(tmpdir(),'ecaptureq-browser-test-'));
 const proc = spawn(chrome,['--headless=new','--disable-gpu','--no-first-run','--no-default-browser-check','--disable-background-networking',
+  // Fresh profiles on headless Linux must not wait for an absent desktop secret
+  // service before sending their first cookie-bearing request. No user profile
+  // or credentials are reused; Chromium's normal process sandbox stays enabled.
+  '--password-store=basic',
   '--remote-debugging-port=0','--remote-allow-origins=*','--user-data-dir='+profile,'about:blank'],{stdio:['ignore','ignore','pipe']});
 let stderr='',launchError;proc.stderr.on('data',data=>stderr+=data);proc.on('error',error=>launchError=error);
 const sleep = ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -78,9 +82,6 @@ async function editText(sessionId,selector,value) {
   await pressKey(sessionId,'Backspace',8);
   if(value)await send('Input.insertText',{text:value},sessionId);
   assert.equal(await evaluate(sessionId,`document.querySelector(${JSON.stringify(selector)}).value`),value);
-}
-async function selectValue(sessionId,selector,value) {
-  await evaluate(sessionId,`(()=>{const input=document.querySelector(${JSON.stringify(selector)});input.value=${JSON.stringify(value)};input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));})()`);
 }
 async function language(sessionId, value) {
   if (await evaluate(sessionId,'document.documentElement.lang') === value) return;
@@ -175,7 +176,7 @@ async function createPage(script) {
   await until(sessionId,"document.querySelector('#loading')?.hidden && document.querySelectorAll('.request-row').length > 0");
   return sessionId;
 }
-const exceptions=[];
+const exceptions=[], networkDiagnostics=[];
 try {
   let debug;
   // Cold CI runners can take more than ten seconds to launch Chrome. Keep this
@@ -199,6 +200,7 @@ try {
     if(message.id){const item=pending.get(message.id);if(!item)return;pending.delete(message.id);message.error?item.reject(new Error(message.error.message)):item.resolve(message.result);}
     else {
       if(message.method==='Runtime.exceptionThrown')exceptions.push(message.params.exceptionDetails);
+      if(['Network.requestWillBeSent','Network.loadingFailed','Page.frameNavigated'].includes(message.method)){networkDiagnostics.push({method:message.method,session:message.sessionId,url:message.params.request?.url || message.params.frame?.url,error:message.params.errorText});if(networkDiagnostics.length>24)networkDiagnostics.shift();}
       events.emit(message.method,message);
     }
   });
@@ -223,6 +225,18 @@ try {
   console.log('PASS initial language: Chinese system detected without saving; one-click toggle saves; manual English overrides system after refresh');
   assert.equal(await evaluate(session,'document.title'),'eCaptureQ — Protocol Inspector');
   assert.equal(await evaluate(session,"document.querySelector('#github-link').href"),'https://github.com/gojue/ecaptureQ');
+  const appVersion=await evaluate(session,"(async()=>{const response=await fetch('api/version');if(!response.ok)throw new Error('Version API failed');return (await response.json()).version;})()");
+  const expectedVersion=`eCaptureQ v${appVersion.replace(/^v/,'')}`;
+  await until(session,`document.querySelector('#app-version').textContent===${JSON.stringify(expectedVersion)}`);
+  for(const width of [1219,390]) {
+    await resize(session,width);
+    const position=await evaluate(session,"(()=>{const version=document.querySelector('#app-version'),r=version.getBoundingClientRect();return {text:version.textContent,left:r.left,right:r.right,width:r.width,height:r.height,center:r.left+r.width/2,viewport:innerWidth};})()");
+    assert.equal(position.text,expectedVersion);
+    assert.ok(position.width>0 && position.height>0 && position.left>=0 && position.right<=width,'Application version is not visible');
+    assert.ok(Math.abs(position.center-position.viewport/2)<1,'Application version must remain at the viewport center');
+  }
+  await resize(session,1440);
+  console.log('PASS footer: running version matches API and stays centered at desktop and narrow widths');
   assert.equal(await evaluate(session,"document.querySelectorAll('.request-row').length"),60);
   assert.equal(await evaluate(session,"document.querySelectorAll('.process-item').length"),9);
   assert.deepEqual(await evaluate(session,"[...document.querySelectorAll('#detail-tabs [data-tab]')].map(x=>x.dataset.tab)"),['request','response','connection']);
@@ -299,70 +313,31 @@ try {
   await click(session,'#clear-filters');await click(session,'[data-scope="starred"]');
   assert.equal(await evaluate(session,"document.querySelectorAll('.request-row').length"),1);
   await click(session,'#clear-filters');
-  // Inference follows parent fields until the user edits the derived field.
+  // Connection settings are user input; collector metadata must arrive upstream.
   await click(session,'#connection-toggle');await click(session,'#add-source-toggle');
+  assert.equal(await evaluate(session,"document.querySelectorAll('#source-host,#source-module,#source-command').length"),0,'Collector metadata must not be manually entered');
+  assert.deepEqual(await evaluate(session,"[...document.querySelectorAll('#add-source-form [name]')].map(input=>input.name).sort()"),['endpoint','label']);
   const requiredValidation=await evaluate(session,"(()=>{const input=document.querySelector('#source-endpoint');input.value='';input.dispatchEvent(new Event('input',{bubbles:true}));return {valid:input.checkValidity(),message:input.validationMessage};})()");
   assert.equal(requiredValidation.valid,false);
   assert.match(requiredValidation.message,/WebSocket/i);
   assert.doesNotMatch(requiredValidation.message,/[\u3400-\u9fff]/,'Required endpoint validation ignored English UI language');
-  await pointerClick(session,'#add-source-form details summary');
-  const sourceFieldValues=`Object.fromEntries(['endpoint','host','module','command'].map(name=>[name,document.querySelector('#source-'+name).value]))`;
-  const sourceControlGeometry=`Object.fromEntries(['host','module'].map(name=>{const r=document.querySelector('#source-'+name).getBoundingClientRect();return [name,{top:r.top,height:r.height,left:r.left,right:r.right,width:r.width}];}))`;
-  for(const [endpoint,host] of [
-    ['ws://192.0.2.10:28257/','192.0.2.10'],
-    ['ws://[2001:db8::10]:28257/','2001:db8::10'],
-    ['wss://collector.example.invalid/events','collector.example.invalid'],
-    ['ws://',''],
-  ]) {
+  const sourceFieldValues=`Object.fromEntries(['label','endpoint'].map(name=>[name,document.querySelector('#source-'+name).value]))`;
+  const sourceControlGeometry=`Object.fromEntries(['label','endpoint'].map(name=>{const r=document.querySelector('#source-'+name).getBoundingClientRect();return [name,{top:r.top,height:r.height,left:r.left,right:r.right,width:r.width}];}))`;
+  for(const endpoint of ['ws://192.0.2.10:28257/','ws://[2001:db8::10]:28257/','wss://collector.example.invalid/custom-subscription']) {
     await editText(session,'#source-endpoint',endpoint);
-    assert.equal((await evaluate(session,sourceFieldValues)).host,host,'Automatic host did not follow the WebSocket URL');
+    assert.equal(await evaluate(session,"document.querySelector('#source-endpoint').checkValidity()"),true,'Valid WebSocket endpoint was rejected');
   }
-  await editText(session,'#source-host','Synthetic manual host');
-  await editText(session,'#source-endpoint','ws://192.0.2.20:28257/');
-  assert.equal((await evaluate(session,sourceFieldValues)).host,'Synthetic manual host','URL edit replaced a manual capture host');
-  await editText(session,'#source-host','');
-  await editText(session,'#source-endpoint','ws://192.0.2.30:28257/');
-  assert.equal((await evaluate(session,sourceFieldValues)).host,'','Explicitly cleared host was treated as automatic');
-  for(const [command,module] of [
-    ['ecapture tls','tls'],
-    ['./ecapture gotls','gotls'],
-    ['sudo /opt/ecapture/ecapture gnutls','gnutls'],
-    ['curl --data tls https://example.invalid/',''],
-    ['ecapture',''],
-    ['ecapture tls','tls'],
-    ['ecapture --log-file gotls',''],
-  ]) {
-    await editText(session,'#source-command',command);
-    assert.equal((await evaluate(session,sourceFieldValues)).module,module,'Automatic module did not follow the actual ecapture subcommand');
-  }
-  await selectValue(session,'#source-module','gnutls');
-  await editText(session,'#source-command','ecapture tls');
-  assert.equal((await evaluate(session,sourceFieldValues)).module,'gnutls','Command edit replaced a manual module');
-  await editText(session,'#source-command','not-ecapture --option gotls');
-  assert.equal((await evaluate(session,sourceFieldValues)).module,'gnutls','Unknown command cleared a manual module');
-  await selectValue(session,'#source-module','');
-  await editText(session,'#source-command','ecapture tls');
-  assert.equal((await evaluate(session,sourceFieldValues)).module,'','Explicitly cleared module was treated as automatic');
   await editText(session,'#source-label','Synthetic draft');
-  await editText(session,'#source-host','Synthetic manual host');
-  await selectValue(session,'#source-module','gnutls');
-  const desktopControls=await evaluate(session,sourceControlGeometry);
-  assert.ok(Math.abs(desktopControls.host.top-desktopControls.module.top)<1,'Desktop host and module controls must share a row');
-  assert.ok(Math.abs(desktopControls.host.height-desktopControls.module.height)<1,'Capture input and select heights differ');
   const formValues=await evaluate(session,uiStateExpression);
   await evaluate(session,"document.querySelector('#connection-dialog').scrollTop=0");
   await screenshot(session,'sources-en-light');
   await click(session,'#close-connection');await language(session,'zh-CN');await theme(session,'dark');
   await click(session,'#connection-toggle');
-  assert.deepEqual((await evaluate(session,uiStateExpression)).sourceValues,formValues.sourceValues);
+  assert.deepEqual((await evaluate(session,uiStateExpression)).sourceValues,formValues.sourceValues,'Reopening or translating cleared the source draft');
   await screenshot(session,'sources-zh-dark');await assertNoUIOverflow(session);
-  await editText(session,'#source-endpoint','ws://192.0.2.40:28257/');
-  await editText(session,'#source-command','ecapture gotls');
-  assert.equal((await evaluate(session,sourceFieldValues)).host,'Synthetic manual host','Reopening or translating a draft lost its manual host override');
-  assert.equal((await evaluate(session,sourceFieldValues)).module,'gnutls','Reopening or translating a draft lost its manual module override');
+  const draft=await evaluate(session,sourceFieldValues);
   await pointerClick(session,'#cancel-add-source');await pointerClick(session,'#add-source-toggle');
-  assert.equal((await evaluate(session,sourceFieldValues)).host,'Synthetic manual host','Cancel/reopen cleared the source draft');
-  assert.equal((await evaluate(session,sourceFieldValues)).module,'gnutls','Cancel/reopen cleared the module override');
+  assert.deepEqual(await evaluate(session,sourceFieldValues),draft,'Cancel/reopen cleared the source draft');
   const invalidValidation=await evaluate(session,"(()=>{const input=document.querySelector('#source-endpoint');input.value='not-an-endpoint';input.dispatchEvent(new Event('input',{bubbles:true}));return {valid:input.checkValidity(),message:input.validationMessage};})()");
   assert.equal(invalidValidation.valid,false);
   assert.match(invalidValidation.message,/有效/,'Invalid endpoint validation ignored Chinese UI language');
@@ -376,8 +351,7 @@ try {
     await click(session,'#close-connection');await theme(session,appearance);await resize(session,390);
     await click(session,'#connection-toggle');
     const controls=await evaluate(session,sourceControlGeometry);
-    assert.ok(Math.abs(controls.host.height-controls.module.height)<1,'Narrow input and select heights differ');
-    assert.ok(Object.values(controls).every(r=>r.height>=32 && r.width>=100 && r.left>=0 && r.right<=390),'Narrow capture controls are not usable');
+    assert.ok(Object.values(controls).every(r=>r.height>=32 && r.width>=100 && r.left>=0 && r.right<=390),'Narrow source controls are not usable');
     await assertNoUIOverflow(session);
     await evaluate(session,"document.querySelector('#connection-dialog').scrollTop=0");
     await screenshot(session,`source-form-narrow-en-${appearance}`);
@@ -388,35 +362,49 @@ try {
   await click(session,'#close-connection');await resize(session,1440);await theme(session,'light');
   await click(session,'#connection-toggle');
   await evaluate(session,"document.querySelector('#add-source-form').reset()");
-  await editText(session,'#source-endpoint','ws://192.0.2.50:28257/');
-  await editText(session,'#source-command','ecapture tls');
-  assert.equal((await evaluate(session,sourceFieldValues)).host,'192.0.2.50','Reset did not restore automatic host inference');
-  assert.equal((await evaluate(session,sourceFieldValues)).module,'tls','Reset did not restore automatic module inference');
+  assert.deepEqual(await evaluate(session,sourceFieldValues),{label:'',endpoint:''},'Reset did not clear the source draft');
   if(sourceFixture) {
-    await editText(session,'#source-label','Synthetic inferred source');
+    await editText(session,'#source-label','Synthetic connected source');
     await editText(session,'#source-endpoint',sourceFixture.href);
-    await editText(session,'#source-command','./ecapture gotls');
     await evaluate(session,"document.querySelector('#connection-dialog').scrollTop=0");
-    await screenshot(session,'source-form-inferred-en-light');
+    await screenshot(session,'source-form-en-light');
     await pointerClick(session,'#submit-source');
     await until(session,"document.querySelector('#add-source-form').hidden");
     await until(session,`(async()=>{const status=await(await fetch('api/status')).json();return status.sources.some(source=>source.endpoint===${JSON.stringify(sourceFixture.href)} && source.state==='connected' && source.events>0);})()`);
     const addedSource=await evaluate(session,`(async()=>{const status=await(await fetch('api/status')).json();return status.sources.find(source=>source.endpoint===${JSON.stringify(sourceFixture.href)});})()`);
-    assert.equal(addedSource.label,'Synthetic inferred source');
-    assert.equal(addedSource.capture.host,sourceFixture.hostname.replace(/^\[|\]$/g,''));
-    assert.equal(addedSource.capture.module,'gotls');
-    assert.equal(addedSource.capture.command,'./ecapture gotls','Launch command metadata changed in transit');
+    assert.equal(addedSource.label,'Synthetic connected source');
+    assert.equal(addedSource.endpoint,sourceFixture.href);
     await pointerClick(session,'#add-source-toggle');
-    assert.deepEqual(await evaluate(session,sourceFieldValues),{endpoint:'',host:'',module:'',command:''},'Successful submission did not reset the draft');
-    await editText(session,'#source-endpoint','ws://192.0.2.60:28257/');
-    await editText(session,'#source-command','ecapture gnutls');
-    assert.equal((await evaluate(session,sourceFieldValues)).host,'192.0.2.60','Successful submission did not reset automatic host tracking');
-    assert.equal((await evaluate(session,sourceFieldValues)).module,'gnutls','Successful submission did not reset automatic module tracking');
-    console.log('PASS source submission: inferred metadata sent to a loopback synthetic fixture and connected; successful reset restored inference');
+    assert.deepEqual(await evaluate(session,sourceFieldValues),{label:'',endpoint:''},'Successful submission did not reset the draft');
+    const card=`[data-source-id="${addedSource.id}"]`;
+    await until(session,`!!document.querySelector(${JSON.stringify(card)})`);
+    await click(session,card+' [data-source-details]>summary');
+    assert.ok(await evaluate(session,`document.querySelector(${JSON.stringify(card+' [data-source-details]')}).open`));
+    await click(session,card+' .source-menu>summary');
+    await click(session,card+' [data-source-action="edit"]');
+    assert.deepEqual(await evaluate(session,sourceFieldValues),{label:addedSource.label,endpoint:sourceFixture.href});
+    await editText(session,'#source-label','Renamed synthetic source');
+    await pointerClick(session,'#submit-source');
+    await until(session,"document.querySelector('#add-source-form').hidden");
+    await until(session,`document.querySelector(${JSON.stringify(card+' strong')})?.textContent==='Renamed synthetic source'`);
+    const before=await evaluate(session,`(async()=>{return (await(await fetch('api/status')).json()).sources.find(s=>s.id===${JSON.stringify(addedSource.id)}).generation;})()`);
+    await click(session,card+' .source-menu>summary');
+    await click(session,card+' [data-source-action="reconnect"]');
+    await until(session,`(async()=>{return (await(await fetch('api/status')).json()).sources.some(s=>s.id===${JSON.stringify(addedSource.id)}&&s.generation>${before});})()`);
+    await click(session,card+' .source-menu>summary');
+    await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27},session);
+    assert.ok(await evaluate(session,`document.querySelector('#connection-dialog').open && !document.querySelector(${JSON.stringify(card+' .source-menu')}).open`),'Escape must close the menu before the dialog');
+    const confirmation=new Promise(resolve=>events.once('Page.javascriptDialogOpening',async()=>{await send('Page.handleJavaScriptDialog',{accept:true},session);resolve();}));
+    await click(session,card+' .source-menu>summary');
+    await click(session,card+' [data-source-action="remove"]');
+    await confirmation;
+    await until(session,`!document.querySelector(${JSON.stringify(card)})`);
+    assert.ok(await evaluate(session,"document.querySelectorAll('.source-card').length>0"),'Removing one source removed other sources');
+    console.log('PASS source management: add, expand details, edit, reconnect, Escape menu handling, remove; other sources retained');
   }
   await evaluate(session,"document.querySelector('#add-source-form').reset()");
   await click(session,'#close-connection');
-  console.log('PASS source form: URL/module inference, explicit overrides and clears, draft persistence, reset, equal-height controls, narrow light/dark layouts');
+  console.log('PASS source form: required/invalid URLs, localized validation, draft persistence, reset and narrow light/dark actions');
   // A language change does not stop the simulation timer.
   await click(session,'#capture-toggle');
   const runningCount=await evaluate(session,"document.querySelectorAll('.request-row').length");
@@ -451,6 +439,7 @@ try {
     await click(session,`[data-request="${livePair.id}"]`);await click(session,'[data-tab="connection"]');
     await until(session,"!!document.querySelector('.connection-fields')");
     assert.ok(await evaluate(session,`document.querySelector('#tab-content').textContent.includes(${JSON.stringify(livePair.processCommand)})`),'Live process command was not preserved');
+    assert.equal(await evaluate(session,"document.querySelector('.observed-process')"),null,'Single local process must not invent a second endpoint process');
     assert.ok(await evaluate(session,`document.querySelector('.tls-context').textContent.includes(${JSON.stringify(livePair.metadata.tls.version)})`),'Live TLS context was not preserved');
     await screenshot(session,'live-synthetic-en-light');
     for(const side of ['request','response']) {
@@ -536,6 +525,64 @@ try {
   }
   console.log('PASS UI: mock/live, seven protocol views, filters, bookmarks, theme, logo, default splitter, JSON download, Go decompression fallback, relative resources at '+base.pathname);
 
+  if (process.env.SMOKE_NATIVE === '1') {
+    // These artifacts must come through the actual WS receiver and Store. This
+    // branch intentionally has no fetch override or browser-injected fixtures.
+    const native = await createPage();
+    await language(native,'en');
+    await click(native,'[data-mode="live"]');
+    await until(native,`(async()=>{const s=await(await fetch('api/status')).json();return ['keylog','pcapng'].every(format=>s.artifacts?.some(a=>a.format===format&&a.state==='complete')&&s.artifacts?.some(a=>a.format===format&&a.state==='partial'));})()`);
+    await until(native,"!document.querySelector('#native-artifacts').hidden");
+    assert.ok(await evaluate(native,"document.querySelector('#native-artifacts').closest('button')?.id==='connection-toggle' && !document.querySelector('.app-toolbar #native-artifacts')"),'Native files must share the header source entry');
+    await click(native,'#connection-toggle');
+    await until(native,"document.querySelectorAll('[data-artifact-id]').length>=4");
+    const artifacts = await evaluate(native,"(async()=>{return (await(await fetch('api/status')).json()).artifacts;})()");
+    assert.ok(await evaluate(native,"[...document.querySelectorAll('[data-artifact-id]')].every(file=>file.closest('[data-source-id]'))"),'Files must belong to source cards');
+    const fileSources=new Set(artifacts.map(a=>a.sourceId)).size;
+    assert.match(await evaluate(native,"document.querySelector('#native-artifacts').textContent"),new RegExp(String(fileSources)+'$'));
+    await evaluate(native,"document.querySelectorAll('.native-history').forEach(history=>history.open=true)");
+    for(const appearance of ['light','dark']) {
+      await click(native,'#close-connection');await theme(native,appearance);await resize(native,390);
+      await click(native,'#connection-toggle');
+      await assertNoUIOverflow(native);
+      const layout=await evaluate(native,"(()=>{const b=document.querySelector('.native-export');b.scrollIntoView({block:'center'});const r=b.getBoundingClientRect(),style=getComputedStyle(b);return {width:r.width,height:r.height,left:r.left,right:r.right,background:style.backgroundColor,color:style.color,brand:getComputedStyle(document.documentElement).getPropertyValue('--brand').trim()};})()");
+      assert.ok(layout.width>=100 && layout.height>=36 && layout.left>=0 && layout.right<=390,'Export action is not reachable on narrow screens');
+      assert.notEqual(layout.background,layout.color,'Export button contrast missing');
+      await screenshot(native,`native-sources-narrow-${appearance}`);
+    }
+    await click(native,'#close-connection');await resize(native,1440);await theme(native,'light');await click(native,'#connection-toggle');
+    await evaluate(native,"document.querySelectorAll('.native-history').forEach(history=>history.open=true)");
+    const nativeDownloads=path.join(profile,'native-downloads');await mkdir(nativeDownloads);
+    await send('Browser.setDownloadBehavior',{behavior:'allow',downloadPath:nativeDownloads});
+    for(const format of ['keylog','pcapng']) for(const state of ['complete','partial']) {
+      const artifact=artifacts.filter(a=>a.format===format&&a.state===state).at(-1);
+      assert.ok(artifact.bytes>0 && artifact.bytes<=1<<20,'Native browser fixtures must be nonempty and bounded');
+      assert.ok(artifact.module,'Fixture upstream module must reach the UI');
+      assert.equal(artifact.filename.endsWith('.partial'),state==='partial');
+      const selector=`[data-artifact-id="${artifact.id}"]`;
+      await until(native,`!!document.querySelector(${JSON.stringify(selector)})`);
+      assert.ok((await evaluate(native,`document.querySelector(${JSON.stringify(selector)}).textContent`)).includes(artifact.module));
+      const fromAPI=await evaluate(native,`(async()=>{const r=await fetch('api/artifacts/download?'+new URLSearchParams({session:${JSON.stringify(artifact.session)},id:${JSON.stringify(artifact.id)}}));if(!r.ok)throw Error('artifact download '+r.status);return Array.from(new Uint8Array(await r.arrayBuffer()));})()`);
+      assert.equal(fromAPI.length,artifact.bytes);
+      await click(native,selector+' [data-export-artifact]');
+      let downloaded;
+      for(let i=0;i<100;i++){try{downloaded=await readFile(path.join(nativeDownloads,artifact.filename));break;}catch{}await sleep(100);}
+      assert.deepEqual(downloaded,Buffer.from(fromAPI),'UI download altered native bytes');
+      await until(native,`!document.querySelector(${JSON.stringify(selector+' [data-export-artifact]')}).disabled`);
+      if(format==='pcapng')assert.equal(downloaded.readUInt32LE(0),0x0a0d0d0a,'pcapng lacks an SHB');
+      else assert.match(downloaded.toString('ascii'),/CLIENT_RANDOM|TRAFFIC_SECRET/,'keylog lacks NSS secrets');
+    }
+    const perSource=new Map();
+    for(const a of artifacts){if(!perSource.has(a.sourceId))perSource.set(a.sourceId,new Set());perSource.get(a.sourceId).add(a.generation);}
+    assert.ok([...perSource.values()].some(generations=>generations.size>1),'Reconnect must create distinct native generations');
+    await click(native,'#close-connection');
+    await until(native,"document.querySelectorAll('.request-row').length>0");
+    const records=await evaluate(native,"(async()=>{return (await(await fetch('api/workspace?mode=live')).json()).requests;})()");
+    assert.ok(records.some(r=>r.family==='http'&&r.metadata?.module),'Formatted TEXT must still become HTTP records with upstream module');
+    assert.ok(records.every(r=>!/(?:KEYLOG|PCAPNG)$/.test(r.metadata?.captureFormat || '')),'Native fragments entered record JSON');
+    console.log('PASS native: real receiver to status/UI/download, KEYLOG+PCAPNG complete/partial bytes, generations, TEXT separation at '+base.pathname);
+  }
+
   const fixture=JSON.parse(await readFile(new URL('../frontend/mock-data.json',import.meta.url),'utf8'));
   const identityFixture=structuredClone(fixture);
   const identityBase=fixture.requests.find(record=>record.protocol==='HTTP/1.1');
@@ -566,9 +613,9 @@ try {
   ]) {
     await click(identity,`[data-request="${id}"]`);await click(identity,'[data-tab="connection"]');
     const fields=await evaluate(identity,connectionFields);
-    assert.deepEqual(fields.labels,['连接标识','消息方向','传输协议','采集时间']);
-    assert.equal(fields.values[0],expected);assert.equal(fields.values[2],transport);
-    assert.equal(fields.values[1],id==='identity-response'?'服务端 → 客户端':'客户端 → 服务端');
+    assert.deepEqual(fields.labels,['上游模块','连接标识','消息方向','传输协议','采集时间']);
+    assert.equal(fields.values[1],expected);assert.equal(fields.values[3],transport);
+    assert.equal(fields.values[2],id==='identity-response'?'服务端 → 客户端':'客户端 → 服务端');
     const record=identityFixture.requests.find(value=>value.id===id);
     assert.ok(await evaluate(identity,`document.querySelector('.event-metadata pre').textContent.includes(${JSON.stringify(record.connectionId)})`),'Raw diagnostic identifier was lost');
     await assertNoUIOverflow(identity);
@@ -587,6 +634,27 @@ try {
   for(let i=0;i<100;i++){try{identityExport=JSON.parse(await readFile(path.join(identityDownloads,'ecaptureq-demo-session.json'),'utf8'));break;}catch{}await sleep(100);}
   assert.deepEqual(identityExport?.requests,identityFixture.requests,'Export altered raw identities or capture data');
   console.log('PASS display: known UUIDs, IPv6, stable response identity, unknown fallback, QUIC migration context, original JSON export');
+  // Source-only status changes must update the selected connection without
+  // replacing captured content or applying a new generation to an old record.
+  const collectorFixture=structuredClone(identityFixture);
+  collectorFixture.mode='mock';
+  collectorFixture.requests=[{...collectorFixture.requests[0],sourceId:'source-1',captureGeneration:1,
+    responseProcess:{id:'source-1:202:synthetic-server',pid:202,name:'synthetic-server',command:'synthetic-server --port 443'}}];
+  collectorFixture.status={session:'collector-ui-fixture',revision:1,recordsRevision:0,state:'connected',sources:[{id:'source-1',label:'Synthetic collector',endpoint:'ws://127.0.0.1:1/',state:'connected',generation:1}]};
+  const collectorPage=await createPage(`{const fixture=globalThis.__collectorFixture=${JSON.stringify(collectorFixture)};const originalFetch=globalThis.fetch;globalThis.fetch=(url,options)=>{const path=new URL(url,location.href).pathname;if(path.endsWith('/api/workspace'))return Promise.resolve(new Response(JSON.stringify(fixture)));if(path.endsWith('/api/status')||path.endsWith('/api/changes'))return Promise.resolve(new Response(JSON.stringify(fixture.status)));return originalFetch(url,options);};}`);
+  await language(collectorPage,'en');await click(collectorPage,'[data-tab="connection"]');
+  assert.equal(await evaluate(collectorPage,"document.querySelector('.observed-process').open"),false,'Additional observed process must be collapsed by default');
+  const originalScroll=await evaluate(collectorPage,"(()=>{const peer=document.querySelector('.observed-process');peer.open=true;globalThis.__capturedProcessNode=document.querySelector('.connection-content > .connection-fields');document.querySelector('#tab-content').scrollTop=80;return document.querySelector('#tab-content').scrollTop;})()");
+  await evaluate(collectorPage,`(()=>{const status=globalThis.__collectorFixture.status;status.revision++;status.sources[0].collector={version:'synthetic-collector-v1',argv:['ecapture','<script>globalThis.__collectorExecuted=true</script>'],buildTime:'2026-11-21T01:02:03Z',decryptorVersion:'synthetic-decryptor'};})()`);
+  await until(collectorPage,"document.querySelector('.connection-source-metadata').textContent.includes('synthetic-collector-v1')");
+  assert.ok(await evaluate(collectorPage,"document.querySelector('.connection-content > .connection-fields')===globalThis.__capturedProcessNode && document.querySelector('.observed-process').open"),'Source metadata refresh replaced captured content or closed its disclosure');
+  assert.equal(await evaluate(collectorPage,"document.querySelector('#tab-content').scrollTop"),originalScroll,'Source metadata refresh moved the detail scroll position');
+  assert.equal(await evaluate(collectorPage,"document.querySelector('.connection-source-metadata script')"),null,'Collector-supplied command became markup');
+  assert.equal(await evaluate(collectorPage,'globalThis.__collectorExecuted'),undefined);
+  await evaluate(collectorPage,"globalThis.__collectorFixture.status.revision++;globalThis.__collectorFixture.status.sources[0].generation=2;globalThis.__collectorFixture.status.sources[0].collector.version='synthetic-collector-v2'");
+  await until(collectorPage,"!document.querySelector('.connection-source-metadata').textContent.includes('synthetic-collector-v1')");
+  assert.ok(await evaluate(collectorPage,"!document.querySelector('.connection-source-metadata').textContent.includes('synthetic-collector-v2') && document.querySelector('.connection-source-metadata .source-intro')"),'Reconnection metadata was applied to a retained old-generation record');
+  console.log('PASS collector metadata: source-only updates, escaped argv, preserved content/disclosure/scroll and reconnect generation isolation');
   const malicious='<img src="https://forbidden.invalid/pixel" onerror="parent.__captureExecuted=true"><script>parent.__captureExecuted=true</script>';
   const template=fixture.requests.find(r=>r.family==='http' || !r.family);
   const makeRecord=(id,contentType,body)=>({...structuredClone(template),id,path:'/'+id,host:'forbidden.invalid',durationMs:malicious,
@@ -596,9 +664,9 @@ try {
     makeRecord('security-html','text/html',`<meta http-equiv="refresh" content="0;url=https://forbidden.invalid/refresh"><style>a{pointer-events:auto}body{background:url(https://forbidden.invalid/css)}</style>${malicious}<a href="https://forbidden.invalid/link">External link</a>`),
     makeRecord('security-svg','image/svg+xml','<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><script>parent.__captureExecuted=true</script><image href="https://forbidden.invalid/svg"/><rect width="10" height="10" fill="green"/></svg>')
   ];
-  fixture.status={sources:[{id:'source-1',label:'Synthetic source',endpoint:'ws://127.0.0.1:1',state:'connected'}],logs:[{sourceId:'source-1',message:malicious}],state:'connected'};
+  fixture.status={artifacts:[{id:'0123456789abcdef0123456789abcdef',session:'synthetic',sourceId:'source-1',sourceLabel:malicious,module:malicious,format:'pcapng',bytes:42,generation:1,state:'partial',error:malicious,filename:'synthetic.pcapng.partial'}],sources:[{id:'source-1',label:'Synthetic source',endpoint:'ws://127.0.0.1:1',state:'connected'}],logs:Array.from({length:100},(_,index)=>({sourceId:'source-1',message:(index===99 ? malicious+'\n' : '')+'SYNTHETIC operational log '+String(index).padStart(3,'0')})),state:'connected'};
   fixture.mode='mock';
-  const script=`{const fixture=${JSON.stringify(fixture)};const originalFetch=globalThis.fetch;globalThis.fetch=(url,options)=>{const path=new URL(url,location.href).pathname;if(path.endsWith('/api/workspace'))return Promise.resolve(new Response(JSON.stringify(fixture)));if(path.endsWith('/api/status') || path.endsWith('/api/changes'))return Promise.resolve(new Response(JSON.stringify(fixture.status)));return originalFetch(url,options);};}`;
+  const script=`{const fixture=${JSON.stringify(fixture)};globalThis.__logFixture=fixture;const originalFetch=globalThis.fetch;globalThis.fetch=(url,options)=>{const path=new URL(url,location.href).pathname;if(path.endsWith('/api/workspace'))return Promise.resolve(new Response(JSON.stringify(fixture)));if(path.endsWith('/api/status') || path.endsWith('/api/changes'))return Promise.resolve(new Response(JSON.stringify(fixture.status)));return originalFetch(url,options);};}`;
   const blockedRequests=[];
   events.on('Network.requestWillBeSent',message=>{if(message.params.request.url.includes('forbidden.invalid'))blockedRequests.push(message.params.request.url);});
   const security=await createPage(script);
@@ -616,13 +684,38 @@ try {
   assert.equal(await evaluate(security,"document.querySelector('.image-preview svg')"),null);
   await click(security,'#connection-toggle');
   await evaluate(security,"document.querySelector('#source-log-details').open=true");
+  assert.equal(await evaluate(security,"document.querySelectorAll('.source-logs>div').length"),100,'Log viewer discarded retained entries');
+  assert.match(await evaluate(security,"document.querySelector('.source-logs>div:first-child code').textContent"),/SYNTHETIC operational log 099$/);
+  assert.equal(await evaluate(security,"document.querySelector('.source-logs>div:last-child code').textContent"),'SYNTHETIC operational log 000');
+  assert.match(await evaluate(security,"document.querySelector('#source-log-title').textContent"),/100/);
+  const logScroll=await evaluate(security,"(()=>{const panel=document.querySelector('.source-logs');panel.scrollIntoView({block:'nearest'});panel.scrollTop=panel.scrollHeight;const oldest=panel.lastElementChild.getBoundingClientRect(),bounds=panel.getBoundingClientRect();return {top:panel.scrollTop,scrollable:panel.scrollHeight>panel.clientHeight,oldestVisible:oldest.top>=bounds.top && oldest.bottom<=bounds.bottom};})()");
+  assert.ok(logScroll.scrollable && logScroll.top>0 && logScroll.oldestVisible,'Oldest retained log cannot be reached by scrolling');
   await sleep(1200);
   assert.ok(await evaluate(security,"document.querySelector('#source-log-details').open"));
+  assert.equal(await evaluate(security,"document.querySelector('.source-logs').scrollTop"),logScroll.top,'Polling moved the log scroll position');
+  await evaluate(security,"(()=>{const logs=globalThis.__logFixture.status.logs;logs.shift();logs.push({sourceId:'source-1',message:'SYNTHETIC operational log 100'});document.querySelector('.source-logs').scrollTop=80;})()");
+  await until(security,"document.querySelector('.source-logs>div:first-child code').textContent==='SYNTHETIC operational log 100'");
+  assert.equal(await evaluate(security,"document.querySelectorAll('.source-logs>div').length"),100);
+  assert.equal(await evaluate(security,"document.querySelector('.source-logs>div:last-child code').textContent"),'SYNTHETIC operational log 001');
+  assert.equal(await evaluate(security,"document.querySelector('.source-logs').scrollTop"),80,'New logs reset the scroll position');
+  await evaluate(security,"globalThis.__logFixture.status.logs.shift()");
+  await until(security,"document.querySelectorAll('.source-logs>div').length===99 && document.querySelector('#source-log-title').textContent.includes('99')");
+  await click(security,'#close-connection');await language(security,'en');await click(security,'#connection-toggle');
+  assert.equal(await evaluate(security,"document.querySelector('#source-log-title').textContent"),'Runtime logs (99)');
+  await click(security,'#close-connection');await language(security,'zh-CN');await click(security,'#connection-toggle');
+  assert.equal(await evaluate(security,"document.querySelector('#source-log-title').textContent"),'运行日志（99 条）');
+  assert.ok(await evaluate(security,"document.querySelector('#source-log-details').open"));
   assert.equal(await evaluate(security,"document.querySelector('.source-logs').querySelector('img,script')"),null);
+  assert.equal(await evaluate(security,"document.querySelector('.native-session').querySelector('img,script')"),null,'Native captured fields must remain escaped');
+  await evaluate(security,"globalThis.__logFixture.status.sources=[]");
+  await until(security,"document.querySelector('.source-card [data-state=removed]') && document.querySelector('.native-session')");
+  assert.equal(await evaluate(security,"document.querySelector('.source-card').querySelector('img,script,.source-menu')"),null,'Removed source files must remain escaped and have no live controls');
+  await evaluate(security,"globalThis.__logFixture.status.artifacts=[]");
+  await until(security,"document.querySelector('#native-artifacts').hidden && !document.querySelector('.native-session')");
   assert.equal(await evaluate(security,'globalThis.__captureExecuted'),undefined);
   assert.deepEqual(blockedRequests,[],'Preview initiated an external request');
   assert.deepEqual(exceptions,[],'Unhandled browser exception');
-  console.log('PASS security: escaped fields/logs, inert sandbox HTML, local SVG image, no captured URL requests, logs stay expanded during polling');
+  console.log('PASS security: escaped fields/logs, inert sandbox HTML, local SVG image, no captured URL requests, all 100 retained logs scrollable with live translated counts and preserved polling position');
   if(authUser) {
     assert.equal(await evaluate(session,"document.querySelector('#logout').hidden"),false);
     assert.ok(await evaluate(session,"!document.cookie.includes('ecaptureq_session_')"),'Session cookie is accessible to JavaScript');
@@ -634,6 +727,10 @@ try {
     assert.equal(await evaluate(session,"document.querySelector('#logout').hidden"),true,'Unauthenticated mode exposed sign-out control');
   }
   assert.deepEqual(exceptions,[],'Unhandled browser exception after auth transitions');
+} catch(error) {
+  console.error('Browser diagnostic stderr:',stderr.slice(-8000));
+  console.error('Recent browser navigation:',JSON.stringify(networkDiagnostics));
+  throw error;
 } finally {
   if(ws?.readyState===WebSocket.OPEN){try{await send('Browser.close');}catch{}ws.close();}
   if(!await waitForBrowserClose(3000)) {

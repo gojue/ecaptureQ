@@ -7,9 +7,11 @@ export async function navigateDocument({send,events,sessionId,trigger,timeout=10
   const {frameTree:{frame}}=await send('Page.getFrameTree',{},sessionId);
   await send('Page.setLifecycleEventsEnabled',{enabled:true},sessionId);
   let timer,onLifecycle,onDetached;
+  const observed=[];
   const loaded=new Promise((resolve,reject)=>{
     onLifecycle=message=>{
       const event=message.params;
+      if(message.sessionId===sessionId){observed.push(event);if(observed.length>12)observed.shift();}
       if(message.sessionId===sessionId && event.frameId===frame.id &&
           event.loaderId && event.loaderId!==frame.loaderId && event.name==='DOMContentLoaded')resolve();
     };
@@ -18,7 +20,7 @@ export async function navigateDocument({send,events,sessionId,trigger,timeout=10
     };
     events.on('Page.lifecycleEvent',onLifecycle);
     events.on('Target.detachedFromTarget',onDetached);
-    timer=setTimeout(()=>reject(new Error(`New document did not load within ${timeout}ms`)),timeout);
+    timer=setTimeout(()=>reject(new Error(`New document did not load within ${timeout}ms; previous frame=${JSON.stringify(frame)}, lifecycle=${JSON.stringify(observed)}`)),timeout);
   });
   try {
     await Promise.all([loaded,(async()=>{

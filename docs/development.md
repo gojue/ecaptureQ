@@ -21,19 +21,22 @@ Web 启动普通 HTTP 服务，Desktop 把同一 Handler 交给 Wails Asset Serv
 
 ## 协议与采集边界
 
-eCapture 负责探针、捕获、解密、网络流重组和标准事件发布。eCaptureQ 消费官方 `pb.LogEntry`、`pb.Event`，负责应用消息的展示和请求响应关联。
+eCapture 负责探针、捕获、解密、网络流重组和标准事件发布。eCaptureQ 消费官方 `pb.LogEntry`、`pb.Event`、`pb.TextEvent`，负责应用消息的展示和请求响应关联。
 
 ```go
-import pb "github.com/gojue/ecapture/v2/protobuf/gen/v1"
+import pb "github.com/gojue/ecapture/v2/protobuf/gen/v2"
 ```
 
-不复制 `.proto`、`.pb.go` 或 wire descriptor，不实现另一套兼容协议。展示层可以使用自己的 Record、ViewModel 和 HTTP DTO。官方 Event 字段 18（`process_args`）、19（`process_args_truncated`）、20（`tls`）必须保留；缺失值不得猜测或伪造。
+不复制 `.proto`、`.pb.go` 或 wire descriptor，不实现另一套兼容协议。展示层可以使用自己的 Record、ViewModel 和 HTTP DTO。官方 TextEvent 字段 18（`process_args`）、19（`process_args_truncated`）、20（`tls`）必须保留；缺失值不得猜测或伪造。
 
-当前公开依赖和核查方法见 [upstream-status.md](upstream-status.md)。协议修改先在 eCapture 完成，UI 固定实际可下载的正式版本或公开 pseudo-version，并维护 `go.sum`。可在本地用忽略的 `go.work` 联调，但 CI 和发布必须 `GOWORK=off`；不得把相邻 checkout 变成正常构建前提。
+依赖来源见 [upstream-status.md](upstream-status.md)，Go 检查使用 `GOWORK=off`。
+本次构建、单测、fixture、浏览器和真实 E2E 仅在指定验证 VM 执行；本机只编辑与静态检查。
 
 本项目不引入探针、eBPF、libpcap 或 Decryptor 的运行实现，不执行来源配置中的启动命令。桌面支持 macOS、Windows、Linux，与采集器的平台支持范围是两件事。
 
 ## 运行与调试
+
+以下命令在验证 VM 内运行，准备方法见[编译指南](compilation.md)。
 
 先用内置模拟数据启动：
 
@@ -66,11 +69,11 @@ GOWORK=off go run ./scripts/ws-fixture --addr 127.0.0.1:28360 --disconnect-after
 
 具体默认值、API、协议查看器以及正文展示语义见 [行为参考](reference.md)。完整开发约束见 [AGENTS.md](../AGENTS.md)。
 
-## 本地验证
+## 验证 VM 内检查
 
 ```sh
-make check
-make release-check
+GOWORK=off make check
+GOWORK=off make release-check
 ```
 
 `make check` 包含版本一致性检查、Go race 测试、Node 测试、Python 打包与发布门禁测试、Go vet 和前端语法检查。`make release-check` 显式禁用 workspace，验证官方协议、Go race/vet 和不依赖 GUI 的服务器构建。
@@ -96,9 +99,31 @@ node test/browser-smoke.mjs http://127.0.0.1:28257/
 node test/browser-smoke.mjs http://127.0.0.1:28258/ecaptureq-web/
 ```
 
-测试默认使用系统 Chrome，也可通过 `CHROME_BIN` 指定 Chrome/Chromium 路径。它检查模拟/实时切换、协议详情、筛选、标记、主题、实际 JSON 下载、解压回退、HTML/SVG 安全边界和日志展开状态。浏览器退出及临时目录清理也是检查的一部分。
+测试默认使用系统 Chrome，也可通过 `CHROME_BIN` 指定 Chrome/Chromium 路径。
+自动化使用全新的临时浏览器配置和 `--password-store=basic`，避免无桌面会话时等待
+系统密码库；不复用用户配置或凭据，Chromium 进程沙箱仍保持启用。它检查模拟/实时切换、协议详情、筛选、标记、主题、实际 JSON 下载、解压回退、HTML/SVG 安全边界和日志展开状态。浏览器退出及临时目录清理也是检查的一部分。
 
 修改桌面入口或原生适配时，在可用目标平台验证窗口、文件保存/取消、剪贴板、外链、连接、重连和窗口关闭清理。编译通过、适配器单元测试通过与真实原生交互通过应分别报告。
+
+## 原生文件与浏览器验收
+
+KEYLOG 和 PCAPNG 经独立文件管理器落盘，不进入 HTTP mapper 或记录 JSON。
+需要覆盖跨帧片段、日志/心跳隔离、真实 Close 1000 与 1011/EOF、写入/关闭失败、
+配额、跨来源/代次隔离和流式导出。浏览器回归设置 `SMOKE_NATIVE=1` 时要求真实
+服务已经连接到合成 TEXT、KEYLOG、PCAPNG 来源，并同时存在两种原生格式的
+complete 与 partial 文件，以及重连后的新 generation；不会注入假 API 结果替代。
+在根路径和 `/ecaptureq-web/` 分别验证 UI 文件状态、module、下载字节及 JSON 导出。
+可在验证 VM 构建 `bin/ecaptureq-web` 与 `bin/ws-fixture` 后，设置 `CHROME_BIN`、
+Node PATH 与全新的 `E2E_RUN_DIR`，执行 `sh scripts/validate-v2-browser.sh`。
+脚本只启动本次合成来源与服务，拒绝占用端口，结束时清理自身进程并保留测试日志。
+
+核心真实 E2E 按 TLS、GoTLS、GnuTLS × text、keylog、pcapng 执行。text 以
+`--text-source pcapng` 的 SDK 路径为主；keylog 用 Q 导出的文件解密独立抓包，
+pcapng 由 Q 导出的文件自带 DSB 解密。请求与响应都必须包含唯一标记；
+心跳、非空文件或参考接收端成功不能代替 Q 验收。测试只使用受控合成流量。
+可复跑入口为 `scripts/v2-core-e2e.py`；按脚本说明设置两仓路径、VM 内构建的
+二进制及全新私有产物目录，使用已授权的采集权限运行。它不会启动外部服务或
+把测试产物加入仓库。
 
 ## CI 与发布
 

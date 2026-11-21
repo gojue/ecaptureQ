@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	pb "github.com/gojue/ecapture/v2/protobuf/gen/v1"
+	pb "github.com/gojue/ecapture/v2/protobuf/gen/v2"
 )
 
 func TestChangeVersions(t *testing.T) {
@@ -26,7 +26,7 @@ func TestChangeVersions(t *testing.T) {
 		t.Fatal("status-only changes must not invalidate records")
 	}
 	for i, id := range []string{"one", "one", "two"} {
-		s.upsert(Record{"id": id, "processId": "process", "family": "raw"}, &pb.Event{}, "source-1")
+		s.upsert(Record{"id": id, "processId": "process", "family": "raw"}, &pb.TextEvent{}, "source-1")
 		status := s.Status()
 		if status.RecordsRevision != uint64(i+1) {
 			t.Fatalf("insert/update/eviction version: %+v", status)

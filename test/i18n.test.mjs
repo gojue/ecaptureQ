@@ -186,7 +186,7 @@ test('static labels, literal translation calls and known dynamic message maps ha
     const source=await readFile(new URL(`../frontend/${file}`,import.meta.url),'utf8');
     const calls=/\bt\(\s*(?:'((?:\\.|[^'\\])*)'|"((?:\\.|[^"\\])*)")/g;
     for(const match of source.matchAll(calls)) requireKey(unescape(match[1]??match[2]),file);
-    for(const match of source.matchAll(/\bconst\s+(?:connectionStates|sourceErrors|nativeErrors|directions|statusNames)\s*=\s*\{([\s\S]*?)\};/g)) {
+    for(const match of source.matchAll(/\bconst\s+(?:connectionStates|sourceErrors|nativeErrors|nativeStates|directions|statusNames)\s*=\s*\{([\s\S]*?)\};/g)) {
       for(const literal of match[1].matchAll(quoted)) {
         const key=unescape(literal[1]??literal[2]);
         if(/[\u3400-\u9fff]/u.test(key))requireKey(key,file);

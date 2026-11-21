@@ -7,8 +7,8 @@ eCaptureQ 沿用原产品名称和 `gojue/ecaptureQ` 仓库，采用全新的 Go
 ## 从 v1.0.0 升级到 v1.1.0
 
 1. 更新启动脚本：eCaptureQ 的 `--addr` 改为 `--listen`，`--ecaptureq`
-   改为 `--data-source`，旧名称不再接受。上游采集器 `ecapture` 的
-   `--ecaptureq` 参数保持不变。
+   改为 `--data-source`，旧名称不再接受。本开发分支连接上游采集器时
+   要求新的 `--stream-listen` 和 `ecapture.v2` 握手，不保留 v1 回退。
 2. 更新 `--sources` 文件：顶层 JSON 数组改为对象，将原数组放入 `sources`
    字段，例如 `[]` 改为 `{"sources":[]}`。可按需添加 `headerCenter`、
    `hiddenDomains` 和 Web 专用的 `auth`，字段说明见[使用参考](reference.md)。
@@ -23,10 +23,10 @@ v1.1.0 新增 loong64 Web DEB/RPM，不提供该架构的桌面包。启动时�
 ## 首次启动
 
 1. 按 [README](../README.md) 下载并运行新版；需要从源码构建时参考
-   [编译指南](compilation.md)。所需官方协议已固定到公开
-   [上游提交](upstream-status.md)，构建不需要相邻 eCapture 源码或本地 workspace。
+   [编译指南](compilation.md)。
 2. 默认模拟模式可独立浏览样例。连接真实数据时，在 Linux 采集主机上另行
-   运行支持相应事件字段的 eCapture，再向新版添加它的 WebSocket 地址。
+   安装并运行 [eCapture Releases](https://github.com/gojue/ecapture/releases) 中支持
+   Protobuf v2 和 `--stream-listen` 的新版采集器，再添加它的 WebSocket 地址。
 3. 使用来源面板、`--data-source` 或 `--sources` 重新配置来源。新来源清单的
    格式见 [示例](../config/sources.example.json)，其中的启动命令仅供展示。
 4. 需要保存来源时选择自己的 JSON 清单文件。未指定清单时新增来源只保留

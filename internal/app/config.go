@@ -23,6 +23,7 @@ type Config struct {
 	Sources       []SourceConfig `json:"sources,omitempty"`
 	HeaderCenter  string         `json:"headerCenter,omitempty"`
 	HiddenDomains []string       `json:"hiddenDomains,omitempty"`
+	Native        NativeOptions  `json:"native,omitempty"`
 }
 
 // LoadSources reads the operator config file: source connections, the page
@@ -56,6 +57,18 @@ func LoadSources(path string, options *Options) error {
 	}
 	options.HeaderCenter = strings.TrimSpace(config.HeaderCenter)
 	options.WebAuth = config.Auth
+	if err := config.Native.validate(); err != nil {
+		return err
+	}
+	if config.Native.Dir != "" {
+		options.Native.Dir = config.Native.Dir
+	}
+	if config.Native.MaxBytes != 0 {
+		options.Native.MaxBytes = config.Native.MaxBytes
+	}
+	if config.Native.MaxSessions != 0 {
+		options.Native.MaxSessions = config.Native.MaxSessions
+	}
 	for _, source := range config.Sources {
 		options.Endpoints = append(options.Endpoints, source.Endpoint)
 	}

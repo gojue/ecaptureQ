@@ -7,8 +7,10 @@ package main
 
 import (
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -19,6 +21,22 @@ type nativeAdapter struct {
 }
 
 func (n *nativeAdapter) SaveFile(filename, content, locale string) (bool, error) {
+	return n.save(filename, strings.NewReader(content), locale, []application.FileFilter{{DisplayName: "JSON", Pattern: "*.json"}})
+}
+
+func (n *nativeAdapter) SaveArtifact(filename string, content io.Reader, locale string) (bool, error) {
+	// The extension is supplied by the artifact manager, never captured content.
+	pattern, name := "*.keylog", "NSS Key Log"
+	if strings.Contains(filename, ".pcapng") {
+		pattern, name = "*.pcapng", "PCAPNG"
+	}
+	if strings.HasSuffix(filename, ".partial") {
+		pattern, name = "*.partial", name+" (partial)"
+	}
+	return n.save(filename, content, locale, []application.FileFilter{{DisplayName: name, Pattern: pattern}})
+}
+
+func (n *nativeAdapter) save(filename string, content io.Reader, locale string, filters []application.FileFilter) (bool, error) {
 	// The shared platform handler validates this locale; titles are never supplied
 	// by captured content or a free-form frontend request.
 	title := map[string]string{"en": "Export eCaptureQ records", "zh-CN": "导出 eCaptureQ 记录"}[locale]
@@ -26,7 +44,7 @@ func (n *nativeAdapter) SaveFile(filename, content, locale string) (bool, error)
 	dialog.SetOptions(&application.SaveFileDialogOptions{
 		Title: title, Filename: filename, Window: n.window,
 		CanCreateDirectories: true,
-		Filters:              []application.FileFilter{{DisplayName: "JSON", Pattern: "*.json"}},
+		Filters:              filters,
 	})
 	path, err := dialog.PromptForSingleSelection()
 	if err != nil || path == "" {
@@ -40,7 +58,7 @@ func (n *nativeAdapter) SaveFile(filename, content, locale string) (bool, error)
 	}
 	temporary := file.Name()
 	defer os.Remove(temporary)
-	if _, err = file.WriteString(content); err != nil {
+	if _, err = io.Copy(file, content); err != nil {
 		_ = file.Close()
 		return false, err
 	}

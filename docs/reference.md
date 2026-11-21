@@ -16,9 +16,12 @@ Web 和 Desktop 共用以下选项，`--listen` 只用于 Web。运行对应程�
 | `--max-records` | `65536` | 保留记录数量上限；允许 `1..100000` |
 | `--max-memory-mib` | `192` | 保留记录 JSON 计量上限；允许 `1..1024` MiB，不是进程 RSS 上限 |
 | `--max-frame-mib` | `8` | 单条 WebSocket 消息上限；允许 `1..64` MiB |
+| `--native-directory` | 系统临时目录 | 私有原生临时目录的父目录；每个实例另建受限子目录 |
+| `--max-native-mib` | `1024` | 独立的原生文件磁盘总字节限额，单位 MiB |
+| `--max-native-sessions` | `32` | 原生文件会话上限；优先清理已结束的最旧文件 |
 | `--exclude-http-path-prefix` | 未启用 | 排除分析页面自身流量的路径前缀，并识别 UI 响应标记 |
 
-eCaptureQ 的 `--addr` 已更名为 `--listen`，`--ecaptureq` 已更名为 `--data-source`，旧名称不再接受；已有启动脚本需同步更新。上游采集器 `ecapture` 的 `--ecaptureq` 参数保持原名：它开启数据源监听端口，eCaptureQ 用 `--data-source` 连接该端口。`--sources` 仍用于加载 JSON 配置文件。
+eCaptureQ 的 `--addr` 已更名为 `--listen`，`--ecaptureq` 已更名为 `--data-source`，旧名称不再接受；已有启动脚本需同步更新。上游采集器使用新的 `--stream-listen` 等待订阅，eCaptureQ 用 `--data-source` 连接该完整 URL（包括 path）。旧采集器接口不在本分支兼容范围内。`--sources` 仍用于加载 JSON 配置文件。
 
 默认不提供数据源、不启动采集器，也不执行任何登记命令。接收连接由运行 eCaptureQ 的进程发起：Desktop 是桌面所在电脑，Web 是 HTTP 服务所在主机，而非访问它的浏览器。
 
@@ -55,7 +58,7 @@ ecaptureq --sources ./sources.local.json --mode live
 
 顶部显示已连接数 / 总来源数，面板独立显示连接、重试和日志。运行中可手动添加来源；新增接口要求同源 JSON 与 `X-Ecapture-UI: 1`。无 CORS；桌面仅明确适配 Wails 内部 origin。支持 ws/wss，拒绝 URL 用户凭据、查询和片段；采集器原生 ws 可由现有 TLS 终止入口提供 wss。
 
-新增来源时，采集主机默认取 WebSocket 地址的主机部分，不含端口（IPv6 不带方括号）；这是可编辑的登记默认值，代理或隧道场景可改为实际采集主机。采集模块从启动命令中明确的 `ecapture tls/gotls/gnutls` 或官方别名 `openssl/tlsgo/gnu` 识别，支持可执行文件路径及常见 `sudo`、`env` 前缀。仅解析文本，不执行命令；未知参数前缀、复合命令或不完整文本保持“未登记”。自动值随地址或命令变化；手动编辑主机或模块后（包括显式清空）保留该选择，直到成功添加后重置表单。关闭面板、取消或切换语言不丢失草稿。
+新增来源只需填写名称和 WebSocket 地址。采集主机、模块、模式、启动参数及版本信息由 eCapture 自动发送；未提供的字段保持未知。
 
 ```sh
 # 从仓库保存 config/sources.example.json 后，复制为自己的配置文件
@@ -64,7 +67,7 @@ cp sources.example.json sources.local.json
 ./bin/ecaptureq-web --sources sources.local.json --mode live
 ```
 
-`--sources` 支持最多 128 KiB 的 JSON 对象，包含 `sources`（数据源数组）、`headerCenter`（页头富文本字符串，为空则使用默认文案）、`hiddenDomains`（不展示的域名后缀列表，为空则使用内置默认值）与 `auth`（仅 Web 使用的登录配置）。新增来源会原子写回并保留这些字段；外部修改冲突或保存失败会显示错误且不新增连接。命令行来源仍由命令行提供；未指定文件时来源仅在本次实例内保存。配置不保存捕获记录。启动命令仅展示，登记模块/版本不冒充事件提供的事实。
+`--sources` 支持最多 128 KiB 的 JSON 对象，包含 `sources`（数据源数组）、`headerCenter`（页头富文本字符串，为空则使用默认文案）、`hiddenDomains`（不展示的域名后缀列表，为空则使用内置默认值）、`native`（`directory`、`maxBytes`、`maxSessions`，原生临时存储限制）与 `auth`（仅 Web 使用的登录配置）。文件来源的新增、编辑、移除会原子写回并保留这些字段；外部修改冲突或保存失败不改变连接。命令行来源的编辑、移除仅本次实例有效；未指定文件时来源仅在本次实例内保存。配置不保存捕获记录。启动命令仅展示，不执行。
 
 可配置：`--listen`（仅 Web）、`--base-path`、`--mode`、`--data-source`、`--sources`、`--max-records`、`--max-memory-mib`、`--max-frame-mib`、`--exclude-http-path-prefix`；运行 `--help` 查看完整说明。
 
@@ -112,7 +115,7 @@ ecaptureq-web --hash-password
 ```sh
 sudo ./bin/ecapture gotls --elfpath /path/to/go-app \
   -m text --text-source pcapng -i lo \
-  --ecaptureq ws://127.0.0.1:28256/
+  --stream-listen ws://127.0.0.1:28256/
 ```
 
 接口名和 ELF 路径需要匹配实际流量。HTTP/3 使用相同的 GoTLS 解密路径；Redis、MQTT 分别显式选择 `--text-protocol redis` 或 `--text-protocol mqtt`，原始 QUIC 流/数据报使用 `--text-raw`。这些选项取决于采集器及 SDK 的实际支持，不会因为 UI 中有查看器就自动识别任意明文端口。
@@ -128,16 +131,58 @@ sudo ./bin/ecapture gotls --elfpath /path/to/go-app \
 | 其他 / 原始 | 未映射、格式不完整、增量 HTTP 或原始事件，保留载荷和元数据供检查 |
 
 `text + pcapng` 的完整应用消息已经由上游解密和重组；本服务只解析交付的消息表示并进行关联，不重组网络包。
-结构化事件沿用现有 EVENT 中的元数据 JSON + hex 载荷表示。`Event.type` 是 eCapture 事件类别，不是应用协议编号。
+普通 SDK TEXT 带纳秒时间、协议、方向、host/domain_source、connection 和可选 stream 的格式化首行。Q 在有界解析后保留原始 payload 与应用正文；不对任意捕获内容直接删首行或 TrimSpace。解析失败显示 RAW 与错误，原始字节仍可导出。结构化事件保留元数据 JSON + hex 载荷表示。`length` 等于 wire payload 字节数，`original_length` 属于格式化前的 SDK 表示，可能更小，不能据二者差值断言截断。`TextEvent.type` 是 eCapture 事件类别，不是应用协议编号。
 
 有请求且捕获到 Host/authority 才显示可复制的 cURL；缺少 authority 时显示真实网络端点，不推算请求 URL。只有响应时明确显示请求未捕获。二进制正文与 RESP 值保留 hex，不以替换字符损坏字节。
 MySQL 派发返回值不等于 SQL 执行结果，本工具不提供结果集或事务成功判断。Redis 的 `invalidate` 推送展示缓存失效键，不当作 Pub/Sub Channel。MQTT QoS、DUP、ACK 观察值不构成投递成功保证。
+
+## 原生 KEYLOG / PCAPNG 会话
+
+`LogEntry` 按 log_type 与 oneof 分流心跳、日志和 EVENT，再按 capture_format 与
+content oneof 分流 TEXT、KEYLOG、PCAPNG。未知 enum、不匹配 oneof、文本 WS 帧、
+畸形或超限 Protobuf 都报错，不能进入原生文件。真实上游 `module` 的未知名称原样保留，空值保持未知。
+
+| eCapture 模式 | `--output file` 内容 | 原生文件选项 | Q 接收 |
+| --- | --- | --- | --- |
+| text（含 `--text-source pcapng`） | 运行日志和 TEXT | 无 | 已解密应用消息 |
+| keylog | 仅运行日志 | 显式 `--keylogfile` | `keylog.data` 原始 NSS 字节 |
+| pcapng | 仅运行日志 | 显式 `--pcapfile` | `pcapng.data` 原始文件字节 |
+
+`--config-listen` 是 HTTP 配置更新入口；重复 `--output` 是主动输出目的地；
+`--stream-listen ws://HOST:PORT/` 是 Q 连接的订阅入口，默认使用与 eCapture
+一致的根路径 `/`。仅当采集器显式配置了自定义路径时，客户端才使用相同路径。
+采集器发送的启动参数只作展示，不执行，也不将绑定地址变为客户端地址。
+
+一个连接代次对应一个原生文件，重连、reload 后创建新文件，不追加旧文件。
+一个 WS message 不保证是一行 keylog、一个完整 pcapng block 或 packet，接收字节
+按顺序流式落盘，不再次 base64 解码，也不混入外壳、日志、心跳或终端前缀。
+同连接突然切换格式视为协议错误。原生文件不进入 HTTP mapper，不为片段伪造 PID、
+UUID 或网络 tuple，也不在 Q 内解密 pcapng 或重组 TCP。
+
+文件先保存为 `.partial`。只有实际收到 Close 1000、此前无协议/写入错误、flush/close
+成功且完整格式校验通过，才标记 complete 并移除 `.partial`。Close 1011、异常 EOF、
+取消、磁盘错误、限额或非法内容均保留 partial 状态；合法 block 边界不代表完成。
+UI 展示来源、module、格式、字节数、开始/结束、generation、状态与错误。
+
+晚订阅得到新的 SHB/IDB，只接收未来包和秘密，不回放历史。仅订阅后新建的 TLS
+会话可要求完整解密；历史连接可能缺少握手或秘密。订阅文件不称为采集器完整文件，
+也不保证与采集器本地文件字节相等。
+
+原生临时存储默认独立限制为 1 GiB / 32 个会话，与记录 JSON 的 192 MiB 无关。
+每个实例在用户选择的父目录下创建私有目录，使用不可预测 ID 和无穿越文件名。
+达到限额时优先淘汰已结束且未被下载的最旧文件；无法腾出空间则停止该流并保留
+partial。服务退出清理临时存储；崩溃残留目录由拥有者确认后处理，不扫描删除其他
+实例或用户目录。用户通过下载或原生保存创建的副本不归后台清理。
+
+Web 下载与 Desktop 保存共用后端 artifact。Web 直接流式下载，Desktop 把受校验
+session/artifact ID 交给二进制保存接口，不传任意服务器路径、不把文件转为字符串
+或大段 base64 JSON。正在接收的下载是当时大小的 partial 快照。既有 JSON 导出不变。
 
 ## 归属、时间与容量边界
 
 - 实时 PID/进程名来自事件元数据。配套采集器和 SDK 从 pcapng 以太网 trailer 保留真实 PID/Comm；旧 SDK 仍可能提供 `PID=0/PName=decryptor`，这表示未知进程，以来源分别分组，不反解 opaque UUID 猜测 PID。OpenSSL hook 和 MySQL 等带 PID 的事件可直接按进程筛选。
 - HTTP/Redis 合并请求响应时保留不同的响应端进程；loopback 两端均被观察到时，可按任一进程筛选同一条配对记录。只观察到一个本机端点时使用上游提供的归属；缺失或冲突仍为未知。
-- 普通 Protobuf 时间戳只有秒级精度，实时耗时显示为空。结构化事件内若有更精确的时间戳则保留它，但不伪造毫秒级请求耗时。
+- TextEvent 的基础时间戳为秒级；普通 SDK 首行或结构化元数据提供更高精度时保留它，缺失时不伪造毫秒耗时。
 - `EVENT`、`PROCESS_LOG`、`HEARTBEAT` 分开处理。运行日志不混入请求列表。断线自动退避重连，并隔离重连前后的关联；上游没有捕获事件回放，因此无法补齐断线期间的数据。
 - 默认保留 65,536 条记录、最多 192 MiB 的记录 JSON（先达到任一上限时淘汰最旧记录；不是进程 RSS 上限），可用 `--max-records`、`--max-memory-mib` 调整。单 WebSocket 帧默认限制 8 MiB，用 `--max-frame-mib` 调整。
 - 单载荷显示限制 256 KiB，超过时明确标记为部分内容；关联等待队列、RESP 解析深度和节点数也受限。记录保留字节限制不是整个进程的 RSS 上限。
@@ -173,15 +218,18 @@ Desktop 通过 Wails 内部资源服务承载同一 UI 和 API，使用保存对
 | GET /api/workspace?mode=mock | 独立模拟数据及来源状态 |
 | GET /api/workspace?mode=live&view=page | 服务端筛选、每页最多 200 条摘要 |
 | GET /api/record?id=... | 按需读取正文，已淘汰返回 404 |
-| GET /api/status、/api/sources | 来源、容量计数与日志 |
+| GET /api/status、/api/sources | 来源、容量计数、日志与原生文件元数据 |
+| GET /api/artifacts/download?session=...&id=... | 当前实例文件快照流式下载；未知、过期 ID 或会话不匹配返回 404 |
 | GET /api/changes?session=...&revision=... | 版本号长轮询；变化时返回最新状态，无变化最多等待 10 秒后返回 204 |
 | GET /api/version | 构建版本 |
 | GET /api/config | 页头富文本与隐藏域名等 UI 配置 |
 | POST /api/auth/login、/api/auth/logout | 仅启用认证的 Web 入口；登录与撤销当前会话，需要同源和专用 header |
 | POST /api/sources | 新增并可持久化来源，需要专用 header 和同源检查 |
+| POST /api/sources/manage | 提交 `id` 与 `action`（`edit`、`reconnect`、`remove`）；编辑另传 `label`、`endpoint`，使用同样的写入校验 |
 | GET /api/health | 模式、服务状态 |
 | POST /api/decode-body | 选中捕获字节的解压回退，不抓取 URL |
 | GET /api/platform | 桌面原生能力（浏览器 404 后使用浏览器能力） |
+| POST /api/platform/export-artifact | 桌面二进制流式保存，提交 session、id 与 locale；需要同源及专用 header |
 | POST /api/platform/export、clipboard、open-url | 仅桌面；限制大小与 URL，使用同样的写入校验 |
 
 路径均位于选定 base-path 下。完整 workspace API 也可读取全部保留记录；实际前端使用分页摘要和详情接口，不一次传输全部保留正文。这些是新实现的 HTTP API，不兼容旧 Tauri 命令接口。共享源码位于 `internal/app`、`internal/httpapi`、`frontend`；Wails 依赖只在带 desktop tag 的入口，平台 API 可独立测试。
@@ -190,6 +238,8 @@ Web 与 Desktop 共用版本号长轮询，不需要 WebSocket 或桌面专用�
 
 HTTP 图片从捕获字节生成本地 Blob，不重新请求被捕获 URL；SVG 仅作为 img 展示。压缩图片先解压。损坏、截断或能力缺失显示原因。后端 fallback 支持 gzip、zlib、raw deflate、Brotli，输入/输出均有界，每层输出最多 2 MiB，前端总 deadline 5 秒；后端最多 4 个并发解码。
 
-连接页直接读取官方 Event.tls，展示实际提供的版本、密码套件、SNI、ALPN、组、签名算法、JA3/JA4。SNI 不从 HTTP Host 推断；指纹取首次线上 ClientHello，ECH Outer 会标明。缺失值保持未知。真实上报须由含相关发布变更的采集器及其 Decryptor v1.4.3+ 提供，UI 不导入 Decryptor。
+连接页直接读取官方 TextEvent.tls，展示实际提供的版本、密码套件、SNI、ALPN、组、签名算法、JA3/JA4。SNI 不从 HTTP Host 推断；指纹取首次线上 ClientHello，ECH Outer 会标明。缺失值保持未知。真实上报须由含相关发布变更的采集器及其 Decryptor v1.4.3+ 提供，UI 不导入 Decryptor。
 
 更多开发细节见 [开发指南](development.md)，构建环境见 [编译指南](compilation.md)。
+
+运行日志最多保留 100 条，每条消息截取前 4096 字节并追加截断标记；上游 module 名最多 256 字节，超限会明确拒绝该协议流，未知但在限额内的模块名原样保留。

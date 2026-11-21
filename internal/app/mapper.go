@@ -20,7 +20,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	pb "github.com/gojue/ecapture/v2/protobuf/gen/v1"
+	pb "github.com/gojue/ecapture/v2/protobuf/gen/v2"
 )
 
 // Record is the presentation model shared with the mock workspace. Unknown
@@ -55,16 +55,20 @@ func newMapper() *eventMapper { return &eventMapper{} }
 
 // Map is called serially by a source's connector. A response returns an upsert
 // using its request's ID, while unsolicited messages retain their own ID.
-func (m *eventMapper) Map(sourceID string, generation uint64, event *pb.Event, receivedAt time.Time) []Record {
+func (m *eventMapper) Map(sourceID string, generation uint64, event *pb.TextEvent, receivedAt time.Time, module ...string) []Record {
 	if event == nil {
 		return nil
 	}
 	m.next++
 	r := newEventRecord(sourceID, generation, m.next, event, receivedAt)
+	if len(module) > 0 {
+		r["module"] = module[0]
+		r["metadata"].(map[string]any)["module"] = module[0]
+	}
 	payload := event.GetPayload()
 	meta := r["metadata"].(map[string]any)
 	protocol := ""
-	if bytes.HasPrefix(payload, []byte("[")) && bytes.Contains(payload, []byte(" encoding=hex")) {
+	if isStructuredPayload(payload) {
 		p, data, decoded, at, err := decodeStructured(payload)
 		if err != nil {
 			meta["parseError"] = err.Error()
@@ -74,6 +78,27 @@ func (m *eventMapper) Map(sourceID string, generation uint64, event *pb.Event, r
 		protocol, payload = p, data
 		meta["upstream"] = decoded
 		for key, value := range decoded {
+			switch key {
+			case "module", "captureFormat", "length", "originalLength", "captureTimestamp", "sensitivity", "eventType", "sequence", "timestampSource":
+				// Formatting metadata is retained under upstream, but cannot
+				// replace the enclosing official protocol's facts.
+				continue
+			}
+			if key == "tls" && meta["tls"] != nil {
+				// Preserve every official typed TLS field. Older structured
+				// metadata can add observations, but cannot overwrite wire facts.
+				tls := make(map[string]any)
+				if structuredTLS, ok := value.(map[string]any); ok {
+					for name, field := range structuredTLS {
+						tls[name] = field
+					}
+				}
+				for name, field := range meta["tls"].(map[string]any) {
+					tls[name] = field
+				}
+				meta["tls"] = tls
+				continue
+			}
 			meta[key] = value
 		}
 		for _, key := range []string{"stream_id", "offset", "error_code", "request_id", "parent_stream_id", "push_id"} {
@@ -85,17 +110,29 @@ func (m *eventMapper) Map(sourceID string, generation uint64, event *pb.Event, r
 			r["startedAt"] = at.Format(time.RFC3339Nano)
 			meta["timestampPrecision"] = "nanoseconds"
 		}
-		if stream, ok := decoded["stream_id"]; ok {
+		if stream, ok := decoded["stream_id"]; ok && event.GetStreamId() == "" {
 			r["streamId"] = valueString(stream)
+		}
+	} else if bytes.HasPrefix(payload, []byte("[")) {
+		p, data, decoded, at, err := decodeSDKMessage(payload, event.GetOriginalLength())
+		if err != nil {
+			meta["parseError"] = err.Error()
+			setPayload(r, payload)
+			return []Record{r}
+		}
+		protocol, payload = p, data
+		meta["upstream"] = decoded
+		meta["timestampPrecision"] = "nanoseconds"
+		r["startedAt"] = at.Format(time.RFC3339Nano)
+		if host := valueString(decoded["host"]); host != "" {
+			r["host"] = host
+			meta["hostSource"] = decoded["domain_source"]
+		}
+		if r["streamId"] == nil && decoded["stream_id"] != nil {
+			r["streamId"] = decoded["stream_id"]
 		}
 	}
 	setPayload(r, payload)
-	if event.GetCaptureFormat() == pb.CaptureFormat_CAPTURE_FORMAT_KEYLOG || event.GetCaptureFormat() == pb.CaptureFormat_CAPTURE_FORMAT_PCAPNG {
-		r["protocol"] = strings.TrimPrefix(event.GetCaptureFormat().String(), "CAPTURE_FORMAT_")
-		r["operation"] = r["protocol"]
-		r["summary"] = "Captured " + valueString(r["protocol"]) + " event"
-		return []Record{r}
-	}
 	key := correlationKey(sourceID, generation, event)
 	kind := valueString(meta["kind"])
 	if protocol == "quic" {
@@ -143,7 +180,7 @@ func (m *eventMapper) Map(sourceID string, generation uint64, event *pb.Event, r
 	return []Record{r}
 }
 
-func newEventRecord(source string, generation, id uint64, e *pb.Event, received time.Time) Record {
+func newEventRecord(source string, generation, id uint64, e *pb.TextEvent, received time.Time) Record {
 	at := received.UTC()
 	timeSource := "received"
 	if e.GetTimestamp() > 0 {
@@ -171,7 +208,7 @@ func newEventRecord(source string, generation, id uint64, e *pb.Event, received 
 		processPID = e.GetPid()
 	}
 	processID := processIdentity(source, e.GetPid(), processName)
-	meta := map[string]any{"captureFormat": e.GetCaptureFormat().String(), "sensitivity": e.GetSensitivity().String(), "eventType": e.GetType(), "sequence": strconv.FormatUint(e.GetSequence(), 10), "originalLength": e.GetOriginalLength(), "timestampSource": timeSource, "timestampPrecision": "seconds"}
+	meta := map[string]any{"captureFormat": pb.CaptureFormat_CAPTURE_FORMAT_TEXT.String(), "length": e.GetLength(), "captureTimestamp": e.GetTimestamp(), "sensitivity": e.GetSensitivity().String(), "eventType": e.GetType(), "sequence": strconv.FormatUint(e.GetSequence(), 10), "originalLength": e.GetOriginalLength(), "timestampSource": timeSource, "timestampPrecision": "seconds"}
 	if len(e.GetTls()) > 0 {
 		tls := make(map[string]any, len(e.GetTls()))
 		for key, value := range e.GetTls() {
@@ -195,6 +232,18 @@ func newEventRecord(source string, generation, id uint64, e *pb.Event, received 
 		"family": "raw", "protocol": "RAW", "transport": "", "host": host, "operation": "EVENT", "summary": "Captured event", "direction": direction,
 		"state": "complete", "outcome": "observed", "startedAt": at.Format(time.RFC3339Nano), "receivedAt": received.UTC().Format(time.RFC3339Nano), "durationMs": nil,
 		"connectionId": e.GetUuid(), "sourceAddress": src, "destinationAddress": dst, "localAddress": "", "remoteAddress": "", "metadata": meta}
+	// Keep the wire representation even when the argv snapshot cannot be safely
+	// interpreted as a command overview (or lacks process attribution).
+	r["processCommandTruncated"] = e.GetProcessArgsTruncated()
+	if args := e.GetProcessArgs(); len(args) > 0 {
+		r["processArgs"] = append([]byte(nil), args...)
+	}
+	raw := e.GetPayload()
+	if len(raw) > maxRecordPayload {
+		raw = raw[:maxRecordPayload]
+		meta["rawPayloadTruncated"] = true
+	}
+	r["rawPayload"] = append([]byte(nil), raw...)
 	if args := e.GetProcessArgs(); len(args) > 0 && len(args) <= 256 && e.GetPid() > 0 &&
 		((!e.GetProcessArgsTruncated() && args[len(args)-1] == 0) || (e.GetProcessArgsTruncated() && len(args) == 256)) {
 		// argv snapshots have no argc: trailing empty arguments and process-title
@@ -225,10 +274,8 @@ func newEventRecord(source string, generation, id uint64, e *pb.Event, received 
 	if e.GetStreamId() != "" {
 		r["streamId"] = e.GetStreamId()
 	}
-	if e.GetOriginalLength() > uint32(len(e.GetPayload())) {
-		meta["captureTruncated"] = true
-		r["state"], r["outcome"] = "partial", "partial"
-	}
+	// original_length describes a pre-formatting representation. It cannot be
+	// compared with the formatted payload to infer whether capture was truncated.
 	return r
 }
 
@@ -249,7 +296,7 @@ func endpoint(ip string, port uint32) string {
 	return net.JoinHostPort(ip, strconv.FormatUint(uint64(port), 10))
 }
 
-func correlationKey(source string, generation uint64, e *pb.Event) string {
+func correlationKey(source string, generation uint64, e *pb.TextEvent) string {
 	identity := e.GetUuid()
 	if identity == "" {
 		a, b := endpoint(e.GetSrcIp(), e.GetSrcPort()), endpoint(e.GetDstIp(), e.GetDstPort())
@@ -281,8 +328,77 @@ func setPayload(r Record, data []byte) {
 var structuredStart = regexp.MustCompile(`^\[([^\]]+)\] ([^ ]+) (client_to_server|server_to_client) `)
 var structuredLength = regexp.MustCompile(` length=([0-9]+) encoding=hex(?: |$)`)
 
+// The SDK writes a single bounded formatting header before the application
+// bytes. Inspect only this line: a body containing "encoding=hex" is not a
+// structured record, and captured content is never trimmed as whitespace.
+const maxSDKHeader = 256 << 10
+
+func boundedHeader(payload []byte) ([]byte, []byte, bool) {
+	limit := len(payload)
+	if limit > maxSDKHeader+1 {
+		limit = maxSDKHeader + 1
+	}
+	n := bytes.IndexByte(payload[:limit], '\n')
+	if n < 0 || n > maxSDKHeader {
+		return nil, nil, false
+	}
+	return payload[:n], payload[n+1:], true
+}
+
+func isStructuredPayload(payload []byte) bool {
+	if !bytes.HasPrefix(payload, []byte("[")) {
+		return false
+	}
+	line, _, ok := boundedHeader(payload)
+	return ok && structuredStart.Match(line) && bytes.Contains(line, []byte(" encoding=hex"))
+}
+
+var sdkHeader = regexp.MustCompile(`^\[([^\]]+)\] ([^ ]+) (request|response|client_to_server|server_to_client) ([^ ]+) -> ([^ ]+) host=("(?:[^"\\]|\\.)*") domain_source=("(?:[^"\\]|\\.)*") connection=("(?:[^"\\]|\\.)*")(?: stream=([^ ]+))?$`)
+
+func decodeSDKMessage(payload []byte, originalLength uint32) (string, []byte, map[string]any, time.Time, error) {
+	line, body, ok := boundedHeader(payload)
+	if !ok {
+		return "", nil, nil, time.Time{}, errors.New("SDK event header missing or exceeds limit")
+	}
+	parts := sdkHeader.FindSubmatch(line)
+	if parts == nil {
+		return "", nil, nil, time.Time{}, errors.New("invalid SDK event header")
+	}
+	at, err := time.Parse(time.RFC3339Nano, string(parts[1]))
+	if err != nil {
+		return "", nil, nil, time.Time{}, errors.New("invalid SDK event timestamp")
+	}
+	fields := map[string]any{"direction": string(parts[3]), "source_address": string(parts[4]), "destination_address": string(parts[5])}
+	for i, name := range []string{"host", "domain_source", "connection"} {
+		value, err := strconv.Unquote(string(parts[i+6]))
+		if err != nil {
+			return "", nil, nil, time.Time{}, errors.New("invalid SDK event quoted field")
+		}
+		fields[name] = value
+	}
+	if len(parts[9]) > 0 {
+		fields["stream_id"] = string(parts[9])
+	}
+	// formatMessage emits the SDK data unchanged, then LF if it does not
+	// already end in LF, then a final LF. original_length disambiguates body
+	// trailing newlines from these delimiters. Verify the exact suffix before
+	// removing anything; a malformed formatted record remains available RAW.
+	if uint64(originalLength) > uint64(len(body)) {
+		return "", nil, nil, time.Time{}, errors.New("SDK event original length exceeds formatted body")
+	}
+	data := body[:int(originalLength)]
+	suffix := []byte{'\n'}
+	if len(data) == 0 || data[len(data)-1] != '\n' {
+		suffix = []byte{'\n', '\n'}
+	}
+	if !bytes.Equal(body[len(data):], suffix) {
+		return "", nil, nil, time.Time{}, errors.New("SDK event body delimiters do not match original length")
+	}
+	return strings.ToLower(string(parts[2])), data, fields, at, nil
+}
+
 func decodeStructured(payload []byte) (string, []byte, map[string]any, time.Time, error) {
-	line, encoded, ok := bytes.Cut(payload, []byte("\n"))
+	line, encoded, ok := boundedHeader(payload)
 	if !ok {
 		return "", nil, nil, time.Time{}, errors.New("structured event has no payload separator")
 	}
@@ -539,7 +655,7 @@ func emptyHTTPBody() map[string]any {
 	return map[string]any{"headers": []map[string]string{}, "body": "", "bodyEncoding": "utf8", "byteLength": 0}
 }
 
-func (m *eventMapper) httpRecord(r Record, key string, e *pb.Event, msg httpMessage) Record {
+func (m *eventMapper) httpRecord(r Record, key string, e *pb.TextEvent, msg httpMessage) Record {
 	meta := r["metadata"].(map[string]any)
 	capturePartial := r["state"] == "partial"
 	r["family"], r["protocol"], r["transport"] = "http", msg.protocol, "tcp"
@@ -565,7 +681,11 @@ func (m *eventMapper) httpRecord(r Record, key string, e *pb.Event, msg httpMess
 		meta["associationReason"] = "missing_stream_id"
 	}
 	if key != "" {
-		key += "\x00http\x00" + msg.protocol + "\x00" + valueString(r["streamId"]) + "\x00" + valueString(meta["tls_depth"])
+		stream := ""
+		if msg.protocol == "HTTP/2" || msg.protocol == "HTTP/3" {
+			stream = valueString(r["streamId"])
+		}
+		key += "\x00http\x00" + msg.protocol + "\x00" + stream + "\x00" + valueString(meta["tls_depth"])
 	}
 	if !msg.response {
 		r["method"], r["path"], r["request"], r["hasRequest"] = msg.method, msg.target, httpBody(msg), true
@@ -582,6 +702,9 @@ func (m *eventMapper) httpRecord(r Record, key string, e *pb.Event, msg httpMess
 	request := m.take(key, !informational && kind != "push_response")
 	if request != nil && kind != "push_response" {
 		merged := copyRecord(request)
+		merged["responseRawPayload"] = r["rawPayload"]
+		merged["responseModule"] = r["module"]
+		merged["responseEventMetadata"] = copyMetadata(r)
 		mergeResponseProcess(merged, r)
 		mergedMeta := copyMetadata(request)
 		mergedMeta["association"] = "matched"
@@ -740,6 +863,9 @@ func (m *eventMapper) redisRecord(r Record, key string, payload []byte) Record {
 	if kind == "response" {
 		if request := m.take(requestKey, true); request != nil {
 			merged := copyRecord(request)
+			merged["responseRawPayload"] = r["rawPayload"]
+			merged["responseModule"] = r["module"]
+			merged["responseEventMetadata"] = copyMetadata(r)
 			mergeResponseProcess(merged, r)
 			mergedMeta := copyMetadata(request)
 			mergePartialFlags(mergedMeta, meta)

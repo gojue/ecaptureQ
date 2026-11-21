@@ -49,7 +49,7 @@ func run() error {
 		return err
 	}
 	native := &nativeAdapter{}
-	handler, err := httpapi.Mount(config.BasePath, platform.Wrap(shared, native, policy))
+	handler, err := httpapi.Mount(config.BasePath, platform.Wrap(shared, native, policy, service.Store()))
 	if err != nil {
 		return err
 	}

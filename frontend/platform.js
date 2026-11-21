@@ -4,6 +4,8 @@ import {t,getLanguage} from './i18n.js';
 import {apiFetch} from './api.js';
 
 const nativeErrors = {
+  artifact_not_found:'原生文件已清理或不属于当前会话',
+  native_export_unavailable:'当前桌面版本不支持原生文件保存',
   export_failed:'无法保存文件，请检查目标目录权限',
   clipboard_failed:'无法写入系统剪贴板',
   open_url_failed:'无法打开系统浏览器',
@@ -70,6 +72,18 @@ export function createPlatformAdapter({fetch: request = apiFetch, document: doc 
     setTimeout(() => urls.revokeObjectURL(url),60000).unref?.();
     return {saved:true,cancelled:false};
   }
+  async function exportArtifact({session,id}) {
+    if (typeof session !== 'string' || typeof id !== 'string' || !session || session.length > 128 || /[\x00-\x1f\x7f]/.test(session) || !/^[a-zA-Z0-9_-]{1,128}$/.test(id)) throw new Error(t('原生文件标识无效'));
+    const mode = await init();
+    if (mode.desktop) return invoke('export-artifact',{session,id,locale:getLanguage()});
+    // Let the browser stream the authenticated, same-origin response to disk.
+    // Native capture bytes never enter a JS string, Blob or JSON payload.
+    const link = doc.createElement('a');
+    link.href = 'api/artifacts/download?'+new URLSearchParams({session,id});
+    link.download = ''; link.hidden = true;
+    doc.body.appendChild(link); link.click(); link.remove();
+    return {saved:true,cancelled:false};
+  }
   async function openExternal(url) {
     const parsed = new urls(url);
     if (!['http:','https:'].includes(parsed.protocol)) throw new Error(t('只允许打开 HTTP(S) 外链'));
@@ -78,7 +92,7 @@ export function createPlatformAdapter({fetch: request = apiFetch, document: doc 
     open(parsed.href,'_blank','noopener,noreferrer');
     return {ok:true};
   }
-  return {init,copyText,exportJSON,openExternal,get desktop() { return capabilities?.desktop || nativeOrigin(); }};
+  return {init,copyText,exportJSON,exportArtifact,openExternal,get desktop() { return capabilities?.desktop || nativeOrigin(); }};
 }
 
 // AbortSignal.timeout is absent in some supported system WebView versions.
