@@ -131,7 +131,9 @@ sudo ./bin/ecapture gotls --elfpath /path/to/go-app \
 | 其他 / 原始 | 未映射、格式不完整、增量 HTTP 或原始事件，保留载荷和元数据供检查 |
 
 `text + pcapng` 的完整应用消息已经由上游解密和重组；本服务只解析交付的消息表示并进行关联，不重组网络包。
-普通 SDK TEXT 带纳秒时间、协议、方向、host/domain_source、connection 和可选 stream 的格式化首行。Q 在有界解析后保留原始 payload 与应用正文；不对任意捕获内容直接删首行或 TrimSpace。解析失败显示 RAW 与错误，原始字节仍可导出。结构化事件保留元数据 JSON + hex 载荷表示。`length` 等于 wire payload 字节数，`original_length` 属于格式化前的 SDK 表示，可能更小，不能据二者差值断言截断。`TextEvent.type` 是 eCapture 事件类别，不是应用协议编号。
+普通 SDK TEXT 带纳秒时间、协议、方向、host/domain_source、connection 和可选 stream 的格式化首行。Q 同时兼容旧首行与在 domain_source 和 connection 之间增加 `pid`、`pname` 的新首行；connection 可以是旧的 PID-FD-进程名前缀格式，也可以只包含端点、协议和连接代次。首行中的进程字段和 connection 仅保留为展示元数据，进程身份始终读取 Protobuf `TextEvent.pid/pname`，连接关联继续使用 `TextEvent.uuid`（缺失时沿用端点回退），不会用首行值覆盖或补齐这些字段。
+
+Q 在有界解析后保留原始 payload 与应用正文；不对任意捕获内容直接删首行或 TrimSpace。解析失败显示 RAW 与错误，原始字节仍可导出。结构化事件保留元数据 JSON + hex 载荷表示。`length` 等于 wire payload 字节数，`original_length` 属于格式化前的 SDK 表示，可能更小，不能据二者差值断言截断。`TextEvent.type` 是 eCapture 事件类别，不是应用协议编号。
 
 有请求且捕获到 Host/authority 才显示可复制的 cURL；缺少 authority 时显示真实网络端点，不推算请求 URL。只有响应时明确显示请求未捕获。二进制正文与 RESP 值保留 hex，不以替换字符损坏字节。
 MySQL 派发返回值不等于 SQL 执行结果，本工具不提供结果集或事务成功判断。Redis 的 `invalidate` 推送展示缓存失效键，不当作 Pub/Sub Channel。MQTT QoS、DUP、ACK 观察值不构成投递成功保证。

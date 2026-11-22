@@ -353,7 +353,7 @@ func isStructuredPayload(payload []byte) bool {
 	return ok && structuredStart.Match(line) && bytes.Contains(line, []byte(" encoding=hex"))
 }
 
-var sdkHeader = regexp.MustCompile(`^\[([^\]]+)\] ([^ ]+) (request|response|client_to_server|server_to_client) ([^ ]+) -> ([^ ]+) host=("(?:[^"\\]|\\.)*") domain_source=("(?:[^"\\]|\\.)*") connection=("(?:[^"\\]|\\.)*")(?: stream=([^ ]+))?$`)
+var sdkHeader = regexp.MustCompile(`^\[([^\]]+)\] ([^ ]+) (request|response|client_to_server|server_to_client) ([^ ]+) -> ([^ ]+) host=("(?:[^"\\]|\\.)*") domain_source=("(?:[^"\\]|\\.)*")(?: pid=([0-9]+) pname=("(?:[^"\\]|\\.)*"))? connection=("(?:[^"\\]|\\.)*")(?: stream=([^ ]+))?$`)
 
 func decodeSDKMessage(payload []byte, originalLength uint32) (string, []byte, map[string]any, time.Time, error) {
 	line, body, ok := boundedHeader(payload)
@@ -369,15 +369,28 @@ func decodeSDKMessage(payload []byte, originalLength uint32) (string, []byte, ma
 		return "", nil, nil, time.Time{}, errors.New("invalid SDK event timestamp")
 	}
 	fields := map[string]any{"direction": string(parts[3]), "source_address": string(parts[4]), "destination_address": string(parts[5])}
-	for i, name := range []string{"host", "domain_source", "connection"} {
+	// Optional process fields belong only to the displayed header metadata.
+	// Process ownership and connection correlation still use Protobuf fields.
+	for i, name := range []string{"host", "domain_source", "pid", "pname", "connection"} {
+		if len(parts[i+6]) == 0 {
+			continue
+		}
+		if name == "pid" {
+			value, err := strconv.ParseInt(string(parts[i+6]), 10, 64)
+			if err != nil {
+				return "", nil, nil, time.Time{}, errors.New("invalid SDK event process ID")
+			}
+			fields[name] = value
+			continue
+		}
 		value, err := strconv.Unquote(string(parts[i+6]))
 		if err != nil {
 			return "", nil, nil, time.Time{}, errors.New("invalid SDK event quoted field")
 		}
 		fields[name] = value
 	}
-	if len(parts[9]) > 0 {
-		fields["stream_id"] = string(parts[9])
+	if len(parts[11]) > 0 {
+		fields["stream_id"] = string(parts[11])
 	}
 	// formatMessage emits the SDK data unchanged, then LF if it does not
 	// already end in LF, then a final LF. original_length disambiguates body

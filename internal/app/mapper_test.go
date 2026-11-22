@@ -491,34 +491,80 @@ func sdkEvent(protocol, direction string, data []byte) *pb.TextEvent {
 }
 
 func TestMapperSDKFormattingPreservesExactBody(t *testing.T) {
-	for _, body := range [][]byte{nil, []byte("hello"), []byte(" \t\n"), []byte("\n\n"), {0, 255, 10}, []byte("encoding=hex\n\n")} {
-		t.Run(hex.EncodeToString(body), func(t *testing.T) {
-			message := []byte(fmt.Sprintf("POST /sdk HTTP/1.1\r\nHost: demo.test\r\nContent-Length: %d\r\n\r\n", len(body)))
-			message = append(message, body...)
-			e := sdkEvent("HTTP/1.1", "request", message)
-			rows := newMapper().Map("source", 8, e, time.Now(), "future-module")
-			r := rows[0]
-			meta := r["metadata"].(map[string]any)
-			if r["family"] != "http" || r["path"] != "/sdk" || r["streamId"] != "7" || r["module"] != "future-module" || meta["module"] != "future-module" {
-				t.Fatalf("formatted message not mapped: %v", r)
+	for name, process := range map[string]string{
+		"legacy": "", "process": ` pid=42 pname="demo-client"`,
+		"unknown": ` pid=0 pname=""`, "quoted": ` pid=42 pname="client \"name\"\\path"`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			for _, body := range [][]byte{nil, []byte("hello"), []byte(" \t\n"), []byte("\n\n"), {0, 255, 10}, []byte("encoding=hex\n\n")} {
+				t.Run(hex.EncodeToString(body), func(t *testing.T) {
+					message := []byte(fmt.Sprintf("POST /sdk HTTP/1.1\r\nHost: demo.test\r\nContent-Length: %d\r\n\r\n", len(body)))
+					message = append(message, body...)
+					e := sdkEvent("HTTP/1.1", "request", message)
+					e.Payload = bytes.Replace(e.Payload, []byte(" connection="), []byte(process+" connection="), 1)
+					e.Length = uint32(len(e.Payload))
+					rows := newMapper().Map("source", 8, e, time.Now(), "future-module")
+					r := rows[0]
+					meta := r["metadata"].(map[string]any)
+					if r["family"] != "http" || r["path"] != "/sdk" || r["streamId"] != "7" || r["module"] != "future-module" || meta["module"] != "future-module" {
+						t.Fatalf("formatted message not mapped: %v", r)
+					}
+					if r["startedAt"] != "2026-11-18T01:02:03.123456789Z" || meta["captureTimestamp"] != e.Timestamp || meta["length"] != e.Length || meta["originalLength"] != e.OriginalLength || meta["captureTruncated"] != nil {
+						t.Fatal("wire lengths or timestamps lost")
+					}
+					if e.Length <= e.OriginalLength || !bytes.Equal(r["rawPayload"].([]byte), e.Payload) {
+						t.Fatal("formatted payload was not retained")
+					}
+					request := r["request"].(map[string]any)
+					got := []byte(request["body"].(string))
+					if request["bodyEncoding"] == "hex" {
+						var err error
+						got, err = hex.DecodeString(string(got))
+						if err != nil {
+							t.Fatal(err)
+						}
+					}
+					if !bytes.Equal(got, body) {
+						t.Fatalf("body bytes changed: %x != %x", got, body)
+					}
+				})
 			}
-			if r["startedAt"] != "2026-11-18T01:02:03.123456789Z" || meta["captureTimestamp"] != e.Timestamp || meta["length"] != e.Length || meta["originalLength"] != e.OriginalLength || meta["captureTruncated"] != nil {
-				t.Fatal("wire lengths or timestamps lost")
+		})
+	}
+}
+
+func TestMapperSDKHeaderKeepsProtobufIdentity(t *testing.T) {
+	for _, protocol := range []string{"HTTP/1.1", "HTTP/2.0", "HTTP/3.0"} {
+		t.Run(protocol, func(t *testing.T) {
+			m := newMapper()
+			request := sdkEvent(protocol, "request", []byte("GET /typed "+protocol+"\r\nHost: demo.test\r\n\r\n"))
+			request.StreamId = "typed-stream"
+			// Legacy and new display identifiers differ; Protobuf identity is stable.
+			request.Payload = bytes.Replace(request.Payload, []byte(`connection="connection-a"`), []byte(`connection="0-0-/192.0.2.1:54321--192.0.2.2:443/tcp#1"`), 1)
+			request.Length = uint32(len(request.Payload))
+			first := mapOne(t, m, "s", 1, request)
+			response := sdkEvent(protocol, "response", []byte(protocol+" 200 OK\r\nContent-Length: 0\r\n\r\n"))
+			response.StreamId = request.StreamId
+			response.Payload = bytes.Replace(response.Payload, []byte(`connection="connection-a"`), []byte(`pid=999 pname="display-only" connection="192.0.2.1:54321--192.0.2.2:443/tcp#1"`), 1)
+			response.Length = uint32(len(response.Payload))
+			// The same displayed connection must not join different typed UUIDs.
+			response.Uuid = "other-connection"
+			isolated := mapOne(t, m, "s", 1, response)
+			if isolated["hasRequest"] != false || isolated["connectionId"] != response.Uuid {
+				t.Fatal("displayed connection replaced Protobuf identity")
 			}
-			if e.Length <= e.OriginalLength || !bytes.Equal(r["rawPayload"].([]byte), e.Payload) {
-				t.Fatal("formatted payload was not retained")
+			if isolated["processPid"] != response.Pid || isolated["processName"] != response.Pname || isolated["streamId"] != response.StreamId {
+				t.Fatal("displayed process or stream replaced Protobuf fields")
 			}
-			request := r["request"].(map[string]any)
-			got := []byte(request["body"].(string))
-			if request["bodyEncoding"] == "hex" {
-				var err error
-				got, err = hex.DecodeString(string(got))
-				if err != nil {
-					t.Fatal(err)
-				}
+			response.Uuid = request.Uuid
+			paired := mapOne(t, m, "s", 1, response)
+			if paired["id"] != first["id"] || paired["hasResponse"] != true || paired["connectionId"] != request.Uuid {
+				t.Fatal("new and legacy headers did not pair through Protobuf identity")
 			}
-			if !bytes.Equal(got, body) {
-				t.Fatalf("body bytes changed: %x != %x", got, body)
+			response.Pid, response.Pname = 0, ""
+			unknown := mapOne(t, newMapper(), "s", 1, response)
+			if unknown["family"] != "http" || unknown["processPid"] != nil || unknown["processName"] != "" {
+				t.Fatal("displayed process filled missing Protobuf metadata")
 			}
 		})
 	}
@@ -539,6 +585,18 @@ func TestMapperSDKEmptyAndMalformedFormatting(t *testing.T) {
 		"body-extra":        func(e *pb.TextEvent) { e.Payload = append(e.Payload, 'x') },
 		"quoted-field": func(e *pb.TextEvent) {
 			e.Payload = bytes.Replace(e.Payload, []byte(`host="demo.test"`), []byte(`host="\q"`), 1)
+		},
+		"process-name-escape": func(e *pb.TextEvent) {
+			e.Payload = bytes.Replace(e.Payload, []byte(" connection="), []byte(` pid=42 pname="\q" connection=`), 1)
+		},
+		"negative-pid": func(e *pb.TextEvent) {
+			e.Payload = bytes.Replace(e.Payload, []byte(" connection="), []byte(` pid=-1 pname="client" connection=`), 1)
+		},
+		"pid-overflow": func(e *pb.TextEvent) {
+			e.Payload = bytes.Replace(e.Payload, []byte(" connection="), []byte(` pid=9223372036854775808 pname="client" connection=`), 1)
+		},
+		"missing-process-name": func(e *pb.TextEvent) {
+			e.Payload = bytes.Replace(e.Payload, []byte(" connection="), []byte(" pid=42 connection="), 1)
 		},
 		"header-limit": func(e *pb.TextEvent) {
 			e.Payload = append([]byte("["+strings.Repeat("x", maxSDKHeader+1)), e.Payload...)
