@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/gojue/ecaptureq/frontend"
@@ -134,37 +135,45 @@ func TestProtectedRoutesCookiesAndLogout(t *testing.T) {
 }
 
 func TestLoginBoundsAndOrigin(t *testing.T) {
-	h := testHandler(t, http.NotFoundHandler())
-	body := `{"username":"tester","password":"wrong"}`
-	for _, origin := range []string{"https://foreign.test", "null", "wails://localhost"} {
-		r := httptest.NewRequest("POST", "https://example.test/api/auth/login", strings.NewReader(body))
-		r.Header.Set("Origin", origin)
-		r.Header.Set("X-Ecapture-UI", "1")
+	// Password hashing on slow/race runners must not refill the login bucket.
+	synctest.Test(t, func(t *testing.T) {
+		h := testHandler(t, http.NotFoundHandler())
+		body := `{"username":"tester","password":"wrong"}`
+		for _, origin := range []string{"https://foreign.test", "null", "wails://localhost"} {
+			r := httptest.NewRequest("POST", "https://example.test/api/auth/login", strings.NewReader(body))
+			r.Header.Set("Origin", origin)
+			r.Header.Set("X-Ecapture-UI", "1")
+			w := httptest.NewRecorder()
+			h.ServeHTTP(w, r)
+			if w.Code != 403 {
+				t.Fatal(origin, w.Code)
+			}
+		}
+		r := httptest.NewRequest("POST", "https://example.test/api/auth/logout", nil)
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, r)
 		if w.Code != 403 {
-			t.Fatal(origin, w.Code)
+			t.Fatal("missing custom header")
 		}
-	}
-	r := httptest.NewRequest("POST", "https://example.test/api/auth/logout", nil)
-	w := httptest.NewRecorder()
-	h.ServeHTTP(w, r)
-	if w.Code != 403 {
-		t.Fatal("missing custom header")
-	}
-	for _, body := range []string{`{"unexpected":1}`, `{} {}`, strings.Repeat(" ", 4097)} {
-		if w := request(h, "POST", "/api/auth/login", body, nil); w.Code != 400 {
-			t.Fatal("body bounds", w.Code)
+		for _, body := range []string{`{"unexpected":1}`, `{} {}`, strings.Repeat(" ", 4097)} {
+			if w := request(h, "POST", "/api/auth/login", body, nil); w.Code != 400 {
+				t.Fatal("body bounds", w.Code)
+			}
 		}
-	}
-	for range 5 {
+		for range 5 {
+			if w := request(h, "POST", "/api/auth/login", body, nil); w.Code != 401 {
+				t.Fatal(w.Code)
+			}
+		}
+		if w := request(h, "POST", "/api/auth/login", body, nil); w.Code != 429 || w.Header().Get("Retry-After") == "" {
+			t.Fatal("rate limit", w.Code)
+		}
+
+		time.Sleep(12 * time.Second)
 		if w := request(h, "POST", "/api/auth/login", body, nil); w.Code != 401 {
-			t.Fatal(w.Code)
+			t.Fatal("rate limit did not refill", w.Code)
 		}
-	}
-	if w := request(h, "POST", "/api/auth/login", body, nil); w.Code != 429 || w.Header().Get("Retry-After") == "" {
-		t.Fatal("rate limit", w.Code)
-	}
+	})
 }
 
 func TestLongPollRevocationExpiryAndRecheck(t *testing.T) {
