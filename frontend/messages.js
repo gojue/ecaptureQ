@@ -40,6 +40,10 @@ export const mockSummaryMessages = {
 };
 
 export const messages = Object.freeze({
+  "清空记录": "Clear records",
+  "清空当前实例所有数据源的全部记录？此操作不受筛选条件影响，无法撤销。数据源继续接收新数据，运行日志和原生文件会保留。": "Clear all records from every source in this instance? This applies regardless of filters and cannot be undone. Sources keep receiving new data; runtime logs and native files are retained.",
+  "记录已清空，数据源继续接收新数据": "Records cleared; sources keep receiving new data",
+  "清空未完成，请检查服务连接并刷新后重试。": "Clear did not complete. Check the service connection, refresh and try again.",
   "移除数据源“{name}”？已接收的记录和文件仍会保留。": "Remove source “{name}”? Received records and files will be retained.",
   "已请求重连": "Reconnection requested",
   "数据源已移除": "Source removed",

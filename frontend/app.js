@@ -21,6 +21,7 @@ const protocolFilters = [{id:'http',label:'HTTP/1 · 2'},{id:'http3',label:'HTTP
 const state = {scope:'all',process:null,protocol:null,domain:null,filter:'all',query:'',selected:null,tab:'request',viewer:'pretty',bodySource:'decoded',wrap:true,bookmarks:new Set(),running:false,mode:'mock',paused:false};
 let workspace, requests = [], seeds = [], timer, toastTimer, sequence = 0, pollTimer, loadController, loadGeneration = 0, revision = null, serverStatus = {}, serviceError = '';
 let changeController, pageClosed = false;
+let clearingRecords = false;
 let pendingUpdate = null;
 let uiConfig = null;
 
@@ -93,7 +94,9 @@ function selected() {
 }
 function schedulePage() { clearTimeout(pageTimer);pageTimer=setTimeout(()=>refreshLive(true),180); }
 async function loadRecordDetail(row) {
+  if(clearingRecords)return;
   const key=row.id+':'+row.detailVersion;
+  const generation=loadGeneration;
   if(detailLoading===key)return;
   detailController?.abort();
   const controller=new AbortController();detailController=controller;detailLoading=key;
@@ -103,11 +106,13 @@ async function loadRecordDetail(row) {
     const response=await fetch('api/record?id='+encodeURIComponent(row.id),{cache:'no-store',signal:controller.signal});
     if(!response.ok)throw Object.assign(new Error(response.status===404?"此记录已超出保留范围，请刷新列表。":"详情暂时不可用。"),{uiMessage:true});
     const record=await response.json();
+    if(generation!==loadGeneration || controller.signal.aborted)return;
     recordDetails.set(row.id,{version:row.detailVersion,record});
   } catch(error) {
+    if(generation!==loadGeneration)return;
     if(error.name==='AbortError' && !timedOut)return;
     recordDetails.set(row.id,{version:row.detailVersion,error:timedOut?"详情读取超时，请重试。":error.uiMessage ? error.message : "详情暂时不可用。"});
-  } finally { clearTimeout(timeout);if(detailLoading===key)detailLoading=''; }
+  } finally { clearTimeout(timeout);if(detailController===controller)detailLoading=''; }
   while(recordDetails.size>4)recordDetails.delete(recordDetails.keys().next().value);
   if(isPaged()&&state.selected===row.id&&requests.find(r=>r.id===row.id)?.detailVersion===row.detailVersion)renderDetail();
 }
@@ -615,7 +620,9 @@ function updateCaptureControls() {
   button.title = live ? t("冻结当前记录以便检查；后台继续接收，恢复后显示最新记录") : t("追加虚构样例");
   button.setAttribute('aria-pressed',String(live ? state.paused : state.running));
   $('#reset-demo').hidden = live;
-  $$('[data-mode]').forEach(button => { button.setAttribute('aria-pressed',String(button.dataset.mode === state.mode)); button.disabled = !!window.__ECAPTURE_MOCK__ && !window.__ECAPTURE_CAPTURE__ && button.dataset.mode === 'live'; if (button.dataset.mode === 'live') button.textContent = window.__ECAPTURE_CAPTURE__ ? t("快照") : t("实时"); });
+  $('#clear-records').hidden = !live || snapshot;
+  $('#clear-records').disabled = clearingRecords;
+  $$('[data-mode]').forEach(button => { button.setAttribute('aria-pressed',String(button.dataset.mode === state.mode)); button.disabled = clearingRecords || (!!window.__ECAPTURE_MOCK__ && !window.__ECAPTURE_CAPTURE__ && button.dataset.mode === 'live'); if (button.dataset.mode === 'live') button.textContent = window.__ECAPTURE_CAPTURE__ ? t("快照") : t("实时"); });
   const sources = statusSources(), connected = sources.filter(source => source.state === 'connected').length;
   const offline = !!(window.__ECAPTURE_CAPTURE__ || window.__ECAPTURE_MOCK__);
   const label = t(serviceError) || t(connectionStates[serverStatus.state]) || (connected ? t("已连接") : t("等待连接"));
@@ -821,6 +828,46 @@ $('#reset-demo').addEventListener('click',() => {
   Object.assign(state,{selected:requests[0].id,tabFamily:null,tab:'request',viewer:'pretty',bodySource:'decoded'});
   clearFilters(); updateCaptureControls(); toast("已恢复 {p0} 条样例记录",{p0:seeds.length});
 });
+function discardRecordView(status) {
+  ++loadGeneration;
+  detailController?.abort(); detailLoading=''; recordDetails.clear();
+  for (const entry of decodedBodies.values()) entry.controller.abort();
+  decodedBodies.clear(); clearImagePreview();
+  requests=[]; state.selected=null; state.bookmarks.clear(); pageIndex=0; revision=null;
+  workspace={...workspace,requests,processes:[],status};
+  if (workspace.page) workspace.page={...workspace.page,index:0,total:0,retained:0,errors:0,processCounts:{},protocolCounts:{},domains:{},bookmarks:[],filterKey:filterKey()};
+  $('#tab-content').replaceChildren();
+  $('#workspace').classList.remove('detail-open');
+  renderAll({fromServer:true});
+}
+async function clearRecords() {
+  if (!workspace || state.mode!=='live' || clearingRecords || window.__ECAPTURE_CAPTURE__ || window.__ECAPTURE_MOCK__) return;
+  if (!window.confirm(t('清空当前实例所有数据源的全部记录？此操作不受筛选条件影响，无法撤销。数据源继续接收新数据，运行日志和原生文件会保留。'))) return;
+  clearingRecords=true;
+  ++loadGeneration; changeController?.abort(); loadController?.abort(); clearTimeout(pageTimer);
+  detailController?.abort(); detailLoading='';
+  updateCaptureControls();
+  let cleared=false;
+  try {
+    const response=await fetchWithTimeout('api/records/clear',{method:'POST',headers:{'X-Ecapture-UI':'1'}},10000);
+    if (!response.ok) throw new Error('clear failed');
+    const result=await response.json();
+    serverStatus=result.status; serviceError='';
+    discardRecordView(result.status);
+    cleared=true;
+    toast('记录已清空，数据源继续接收新数据');
+  } catch {
+    toast('清空未完成，请检查服务连接并刷新后重试。');
+  } finally {
+    clearingRecords=false; updateCaptureControls();
+    if (!cleared) {
+      renderDetail();
+      if (isPaged() && (workspace.page.filterKey!==filterKey() || workspace.page.index!==pageIndex)) schedulePage();
+    }
+  }
+  if (cleared && !state.paused) await refreshLive(true);
+}
+$('#clear-records').addEventListener('click',clearRecords);
 $('#export-data').addEventListener('click',async () => {
   if (!workspace) return;
   let list = filteredRequests();
@@ -915,14 +962,14 @@ async function loadWorkspace(mode) {
   } finally { clearTimeout(timeout); }
 }
 async function switchMode(mode) {
-  if (mode === state.mode || (window.__ECAPTURE_MOCK__ && !window.__ECAPTURE_CAPTURE__ && mode === 'live')) return;
+  if (clearingRecords || mode === state.mode || (window.__ECAPTURE_MOCK__ && !window.__ECAPTURE_CAPTURE__ && mode === 'live')) return;
   clearInterval(timer); state.running = false; state.paused = false;
   try { await loadWorkspace(mode); }
   catch { if (workspace) { serviceError = "服务暂不可用"; updateCaptureControls(); toast(t("模式切换失败，已保留当前会话")); } }
 }
 let refreshing = false;
 async function refreshLive(force = false) {
-  if (window.__ECAPTURE_CAPTURE__ || window.__ECAPTURE_MOCK__) return;
+  if (clearingRecords || window.__ECAPTURE_CAPTURE__ || window.__ECAPTURE_MOCK__) return;
   if(refreshing){if(force)schedulePage();return;}
   refreshing = true;
   const generation = loadGeneration, controller = new AbortController();
@@ -947,6 +994,7 @@ async function pollChanges() {
   changeController = controller;
   let delay = 1000; // Coalesce bursts; never refresh faster than the previous UI.
   try {
+    if (clearingRecords) return;
     if (!workspace) { delay = 5000; await loadWorkspace(); return; }
     const params = new URLSearchParams({session:serverStatus.session || '',revision:String(serverStatus.revision ?? 0)});
     const response = await fetchWithTimeout('api/changes?'+params,{cache:'no-store',signal:controller.signal},15000);

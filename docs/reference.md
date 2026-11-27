@@ -190,6 +190,7 @@ session/artifact ID 交给二进制保存接口，不传任意服务器路径、
 - 单载荷显示限制 256 KiB，超过时明确标记为部分内容；关联等待队列、RESP 解析深度和节点数也受限。记录保留字节限制不是整个进程的 RSS 上限。
 - `dropped` 是 UI 服务拒绝的非法或超大记录数，`evicted` 是超出保留范围而淘汰的记录数；两者都不是内核或上游丢包计数。
 - 工作区与日志仅保留在内存，重启服务会清空实时记录。导出 JSON 保存的是当前筛选结果。
+- 实时工具栏「清空记录」作用于当前实例全部来源，不受筛选、分页或星标影响。清空后保留筛选和暂停状态，连接继续接收；运行日志、累计计数和原生文件保留。迟到响应不会复活已清空请求。
 
 ## 模拟模式与交互
 
@@ -228,6 +229,7 @@ Desktop 通过 Wails 内部资源服务承载同一 UI 和 API，使用保存对
 | POST /api/auth/login、/api/auth/logout | 仅启用认证的 Web 入口；登录与撤销当前会话，需要同源和专用 header |
 | POST /api/sources | 新增并可持久化来源，需要专用 header 和同源检查 |
 | POST /api/sources/manage | 提交 `id` 与 `action`（`edit`、`reconnect`、`remove`）；编辑另传 `label`、`endpoint`，使用同样的写入校验 |
+| POST /api/records/clear | 清空当前实例全部实时记录；无需请求体，要求 `X-Ecapture-UI: 1` 和同源校验，返回 `{ "status": ... }` |
 | GET /api/health | 模式、服务状态 |
 | POST /api/decode-body | 选中捕获字节的解压回退，不抓取 URL |
 | GET /api/platform | 桌面原生能力（浏览器 404 后使用浏览器能力） |
@@ -236,7 +238,7 @@ Desktop 通过 Wails 内部资源服务承载同一 UI 和 API，使用保存对
 
 路径均位于选定 base-path 下。完整 workspace API 也可读取全部保留记录；实际前端使用分页摘要和详情接口，不一次传输全部保留正文。这些是新实现的 HTTP API，不兼容旧 Tauri 命令接口。共享源码位于 `internal/app`、`internal/httpapi`、`frontend`；Wails 依赖只在带 desktop tag 的入口，平台 API 可独立测试。
 
-Web 与 Desktop 共用版本号长轮询，不需要 WebSocket 或桌面专用事件。状态中的 `session` 标识服务会话，`revision` 跟踪全部变更，`recordsRevision` 仅在记录新增、更新或淘汰时变化。前端保持一个等待请求，收到记录变更后才重取当前页；仅心跳、日志或连接状态变化不查询工作区。暂停时继续接收状态，恢复、筛选和翻页按需取页。连续变化最多约每秒刷新一次，失败后间隔 5 秒重试；空闲超时无正文，不扫描记录。服务每个 Handler 最多容纳 128 个变更请求，超限返回 503。检查版本与订阅在同一锁内完成，避免漏通知；关闭服务或取消请求会结束等待。
+Web 与 Desktop 共用版本号长轮询，不需要 WebSocket 或桌面专用事件。状态中的 `session` 标识服务会话，`revision` 跟踪全部变更，`recordsRevision` 仅在记录新增、更新、淘汰或主动清空时变化。前端保持一个等待请求，收到记录变更后才重取当前页；仅心跳、日志或连接状态变化不查询工作区。暂停时继续接收状态，恢复、筛选和翻页按需取页。连续变化最多约每秒刷新一次，失败后间隔 5 秒重试；空闲超时无正文，不扫描记录。服务每个 Handler 最多容纳 128 个变更请求，超限返回 503。检查版本与订阅在同一锁内完成，避免漏通知；关闭服务或取消请求会结束等待。
 
 HTTP 图片从捕获字节生成本地 Blob，不重新请求被捕获 URL；SVG 仅作为 img 展示。压缩图片先解压。损坏、截断或能力缺失显示原因。后端 fallback 支持 gzip、zlib、raw deflate、Brotli，输入/输出均有界，每层输出最多 2 MiB，前端总 deadline 5 秒；后端最多 4 个并发解码。
 

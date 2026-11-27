@@ -116,7 +116,10 @@ func TestDynamicSourcesConnectIndependently(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	awaitStore(t, store, func(s Status) bool { return s.Events == 2 && s.State == "degraded" && s.Sources[1].Retries > 0 })
+	// Events is updated before mapping and storage; wait for both records too.
+	awaitStore(t, store, func(s Status) bool {
+		return s.Events == 2 && s.Retained == 2 && s.State == "degraded" && s.Sources[1].Retries > 0
+	})
 	status := store.Status()
 	if status.Sources[0].State != "connected" || status.Sources[2].State != "connected" || status.Sources[1].State != "reconnecting" {
 		t.Fatalf("source states not independent: %+v", status.Sources)

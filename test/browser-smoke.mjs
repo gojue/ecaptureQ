@@ -73,6 +73,21 @@ async function pointerClick(sessionId,selector) {
   await send('Input.dispatchMouseEvent',{type:'mousePressed',x,y,button:'left',clickCount:1},sessionId);
   await send('Input.dispatchMouseEvent',{type:'mouseReleased',x,y,button:'left',clickCount:1},sessionId);
 }
+async function clearRecordsDialog(sessionId,accept) {
+  const handled=new Promise((resolve,reject)=>{
+    const onDialog=async message=>{
+      if(message.sessionId!==sessionId)return;
+      events.off('Page.javascriptDialogOpening',onDialog);
+      try {
+        await send('Page.handleJavaScriptDialog',{accept},sessionId);
+        resolve(message.params.message);
+      } catch(error) { reject(error); }
+    };
+    events.on('Page.javascriptDialogOpening',onDialog);
+  });
+  await pointerClick(sessionId,'#clear-records');
+  return handled;
+}
 async function pressKey(sessionId,key,windowsVirtualKeyCode) {
   await send('Input.dispatchKeyEvent',{type:'keyDown',key,code:key,windowsVirtualKeyCode,...(key==='Enter'?{text:'\r',unmodifiedText:'\r'}:{})},sessionId);
   await send('Input.dispatchKeyEvent',{type:'keyUp',key,code:key,windowsVirtualKeyCode},sessionId);
@@ -460,10 +475,86 @@ try {
   await evaluate(session,'globalThis.__workspaceFetches=0');
   await sleep(2200);
   assert.equal(await evaluate(session,'globalThis.__workspaceFetches'),0,'Paused page fetched workspace');
+  if(process.env.SMOKE_REQUIRE_LIVE) {
+    // Exercise the real Store through the UI. Only the explicit failure case is
+    // intercepted; the successful clear and subsequent ingestion use the API.
+    const bookmarkedID=await evaluate(session,"document.querySelector('.request-row.selected').dataset.request");
+    await click(session,'#bookmark-request');
+    await until(session,`document.querySelector('#starred-count').textContent==='1' && !!document.querySelector('[data-request="${bookmarkedID}"] .row-index use[href="#i-star"]')`);
+    await click(session,`[data-request="${bookmarkedID}"]`);
+    await until(session,"document.querySelector('#starred-count').textContent==='1' && document.querySelector('#bookmark-request').getAttribute('aria-pressed')==='true'");
+    await evaluate(session,`(()=>{
+      const original=globalThis.fetch;
+      globalThis.__clearRequests=[];globalThis.__rejectClear=false;
+      globalThis.fetch=(url,options)=>{
+        if(new URL(url,location.href).pathname.endsWith('/api/records/clear')) {
+          globalThis.__clearRequests.push({method:options?.method,header:new Headers(options?.headers).get('X-Ecapture-UI')});
+          if(globalThis.__rejectClear)return Promise.resolve(new Response(JSON.stringify({error:'service_stopping'}),{status:503,headers:{'Content-Type':'application/json'}}));
+        }
+        return original(url,options);
+      };
+    })()`);
+    const beforeClear=await evaluate(session,`({
+      ids:[...document.querySelectorAll('.request-row')].map(row=>row.dataset.request),
+      selected:document.querySelector('.request-row.selected')?.dataset.request,
+      bookmarks:document.querySelector('#starred-count').textContent,
+      filters:[...document.querySelectorAll('[data-clear-filter]')].map(button=>button.dataset.clearFilter),
+      query:document.querySelector('#request-search').value
+    })`);
+    assert.ok(beforeClear.ids.length>0,'Clear regression needs retained synthetic records');
+    for(const width of [1440,390]) {
+      await resize(session,width);
+      await assertNoUIOverflow(session);
+      assert.ok(await evaluate(session,"(()=>{const button=document.querySelector('#clear-records'),r=button.getBoundingClientRect();return !button.hidden && !button.disabled && r.width>=20 && r.height>=20 && r.left>=0 && r.right<=innerWidth && button.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));})()"),'Clear action is unavailable at width '+width);
+    }
+    await language(session,'zh-CN');
+    assert.match(await evaluate(session,"document.querySelector('#clear-records').getAttribute('aria-label')"),/清空/);
+    const canceledMessage=await clearRecordsDialog(session,false);
+    assert.match(canceledMessage,/清空/);
+    assert.equal(await evaluate(session,'globalThis.__clearRequests.length'),0,'Cancel sent a clear request');
+    assert.deepEqual(await evaluate(session,"[...document.querySelectorAll('.request-row')].map(row=>row.dataset.request)"),beforeClear.ids,'Cancel changed the retained view');
+    await language(session,'en');
+    assert.match(await evaluate(session,"document.querySelector('#clear-records').getAttribute('aria-label')"),/clear/i);
+    await evaluate(session,'globalThis.__rejectClear=true');
+    const failedMessage=await clearRecordsDialog(session,true);
+    assert.match(failedMessage,/clear/i);
+    await until(session,"globalThis.__clearRequests.length===1 && !document.querySelector('#clear-records').disabled && !document.querySelector('#toast').hidden");
+    assert.deepEqual(await evaluate(session,"[...document.querySelectorAll('.request-row')].map(row=>row.dataset.request)"),beforeClear.ids,'Failed clear discarded the displayed records');
+    assert.equal(await evaluate(session,"document.querySelector('.request-row.selected')?.dataset.request"),beforeClear.selected,'Failed clear discarded the selection');
+    assert.equal(await evaluate(session,"document.querySelector('#starred-count').textContent"),beforeClear.bookmarks,'Failed clear discarded bookmarks');
+    await resize(session,1440);
+    const retainedBefore=await evaluate(session,"(async()=>{const workspace=await(await fetch('api/workspace?mode=live')).json();return {ids:workspace.requests.map(row=>row.id),sources:workspace.status.sources.map(source=>({id:source.id,endpoint:source.endpoint})),artifacts:(workspace.status.artifacts||[]).map(artifact=>artifact.id)};})()");
+    await evaluate(session,'globalThis.__rejectClear=false');
+    await clearRecordsDialog(session,true);
+    await until(session,"globalThis.__clearRequests.length===2 && document.querySelectorAll('.request-row').length===0 && document.querySelector('#detail-view').hidden && document.querySelector('#starred-count').textContent==='0'");
+    assert.deepEqual(await evaluate(session,'globalThis.__clearRequests'),[{method:'POST',header:'1'},{method:'POST',header:'1'}]);
+    assert.equal(await evaluate(session,"document.querySelector('#capture-toggle').getAttribute('aria-pressed')"),'true','Clear resumed a paused page');
+    assert.equal(await evaluate(session,"document.querySelector('#page-prev').disabled"),true,'Clear kept the old page index');
+    assert.equal(await evaluate(session,"document.querySelector('#request-search').value"),beforeClear.query,'Clear changed the search');
+    assert.deepEqual(await evaluate(session,"[...document.querySelectorAll('[data-clear-filter]')].map(button=>button.dataset.clearFilter)"),beforeClear.filters,'Clear changed filters');
+    const afterClear=await evaluate(session,`(async()=>{
+      const workspace=await(await fetch('api/workspace?mode=live')).json();
+      const oldIDs=${JSON.stringify(retainedBefore.ids)};
+      return {oldRetained:workspace.requests.filter(row=>oldIDs.includes(row.id)).map(row=>row.id),
+        detailStatus:(await fetch('api/record?id='+encodeURIComponent(${JSON.stringify(beforeClear.selected)}))).status,
+        sources:workspace.status.sources.map(source=>({id:source.id,endpoint:source.endpoint})),
+        artifacts:(workspace.status.artifacts||[]).map(artifact=>artifact.id)};
+    })()`);
+    assert.deepEqual(afterClear.oldRetained,[],'Clear only hid records or applied the current filter');
+    assert.equal(afterClear.detailStatus,404,'Cleared record detail is still retrievable');
+    assert.deepEqual(afterClear.sources,retainedBefore.sources,'Clear changed source connections');
+    assert.ok(retainedBefore.artifacts.every(id=>afterClear.artifacts.includes(id)),'Clear removed native files');
+    await until(session,"(async()=>{const page=await(await fetch('api/workspace?mode=live&view=page')).json();return page.requests.length>0 && page.status.sources.some(source=>source.state==='connected');})()");
+    assert.equal(await evaluate(session,"document.querySelectorAll('.request-row').length"),0,'New data appeared while the cleared page was paused');
+    await evaluate(session,'globalThis.__workspaceFetches=0');
+    console.log('PASS clear records: wide/narrow action, translations, cancel, failure retention, full Store clear, detail 404, paused view, sources/native files retained and continued ingestion');
+  }
   await click(session,'#capture-toggle');
   await until(session,'globalThis.__workspaceFetches>0');
+  if(process.env.SMOKE_REQUIRE_LIVE)await until(session,"document.querySelectorAll('.request-row').length>0");
   console.log('PASS changes: idle/paused pages avoid workspace polling; resume fetches current page');
   await click(session,'[data-mode="mock"]');await until(session,"document.querySelectorAll('.request-row').length===60");
+  assert.equal(await evaluate(session,"document.querySelector('#clear-records').hidden"),true,'Demo mode exposes the live clear action');
 
   // Real pointer/keyboard input, resize, reload and persisted layout behavior.
   await resize(session,1920);
