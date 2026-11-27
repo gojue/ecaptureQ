@@ -11,7 +11,7 @@ function setup() {
   const cursor = {session:'session-a',revision:1,recordsRevision:1};
   const calls = {fetch:[],refresh:0,updates:0,timers:[]};
   const context = vm.createContext({
-    pageClosed:false,window:{},loadGeneration:1,changeController:null,pollTimer:null,
+    pageClosed:false,clearingRecords:false,window:{},loadGeneration:1,changeController:null,pollTimer:null,
     serverStatus:{...cursor},workspace:{status:{...cursor}},state:{mode:'live',paused:false},serviceError:'',
     AbortController,URLSearchParams,
     fetchWithTimeout:async (...args)=>{calls.fetch.push(args);return new Response(null,{status:204});},

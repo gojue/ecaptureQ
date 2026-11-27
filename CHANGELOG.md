@@ -6,6 +6,7 @@
 
 ## v1.2.0（待发布）
 
+- 实时工具栏新增「清空记录」，桌面和窄屏均可清空当前实例全部记录，来源继续接收；修复 [#75](https://github.com/gojue/ecaptureQ/issues/75)。
 - 实时数据源改用 eCapture v2.12.0 的 Protobuf v2 协议。升级采集器后，使用 `--stream-listen` 开启订阅。
 - 支持导出采集器发送的原生 KEYLOG 和 PCAPNG 文件。
 - 安装包移除文档和配置示例，改由项目仓库提供。

@@ -376,3 +376,41 @@ changed. This validation did not rebuild or exercise the full desktop GUI,
 Intel native startup, Developer ID notarization, Windows runtime, real probe E2E
 or clean Linux container installation. Docker was not running locally; updated
 Ubuntu/Fedora installation checks remain part of CI on both supported CPUs.
+
+## Issue #75：清空实时记录（2026-11-27）
+
+[Issue #75](https://github.com/gojue/ecaptureQ/issues/75) 引用的 React hook
+不在当前重写版中，但基线 `d222da7` 的共用 UI 和 HTTP API 也没有清空实时记录的
+入口。将新增 HTTP 回归用例放入独立基线副本，在 `/` 和 `/ecaptureq-web/` 均得到
+`404 not_found`；修复后相同用例通过。
+
+实时工具栏新增双语垃圾桶按钮。确认后清空当前实例全部来源的记录及 JSON 计量，
+同时清理当前页面的详情缓存、星标和分页，保留筛选和暂停状态。连接、日志、会话、
+累计计数及原生文件继续保留；关联队列维持原有有界槽位，迟到响应不会恢复旧请求
+或错配清空后的请求。写接口沿用同源、自定义 header 与精确 Wails origin 校验。
+
+所有运行验证均在指定 Linux ARM64 VM 完成，使用 Go 1.26.0、Node 24.14.0、
+Chromium 159.0.8154.6；本机仅编辑和静态检查。验证范围：
+
+- `GOWORK=off go test ./internal/app ./internal/httpapi -run ClearRecords -count=1`：
+  多来源清空、分页/详情失效、HTTP/1 FIFO 和 HTTP/2/3 Stream ID 关联、迟到
+  103/200、空清空唤醒长轮询、关闭中拒绝、写入安全及原生文件继续写入均通过。
+- `GOWORK=off go test -race ./...`、`GOWORK=off go vet ./...`、官方协议检查、
+  Web 服务与合成 WebSocket fixture 构建通过。
+- `node --test test/*.test.mjs`：85 项全部通过；JavaScript 语法、gofmt 和
+  `git diff --check` 通过。新增前端测试覆盖重复清空、失败保留、迟到异步读结果、
+  详情重试、清空期间筛选/翻页失败恢复及暂停语义。VM 原有 Node 22 不支持既有
+  Brotli 测试所需 API，改用仓库要求的 Node 24.14 后全量通过，未修改解码测试。
+- 持续 TEXT 合成来源配合 `SMOKE_REQUIRE_LIVE=1`，在两个挂载路径通过完整
+  `test/browser-smoke.mjs`：1440px/390px 清空按钮、双语确认、取消不发请求、
+  503 保留记录和星标、全部后端旧 ID 消失、详情 404、筛选/暂停保持、后台继续
+  接收及恢复刷新。成功清空使用真实接收器和 API，只有错误分支注入 503。
+- 另以 `scripts/validate-v2-browser.sh` 通过两个路径的 KEYLOG/PCAPNG
+  complete/partial、代次、实际下载与 TEXT 分离回归；原有 HTML/SVG 安全预览、
+  日志、导出和来源管理检查通过。主动断线的原生 fixture 与要求全部来源在线的
+  TEXT 专项分开执行。
+
+本地交付的十个运行源码及测试文件与 VM 验收副本的 SHA-256 一致。仅使用合成
+事件；测试启动的服务和浏览器已退出。未执行 macOS/Windows/Linux Wails 原生
+窗口交互、真实探针 E2E、打包或发布；共享 UI/API 的浏览器与单元测试结果不代表
+这些平台已完成原生验收。

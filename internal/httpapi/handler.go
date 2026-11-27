@@ -32,6 +32,10 @@ func New(options app.Options, live *app.Store, staticFiles fs.FS, policy Policy)
 		w.Header().Set("X-Ecaptureq-UI", "1")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Cache-Control", "no-cache")
+		if r.URL.Path == "/api/records/clear" {
+			clearRecords(w, r, live, policy)
+			return
+		}
 		if r.URL.Path == "/api/decode-body" && r.Method == http.MethodPost {
 			if CheckWriteRequest(w, r, policy) {
 				decodeBody(w, r)
@@ -116,6 +120,23 @@ func New(options app.Options, live *app.Store, staticFiles fs.FS, policy Policy)
 			staticHandler.ServeHTTP(w, r)
 		}
 	}), nil
+}
+
+func clearRecords(w http.ResponseWriter, r *http.Request, live *app.Store, policy Policy) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", "POST")
+		writeJSON(w, r, http.StatusMethodNotAllowed, []byte(`{"error":"method_not_allowed"}`))
+		return
+	}
+	if !CheckWriteRequest(w, r, policy) {
+		return
+	}
+	status, err := live.ClearRecords()
+	if err != nil {
+		writeJSON(w, r, http.StatusServiceUnavailable, []byte(`{"error":"service_stopping"}`))
+		return
+	}
+	writeValue(w, r, map[string]any{"status": status})
 }
 
 func addSource(w http.ResponseWriter, r *http.Request, live *app.Store, policy Policy) {
